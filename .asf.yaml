@@ -16,7 +16,7 @@
 # under the License.
 
 github:
-  description: "Open, Modular, Deep Learning Accelerator"
+  description: "A home for the final text of all TVM RFCs."
   labels:
     - tvm
     - vta
