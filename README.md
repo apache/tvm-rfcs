@@ -22,18 +22,19 @@ interested in how and why a feature was designed and implemented.
 ## RFC Workflow
 [rfc-workflow]: #rfc-workflow
 
-- **Community Discussion**: A need or issue is brought to the discussion forum.
-  During this phase, the developer and user community can discuss the need for
-  and requirements of the RFC
+- **Community Discussion**: A need or issue is brought to the
+  [discussion forum](https://discuss.tvm.apache.org). During this phase, the
+  developer and user community can discuss the need for and requirements of the
+  RFC
 - **Pull Request**: After or concurrent with the conversation on the discussion
   forum, a pull request is created using the format prescreibed by the
-  [RFC Template](https://github.com/apache/tvm-rfcs/blob/c436b06818cb65f72cac821616670b22a2473619/0000-template.md).
+  [RFC Template](https://github.com/apache/tvm-rfcs/blob/main/0000-template.md)
     - Discussion about the details of the RFC can continue in the pull request.
 	- A committer of the corresponding area will approve and merge the RFC.
       Normally the corresponding committer will become the shepherd of the
       implementation PRs.
 	- RFCs are numbered consecutively based on their order of proposal,
-      regardless of if they are accepted or postponed. 
+      regardless of if they are accepted or postponed.
 	- A successful RFC will include an overview with the problem the RFC is
       attempting to address, a proposed solution that describes the design and
       implementation strategy, and a timeline for completion. Optional sections can
@@ -45,11 +46,11 @@ interested in how and why a feature was designed and implemented.
 - **Tracking Issue**: Upon merging a RFC, a tracking issue will be created where
   implementors can continue sharing implementation details (including links to
   pull requests). The issue will be closed when the RFC is either completed or
-  abandoned. 
+  abandoned.
 - **Implementation**: Work will begin on the RFC, with
-pull requests linking back to the tracking issue. Upon completion of the RFC,
-the tracking issue will be closed and the RFC will be moved to the
-docs/rfc/completed directory.
+  pull requests linking back to the tracking issue. Upon completion of the RFC,
+  the tracking issue will be closed and the RFC will be moved to the
+  docs/rfc/completed directory.
 - **Postponement**: An RFC may be postponed either
   explicitly by the parties responsible for implementing it, or implicitly by
   having no work done for a period of time defined by project leaders. The RFC
