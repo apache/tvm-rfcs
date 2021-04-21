@@ -73,6 +73,11 @@ interested in how and why a feature was designed and implemented.
   pull requests linking back to the tracking issue. Upon completion of the RFC,
   the tracking issue will be closed and the RFC will be moved to the
   docs/rfc/completed directory.
+- **Changes**: It is not uncommon for design changes to be required during or
+  after the initial implementation. If this is the case, the RFC should be
+  updated to reflect the change. In the instance where the change is a
+  significant addition rather than a simple modification, a new RFC should be
+  posted.
 - **Postponement**: An RFC may be postponed either
   explicitly by the parties responsible for implementing it, or implicitly by
   having no work done for a period of time defined by project leaders. The RFC
