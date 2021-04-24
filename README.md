@@ -88,24 +88,25 @@ the RFC process:
   implementation details (including links to pull requests). The issue will be
   closed when the RFC is either completed or abandoned.
 - **Implementation**: Work will begin on the RFC, with pull requests linking
-  back to the tracking issue. Upon completion of the RFC, the tracking issue
-  will be closed and the RFC will be moved to the docs/rfc/completed directory.
-  It is not a requirement for the author of an RFC to implement it. The
-  tracking issue will serve as the primary location for communication about the
-  status of RFC implementation. If you are curious about who is working on an
-  RFC, feel free to ask on the comment on the associated issue.
+  back to the tracking issue.  Upon completion of the RFC, the tracking issue
+  will be closed with the tag "completed". It is not a requirement for the
+  author of an RFC to implement it. The tracking issue will serve as the
+  primary location for communication about the status of RFC implementation. If
+  you are curious about who is working on an RFC, feel free to ask on the
+  comment on the associated issue.
 - **Changes**: It is not uncommon for design changes to be required during or
   after the initial implementation. If this is the case, the RFC should be
   updated to reflect the change. In the instance where the change is a
   significant addition rather than a simple modification, a new RFC should be
-  posted.
-- **Postponement**: An RFC may be postponed either
-  explicitly by the parties responsible for implementing it, or implicitly by
-  having no work done for a period of time defined by project leaders. The RFC
-  will be moved to the docs/rfc/postponed directory
-	- **Resuming an Postponed RFC**: Work on a postponed RFC may be resumed by a
-      new responsible party at any time after another discussion and pull request
-      review process to move the RFC from docs/rfc/abandoned to docs/rfc/active.
+  posted with appropriate tracking issue.
+- **Postponement**: An RFC may be postponed either explicitly by the parties
+  responsible for implementing it, or implicitly by having no work done for a
+  period of time defined by project leaders. The tracking issue for the RFC
+  will be closed with the tag "postponed".
+    - **Resuming an Postponed RFC**: Work on a postponed RFC may be resumed by
+      a new responsible party at any time after appropriate discussion in the
+      tracking issue. The issue will be reopened, and the "postponed" tag
+      removed.
 
 ## References
 [References]: #references
