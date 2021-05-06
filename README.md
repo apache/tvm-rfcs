@@ -86,7 +86,7 @@ the RFC process:
 - **Tracking Issue**: Upon merging a RFC, a tracking issue will be created in
   the main TVM repository, where implementors can continue sharing
   implementation details (including links to pull requests). The issue will be
-  closed when the RFC is either completed or abandoned.
+  closed when the RFC is either completed or postponed.
 - **Implementation**: Work will begin on the RFC, with pull requests linking
   back to the tracking issue.  Upon completion of the RFC, the tracking issue
   will be closed with the tag "completed". It is not a requirement for the
