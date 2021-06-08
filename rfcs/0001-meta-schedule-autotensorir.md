@@ -164,7 +164,7 @@ Our evolutionary search algorithm uses mutators to find possible schedules in th
 
 ### 4.3. Python first for flexibility & customizability
 
-We engineer the system in a way that all levels are decoupled and open to customization, aiming at providing a playground for developers to try out new ideas and potentially deliver performance quickly.
+We implement the system in a way that all levels are decoupled and open to customization, aiming at providing a playground for developers to try out new ideas and potentially deliver performance quickly.
 
 While all the important APIs are implemented in C++ for efficiency, every part of the system can be easily switched to customized python implementation. For example,
 
