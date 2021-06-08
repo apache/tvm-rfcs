@@ -15,7 +15,7 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-# TVM RFCs
+# Apache TVM RFCs
 
 ## Table of Contents
 [Table of Contents]: #table-of-contents
