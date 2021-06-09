@@ -1,6 +1,6 @@
 - Feature Name: Parametrized Unit Tests
 - Start Date: 2021-05-10(fill me in with today's date, YYYY-MM-DD)
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0007](https://github.com/apache/tvm-rfcs/pull/0007)
 - GitHub PR: [apache/tvm#8010](https://github.com/apache/tvm/issues/8010)
 
 # Summary
