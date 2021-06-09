@@ -1,7 +1,7 @@
 - Feature Name: Automatic Mixed Precision Pass
 - Start Date: 2021-06-08 
-- RFC PR: [apache/tvm-rfcs#0001](https://github.com/apache/tvm-rfcs/pull/0002)
-- GitHub Issue: [apache/tvm#0001](https://github.com/apache/tvm/issues/0002)
+- RFC PR: TODO
+- GitHub Issue: TODO
 
 # Summary
 [summary]: #summary
@@ -24,7 +24,7 @@ for bfloat16 should be in mind.
 
 Many machine learning models can move significant portions of their computational graphs into the FP16 space 
 without significant loss of accuracy. For many pieces of hardware this also comes with a boost in speed. In 
-the past utilizing FP16 in mixed precision training saw signficiant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
+the past utilizing FP16 in mixed precision training saw significant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
 
 We should expect similar increases for inference. This speed increase without accuracy loss is highly desirable
 for many users.
@@ -34,19 +34,19 @@ for many users.
 
 Operations are partitioned into colors denoted "Green", "Red", and "Gray" which represents the benefit 
 of using a reduced floating point version of the operation. "Green" operations are compute intensive
-and almost always see signficant memory and latency savings by utilizing a reduced floating point form.
+and almost always see hardware memory and latency savings by utilizing a reduced floating point form.
 Examples of these operations are matrix multiplies and convolutions. "Gray" operations see little to 
-know savings in using reduced floating point forms -- at least not enough to justify the overhead of 
+no savings in using reduced floating point forms -- at least not enough to justify the overhead of 
 casting values back and forth from FP32. "Red" operations meanwhile are operations we do not want to 
 use reduced floating point forms on, usually due to numerical precision reasons.
 
 In general we always want to insert casts into reduced floating point space for "Green" operations, 
 are fine with transforming "Gray" operations into reduced floating point space if their inputs are already
-in that form, and want to explictly cast back into full floating point space for "Red" operations. 
+in that form, and want to explicitly cast back into full floating point space for "Red" operations. 
 Each operation will be placed into one of these lists via a "coloring" function which take in Relay `CallNodes`
 and returns a color. For example, we might have a function which colors only a convolution as "Green" if it 
 has a large enough kernel and "Gray" otherwise. For the default implementation we will keep things simple
-however and do something like place all convolutions in the "Green" list, all elementwise operations in 
+however and do something like place all convolutions in the "Green" list, all element-wise operations in 
 the "Gray" list, and so on. Still, the code will be designed to be easily extensible via overwriting 
 this "coloring" function.
 
@@ -68,7 +68,7 @@ operation.
 See [previous discussion thread](https://discuss.tvm.apache.org/t/rfc-relay-fp32-fp16-model-support/9994).
 
 As some have noticed the design can be simplified to a single pass where casting is determined by
-running type inference on mutated nodes. With a postorder traversal we can then check if we need to 
+running type inference on mutated nodes. With a post-order traversal we can then check if we need to 
 cast arguments/propagate color.
 
 # Drawbacks
