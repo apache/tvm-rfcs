@@ -11,7 +11,8 @@ These 16 bit operations typically have higher theoretical throughput and involve
 As a result, we can see significant increases from changing normal 32 bit operations with 16 bit analogs. 
 Surprisingly, for many operations this has little effect on the results, though some care must had when changing 
 operations. Some 16 bit floating point operations such as `exp` and `log` for example are considered less safe 
-due to loss of numerical precision (source). In general for a function `f`, if `|f(x)| >> |x|` for expected 
+due to loss of [numerical precision](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf). 
+In general for a function `f`, if `|f(x)| >> |x|` for expected 
 ranges of input we probably do not want to use the 16 bit floating point versions.
 
 This feature will be a relay pass which automatically converts a 32 bit floating point model into a reduced bit 
@@ -23,7 +24,7 @@ for bfloat16 should be in mind.
 
 Many machine learning models can move significant portions of their computational graphs into the FP16 space 
 without significant loss of accuracy. For many pieces of hardware this also comes with a boost in speed. In 
-the past utilizing FP16 in mixed precision training saw signficiant increases in convergence speed (source). 
+the past utilizing FP16 in mixed precision training saw signficiant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
 
 We should expect similar increases for inference. This speed increase without accuracy loss is highly desirable
 for many users.
@@ -64,7 +65,11 @@ operation.
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-See [previous discussion thread](https://discuss.tvm.apache.org/t/rfc-relay-fp32-fp16-model-support/9994)
+See [previous discussion thread](https://discuss.tvm.apache.org/t/rfc-relay-fp32-fp16-model-support/9994).
+
+As some have noticed the design can be simplified to a single pass where casting is determined by
+running type inference on mutated nodes. With a postorder traversal we can then check if we need to 
+cast arguments/propagate color.
 
 # Drawbacks
 [drawbacks]: #drawbacks
