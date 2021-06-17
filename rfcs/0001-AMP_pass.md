@@ -71,6 +71,10 @@ As some have noticed the design can be simplified to a single pass where casting
 running type inference on mutated nodes. With a post-order traversal we can then check if we need to 
 cast arguments/propagate color.
 
+Part of the associated RFC issue will also be used dedicated to creating a tutorial on how to control
+the conversion of ops via the Python interface. Furthermore, some work will be done in benchmarking
+the performance gains from the pass.
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
