@@ -522,17 +522,21 @@ Please also take into consideration that TVM intentionally diverges from other c
 
   If only serializable values are allowed to be cached, this may aid
   in debugging, since the values of all test parameters and cached
-  fixtures could be saved and reproduced.
-
-  Currently, nearly all cases (e.g. datasets, array sizes, targets)
-  are serializable.  The only non-serializable case after
-  brainstorming would be RPC server connections.  There is some
-  concern that caching RPC server connections could cause difficulties
-  in reproducing test failures.
+  fixtures could be saved and reproduced.  Currently, nearly all cases
+  (e.g. datasets, array sizes, targets) are serializable.  The only
+  non-serializable case after brainstorming would be RPC server
+  connections.  There is some concern that caching RPC server
+  connections could cause difficulties in reproducing test failures.
 
   Current proposed answer is to only cache serializable values, and
   that the discussion can be resumed when we have other possible use
   cases for caching non-serializable values.
+
+  For the time-being, both to prevent non-serializable values from
+  being cached, and to maintain separation between unit tests, all
+  cached values will be copied using
+  [`copy.deepcopy`](https://docs.python.org/3/library/copy.html#copy.deepcopy)
+  prior to returning the generated value.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
