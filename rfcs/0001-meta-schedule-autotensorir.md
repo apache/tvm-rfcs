@@ -154,7 +154,9 @@ In this section, we show that the design space induced by TE manual schedule, Au
 
 ## 4. Reference-level explanation
 
-In this section, we introduce the underlying techniques for the automation system to extract and explore the design space.
+In this section, we introduce the underlying techniques for the automation system to extract and explore the design space. The figure below briefly illustrates the workflow of the system:
+
+![meta-schedule-workflow](../resources/meta-schedule-workflow.png)
 
 ### 4.1. Execution trace as the design space
 
