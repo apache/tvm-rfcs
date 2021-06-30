@@ -1,4 +1,21 @@
-* Feature Name: Meta Schedule (AutoTensorIR)
+<!--- Licensed to the Apache Software Foundation (ASF) under one -->
+<!--- or more contributor license agreements.  See the NOTICE file -->
+<!--- distributed with this work for additional information -->
+<!--- regarding copyright ownership.  The ASF licenses this file -->
+<!--- to you under the Apache License, Version 2.0 (the -->
+<!--- "License"); you may not use this file except in compliance -->
+<!--- with the License.  You may obtain a copy of the License at -->
+
+<!---   http://www.apache.org/licenses/LICENSE-2.0 -->
+
+<!--- Unless required by applicable law or agreed to in writing, -->
+<!--- software distributed under the License is distributed on an -->
+<!--- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY -->
+<!--- KIND, either express or implied.  See the License for the -->
+<!--- specific language governing permissions and limitations -->
+<!--- under the License. -->
+
+* Feature Name: Meta Schedule (AutoTIR)
 * Start Date: 2021-05-28
 * RFC PR: TBD (apache/tvm-rfcs#0000)
 * GitHub Issue: TBD (apache/tvm-rfcs#0000)
@@ -13,13 +30,13 @@ Meta Schedule is our 3rd generation automatic scheduling system.
 
 **Scheduling and Design Space**
 
-In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called “**scheduling**”, and each transformation is called a “**schedule primitive**”. These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. **Design space** is the set of all possible schedulings with respect to a TensorIR program.
+In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called "**scheduling**", and each transformation is called a "**schedule primitive**". These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. **Design space** is the set of all possible schedulings with respect to a TensorIR program.
 
 **Problems with the Current Scheduling System**
 
 * **Manual schedule**: Developers optimize their programs by manually invoking schedule primitives, i.e. explore points in the design space with humans in the loop. This can be a tedious and error-prone approach, hence the creation of AutoTVM and AutoScheduler (Ansor).
-* **AutoTVM**: The automation system requires users to define “schedule templates” as the design space for each operator. Therefore, it is inextensible to hundreds of operators.
-* **AutoScheduler (Ansor)**: It automatically generates schedule templates as the design space, according to a set of predefined “search rules”. However, it is non-trivial to extend AutoScheduler to new schedule primitives (tensorize, loop partition, software pipelining).
+* **AutoTVM**: The automation system requires users to define "schedule templates" as the design space for each operator. Therefore, it is inextensible to hundreds of operators and variety hardware platforms.
+* **AutoScheduler (Ansor)**: It automatically generates schedule templates as the design space, according to a set of predefined "search rules". However, it is non-trivial to extend AutoScheduler to new schedule primitives (tensorize, loop partition, software pipelining, etc).
 * The three systems above have isolated sets of APIs with several layers of their own abstraction, which are not only hard to learn, but also engineering-intensive to customize.
 
 **Benefit of Meta Schedule**
@@ -27,7 +44,8 @@ In TVM TensorIR, optimization of a TensorIR program is done via a sequence of tr
 * Succinct syntax, consistent APIs to TensorIR schedule with no other layer of abstraction.
 * Provides unified APIs for implementing manual schedule, AutoTVM and AutoScheduler (Ansor).
 * Extensibility to all the schedule primitives, including tensorization and loop partitioning. Almost no extra effort is needed to use a new primitive in auto-tuning.
-* The automation infrastructure is customizable across every layer.
+* The automation infrastructure is extensible on every of its components. Every component of the system can be customized easily in pure python or C++ or both. For example, one can develop a new design space generator in python, a new ProgramRunner in python, etc.
+
 
 ## 3. Guide-level explanation
 
@@ -48,14 +66,14 @@ i_0, i_1, i_2, i_3 = sch.split(loop=i, factors=i_tiles)
 j_0, j_1, j_2, j_3 = sch.split(loop=j, factors=j_tiles)
 k_0, k_1           = sch.split(loop=k, factors=k_tiles)
 
-# Organize the loops into “SSRSRS” 6-level tiles
+# Organize the loops into "SSRSRS" 6-level tiles
 sch.reorder(
-    i_0, j_0, # S
-    i_1, j_1, # S
-    k_0,      # R
-    i_2, j_2, # S
-    k_1,      # R
-    i_3, j_3, # S
+    i_0, j_0, # S: the 1st spatial tile
+    i_1, j_1, # S: the 2nd spatial tile
+    k_0,      # R: the 1st reduction tile
+    i_2, j_2, # S: the 3rd spatial tile
+    k_1,      # R: the 2nd reduction tile
+    i_3, j_3, # S: the 4th spatial tile
 )
 ```
 
@@ -63,7 +81,13 @@ In this example, the developers may tweak the tile sizes and measure the perform
 
 Generally speaking, while writing a schedule, there are often some parameters that are hard to determine ahead of time, for example, tile sizes, unroll steps, or which tensor intrinsics to use. Developers may manually enumerate possible combinations of these unknown factors, and then pick the best schedule according to measurement results on their device.
 
-### 3.2. AutoTVM-style Design Space Description
+### 3.2. Composite Schedule Rules
+
+As introduced in the previous section, in TensorIR, each schedule primitive handles only a very basic transformation of the IR, for example, `split` only splits a loop into two. In the real world, the over-fine granularity of those primitives usually leads to repetitive and verbose scheduling code, as [mentioned](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872/43?u=junrushao1994) by developers in our community.
+
+To make it more convenient and modular, we allow users to register "composite schedules" that apply a sequence of schedule primitives according to certain analysis of the IR. For instance, a composite schedule may inspect a TensorIR block and decide whether we should call `compute_inline` on it.
+
+### 3.3. AutoTVM-style Design Space Description
 
 Meta schedule extends the schedule DSL with sampling instructions. When included in a schedule, these instructions parametrize the schedule from a single deterministic point to a space supported by random variables (tile size, etc.), making it possible for developers to describe the design space with meta schedule APIs.
 
@@ -78,34 +102,43 @@ k_tiles = sch.sample_perfect_tile(k, n=2)
 i_0, i_1, i_2, i_3 = sch.split(loop=i, factors=i_tiles)
 j_0, j_1, j_2, j_3 = sch.split(loop=j, factors=j_tiles)
 k_0, k_1           = sch.split(loop=k, factors=k_tiles)
-# Organize the loops into “SSRSRS” 6-level tiles
+# Organize the loops into "SSRSRS" 6-level tiles
 sch.reorder(
-    i_0, j_0, # S
-    i_1, j_1, # S
-    k_0,      # R
-    i_2, j_2, # S
-    k_1,      # R
-    i_3, j_3, # S
+    i_0, j_0, # S: the 1st spatial tile
+    i_1, j_1, # S: the 2nd spatial tile
+    k_0,      # R: the 1st reduction tile
+    i_2, j_2, # S: the 3rd spatial tile
+    k_1,      # R: the 2nd reduction tile
+    i_3, j_3, # S: the 4th spatial tile
 )
 ```
 
-### 3.3. Composite Schedule
+### 3.4. AutoScheduler-style Design Space Generation
 
-Each schedule primitive handles only a very basic operation to transform the IR, for example, `split` only splits a loop into two. In the real world, the over-fine granularity of those primitives usually leads to repetitive and verbose scheduling code, as [mentioned](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872/43?u=junrushao1994) by developers in our community.
+AutoScheduler (Ansor) generates schedule templates by applying their SearchRules to each stage. SearchRule analyzes TE and eagerly trigger schedule primitives accordingly in its internally maintained mini IR.
 
-To counter this challenge, we allow users to register “composite schedules” that analyze the IR, and apply a set of schedule primitives correspondingly. For instance, a composite schedule may inspect a TensorIR block and decide whether we should call `compute_inline` on it. The composite schedule may use sampling instructions to fill in undecided choices.
+As introduced in Section 3.2, composite schedule rules are equivalent to AutoScheduler's SearchRule in TensorIR scheduling. To further generate a design space for scheduling, sampling instructions are used in composite schedule rules. Similarly, the sketch generation phase in AutoScheduler is equivalent to applying composite schedule rules to each block in TensorIR.
 
-Our system also ships with some built-in composite schedules, including:
+Several built-in composite schedule rules are shipped with our system to align with Ansor's design space:
 
 * Multi-level tiling
 * Inline pure spatial blocks
 * Parallelize & vectorize & unroll
 * Auto tensorize
-* …
+* ...
 
-### 3.4. AutoScheduler-style Design Space Generation
+Developers may implement their own rules in either Python or C++, and specify which rules to use with the following syntax:
 
-AutoScheduler (Ansor) generates schedule templates by applying their SearchRules to each stage. Meta schedule treats a search rule as a composite schedule, and applies each composite schedule to each block of TensorIR to generate the design space.
+```python
+from tvm import meta_schedule as ms
+
+design_space_generator = ms.PostOrderApply(rules=[
+    ms.MultiLevelTiling(...),
+    CustomRule(...),
+    ms.OtherBuiltinRules(...),
+])
+
+```
 
 ### 3.5. Unifying manual schedule / AutoTVM / Ansor
 
@@ -113,7 +146,7 @@ In this section, we show that the design space induced by TE manual schedule, Au
 
 **Manual schedule**. The TE schedule is a special case of a meta schedule program, where there is no randomness introduced by sampling instructions. It is a single point in terms of design space.
 
-**AutoTVM (Template-based tuning)**. Writing one or more schedule functions in meta schedule, potentially with sampling instructions, is a natural representation of AutoTVM’s schedule templates (knobs). The PPL generates one or more traces as the design space to explore.
+**AutoTVM (Template-based tuning)**. It is more natural representation of AutoTVM’s schedule templates (knobs) by writing one or more schedule functions in meta schedule with sampling instructions. The execution traces generated by the schedule functions are the design space to be explored.
 
 **AutoScheduler (Ansor, Template-free tuning)**. As mentioned in the previous section, application of composite schedule rules generates the design space, which is equivalent to Ansor’s sketch generation.
 
@@ -139,26 +172,51 @@ Instruction 5. Split
 Instruction 6. Reorder
 ```
 
-The trace is not directly user-facing, but a data structure inside the user-facing `Schedule` class that records the execution. The automation system extracts the trace and finds out the design space according to the sampling instructions.
+**Trace forms design space.** A trace may contain zero or more sampling instructions, which introduces the uncertainty in scheduling - one instance of sampling results in one point in the design space. Therefore, the trace itself forms a design space to explore, e.g. which set of tile sizes works best on a specific hardware.
 
-**Union of traces**. Often a single trace is unable to represent the entire space. Therefore, more precisely, our system works on a list of traces as the union of potential design space.
+**Union of design space**. Our system works on a set of traces, representing the union of the design spaces represented by every single trace.
 
 **Fork a trace**. When two different decisions in the scheduling process are equally important to generate high-performance schedules, we allow forking the trace into two, and the design space is the union of the forked traces.
+
+The trace is not strictly user-facing, but can be accessed and printed with the following syntax:
+
+```python
+# requires to trace the execution
+sch = tir.Schedule(..., traced=True)
+# do a lot of scheduling
+...
+# print the trace
+print(sch.trace)
+```
+
+And below is an example of the printed trace, which honestly reflects the schedule as a snippet of python scheduling function:
+
+```python
+b0 = sch.get_block(name="matmul", func_name="main")
+l1, l2, l3 = sch.get_loops(block=b0)
+v4, v5, v6, v7 = sch.sample_perfect_tile(loop=l1, n=4, max_innermost_factor=16, decision=[32, 1, 16, 2])
+v8, v9, v10, v11 = sch.sample_perfect_tile(loop=l2, n=4, max_innermost_factor=16, decision=[64, 4, 2, 2])
+v12, v13 = sch.sample_perfect_tile(loop=l3, n=2, max_innermost_factor=16, decision=[64, 16])
+l14, l15, l16, l17 = sch.split(loop=l1, factors=[v4, v5, v6, v7])
+l18, l19, l20, l21 = sch.split(loop=l2, factors=[v8, v9, v10, v11])
+l22, l23 = sch.split(loop=l3, factors=[v12, v13])
+sch.reorder(l14, l18, l15, l19, l22, l16, l20, l23, l17, l21)
+```
 
 ### 4.2. Exploring the Search Space
 
 Meta Schedule provides several built-in exploration strategies to exhaustively or efficiently search for efficient schedules.
 
-**Program replay**. A simple strategy that replays the schedule program that generates the PPL, and doesn’t use any advantage provided by the PPL.
+**Program replay**. A simple strategy that replays the user-provided schedule function without using or taking any advantage of trace.
 
-**Random search**. Extracts the PPL, and repetitively re-executes the PPL by flipping coins purely randomly.
+**Random search**. Extracts the traces as the design space from any design space generator (e.g. user-provided schedule function, composite schedule rules applied to each block, or any custom space generator), repetitively mutates the random decisions of a random trace and re-executes the traces.
 
 **Cost-model-guided evolutionary search**. A more efficient exploration strategy. We define two sets of rules:
 
-* Mutator: defines how to jump to a point’s “neighbor” in the design space
-* Postprocessor: sometimes it is non-trivial to statically determine the PPL, for example:
-  * There is a hard requirement in CUDA that the maximum number of threads should not exceed 1024, but it is a random variable that cannot be determined before actually executing the PPL. In this case, we write a postprocessor that errors out when the condition is not satisfied.
-  * The number of outer loops to be fused together depends on their extents, which are random variables. In this case, we annotate the maximum extent allowed on the block, and do actual fusion in a postprocessor.
+* Mutator: defines how to jump to a point’s "neighbor" in the design space
+* Postprocessor: after the trace is executed, there are some extra rules we want to execute, for example:
+  * Check CUDA resource limits: There is a hard requirement in CUDA that the maximum number of threads should not exceed 1024, but it is a random variable that cannot be determined before actually executing the trace. In this case, we write a postprocessor that errors out when the condition is not satisfied.
+  * Fuse outer loops until the extent of the fused loops is large enough: The number of outer loops to be fused together depends on their extents, which are random variables. In this case, we annotate the maximum extent allowed on the block, and do actual fusion in a postprocessor.
 
 Our evolutionary search algorithm uses mutators to find possible schedules in the design space, then applies postprocessors, and asks the cost model to predict its performance. After several iterations, the new schedules with the highest scores are finally compiled and measured on device. Epsilon-greedy is used in this process to balance exploitation and exploration.
 
@@ -172,7 +230,7 @@ While all the important APIs are implemented in C++ for efficiency, every part o
 
 ```python
 def schedule_matmul(sch) -> sch:
-    i, j, k = sch.get_loops(sch.get_block(“matmul”))
+    i, j, k = sch.get_loops(sch.get_block("matmul"))
     i_tiles = sch.sample_perfect_tile(i, n=4)
     j_tiles = sch.sample_perfect_tile(j, n=4)
     k_tiles = sch.sample_perfect_tile(k, n=2)
@@ -180,7 +238,7 @@ def schedule_matmul(sch) -> sch:
     i_0, i_1, i_2, i_3 = sch.split(loop=i, factors=i_tiles)
     j_0, j_1, j_2, j_3 = sch.split(loop=j, factors=j_tiles)
     k_0, k_1 = sch.split(loop=k, factors=k_tiles)
-    # Organize the loops into “SSRSRS” 6-level tiles
+    # Organize the loops into "SSRSRS" 6-level tiles
     sch.reorder(
         i_0, j_0, # S
         i_1, j_1, # S
@@ -194,25 +252,35 @@ def schedule_matmul(sch) -> sch:
 
 **Customize composite schedule in python**. We provide two ways to define a composite schedule in python:
 
-Method 1. A simple decorator that converts a python function to a composite schedule
-
-```python
-@tir.as_composite_schedule(name="multi-level-tiling")
-def multi_level_tiling(sch: Schedule, block: BlockRV) -> Union[Schedule, List[Schedule]]:
-    ...
-```
-
-Method 2. Derive from `PyCompositeSchedule`, providing extra functionalities like initialization
+Method 1. Derive from `PyCompositeSchedule`, and implement two methods `initialize` and `apply`:
 
 ```python
 class MultiLevelTiling(PyCompositeSchedule):
     def initialize(...):
+        # initialize the class, usually this method is empty
         ...
-    def apply(...):
+
+    def apply(sch: Schedule, block: BlockRV) -> Union[Schedule, List[Schedule]]:
+        # write any python code, including:
+        # - analyze `block`
+        # - invoke schedule primitives in `sch`
+        # - do debug printing
         ...
 ```
 
-**Customize exploration strategies in python**. Developers can implement any search algorithm in python as well by deriving from `PySearchPolicy`.
+Method 2. A decorator as the syntactic sugar if the `initialize` method is empty, which converts the function to the `apply` method.
+
+```python
+@tir.as_composite_schedule(name="multi-level-tiling")
+def multi_level_tiling(sch: Schedule, block: BlockRV) -> Union[Schedule, List[Schedule]]:
+    # write any python code, including:
+    # - analyze `block`
+    # - invoke schedule primitives in `sch`
+    # - do debug printing
+    ...
+```
+
+**Customize exploration strategies in python**. Developers can implement any search algorithm in python as well by deriving from `PySearchPolicy`, and the syntax is identical to customizing with `PyCompositeSchedule`.
 
 **Other customizable components**. This list includes:
 
@@ -228,7 +296,7 @@ In a short summary, almost every component of the system is decoupled with each 
 
 ### 4.4. Upstreaming Plan
 
-[M3a] Core infrastructure of the PPL
+[M3a] Core infrastructure of meta schedule
 * Instruction
 * Trace
 * Composite schedule
