@@ -296,34 +296,6 @@ def multi_level_tiling(sch: Schedule, block: BlockRV) -> Union[Schedule, List[Sc
 
 In a short summary, almost every component of the system is decoupled with each other and extensions could be easily plugged in.
 
-### 4.4. Upstreaming Plan
-
-[M3a] Core infrastructure of meta schedule
-* Instruction
-* Trace
-* Composite schedule
-* Sampler
-* Search policy
-* Design space generator
-
-[M3b] Host-side search infra
-* Database
-* Cost model
-* Measure callback
-
-[M3c] RPC-related search infra
-* Measure input, build result, measure result
-* Builder
-* Runner
-
-[M4a] Implementation of rules
-* Various built-in composite schedules
-* Various built-in mutators
-* Various built-in postprocessors
-* Automatic tensorization
-
-[M4b] Relay integration
-
 ## 5. Drawbacks
 
 We are not aware of any drawbacks of the proposed system.
