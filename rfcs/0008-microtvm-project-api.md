@@ -201,8 +201,13 @@ class ProjectAPIHandler(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def connect_transport(self, options : dict) -> TransportTimeouts:
-        """Connect the transport layer, enabling write_transport and read_transport calls.
+    def open_transport(self, options : dict) -> TransportTimeouts:
+        """Open resources needed for the transport layer.
+
+        This function might e.g. open files or serial ports needed in write_transport or read_transport.
+
+        Calling this function enables the write_transport and read_transport calls. If the
+        transport is not open, this method is a no-op.
 
         Parameters
         ----------
@@ -212,76 +217,62 @@ class ProjectAPIHandler(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def disconnect_transport(self):
-        """Disconnect the transport layer.
+    def close_transport(self):
+        """Close resources needed to operate the transport layer.
+        This function might e.g. close files or serial ports needed in write_transport or read_transport.
 
-        If the transport is not connected, this method is a no-op.
+        Calling this function disables the write_transport and read_transport calls. If the
+        transport is not open, this method is a no-op.
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def read_transport(self, n : int, timeout_sec : typing.Union[float, type(None)]) -> int:
-        """Read data from the transport
+    def read_transport(self, n : int, timeout_sec : typing.Union[float, type(None)]) -> bytes:
+        """Read data from the transport.
 
         Parameters
         ----------
         n : int
-            Maximum number of bytes to read from the transport.
+            The exact number of bytes to read from the transport.
         timeout_sec : Union[float, None]
-            Number of seconds to wait for at least one byte to be written before timing out. The
-            transport can wait additional time to account for transport latency or bandwidth
-            limitations based on the selected configuration and number of bytes being received. If
+            Number of seconds to wait for at least one byte to be written before timing out. If
             timeout_sec is 0, write should attempt to service the request in a non-blocking fashion.
-            If timeout_sec is None, write should block until at least 1 byte of data can be
-            returned.
+            If timeout_sec is None, write should block until all `n` bytes of data can be returned.
 
         Returns
         -------
         bytes :
-            Data read from the channel. Less than `n` bytes may be returned, but 0 bytes should
-            never be returned. If returning less than `n` bytes, the full timeout_sec, plus any
-            internally-added timeout, should be waited. If a timeout or transport error occurs,
-            an exception should be raised rather than simply returning empty bytes.
+            Data read from the channel. Should be exactly `n` bytes long.
 
         Raises
         ------
         TransportClosedError :
             When the transport layer determines that the transport can no longer send or receive
             data due to an underlying I/O problem (i.e. file descriptor closed, cable removed, etc).
-
         IoTimeoutError :
             When `timeout_sec` elapses without receiving any data.
         """
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def write_transport(self, data : bytes, timeout_sec : float) -> int:
-        """Connect the transport layer, enabling write_transport and read_transport calls.
+    def write_transport(self, data : bytes, timeout_sec : float):
+        """Write data to the transport.
+        This function should either write all bytes in `data` or raise an exception.
 
         Parameters
         ----------
         data : bytes
             The data to write over the channel.
         timeout_sec : Union[float, None]
-            Number of seconds to wait for at least one byte to be written before timing out. The
-            transport can wait additional time to account for transport latency or bandwidth
-            limitations based on the selected configuration and number of bytes being received. If
-            timeout_sec is 0, write should attempt to service the request in a non-blocking fashion.
-            If timeout_sec is None, write should block until at least 1 byte of data can be
-            returned.
-
-        Returns
-        -------
-        int :
-            The number of bytes written to the underlying channel. This can be less than the length
-            of `data`, but cannot be 0 (raise an exception instead).
+            Number of seconds to wait for all bytes to be written before timing out. If timeout_sec
+            is 0, write should attempt to service the request in a non-blocking fashion. If
+            timeout_sec is None, write should block until it has written all data.
 
         Raises
         ------
         TransportClosedError :
             When the transport layer determines that the transport can no longer send or receive
             data due to an underlying I/O problem (i.e. file descriptor closed, cable removed, etc).
-
         IoTimeoutError :
             When `timeout_sec` elapses without receiving any data.
         """
