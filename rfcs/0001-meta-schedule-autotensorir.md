@@ -162,7 +162,7 @@ In this section, we introduce the underlying techniques for the automation syste
 
 **Trace**. To represent the design space defined by the meta schedule DSL, the underlying system records all the instructions users applied to the schedule class, including sampling and schedule primitives. We call this list of instructions a trace.
 
-Executing the example above results in the following trace:
+For instance, executing the example above results in the following trace:
 
 ```
 Instruction 0. Sample-Perfect-Tile
