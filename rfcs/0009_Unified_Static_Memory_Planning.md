@@ -1,6 +1,6 @@
     Feature Name: Unified Static Memory Planner
     Start Date: 2021 June 1
-    RFC PR: #000y
+    RFC PR: #0009
     GitHub Issue: https://github.com/apache/tvm/issues/8404
 
 # Background
