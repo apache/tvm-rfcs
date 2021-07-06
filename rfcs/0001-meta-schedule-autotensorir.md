@@ -121,7 +121,6 @@ Several built-in composite schedule rules are shipped with our system to align w
 * Inline pure spatial blocks
 * Parallelize & vectorize & unroll
 * Auto tensorize
-* ...
 
 Developers may implement their own rules in either Python or C++. They may specify which rules to use with the following syntax:
 
