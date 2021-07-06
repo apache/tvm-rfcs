@@ -15,7 +15,7 @@
 <!--- specific language governing permissions and limitations -->
 <!--- under the License. -->
 
-* Feature Name: Meta Schedule (AutoTIR)
+* Feature Name: Meta Schedule (Formerly AutoTIR)
 * Start Date: 2021-05-28
 * RFC PR: TBD (apache/tvm-rfcs#0000)
 * GitHub Issue: TBD (apache/tvm-rfcs#0000)
