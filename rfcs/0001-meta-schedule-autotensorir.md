@@ -83,7 +83,7 @@ Generally speaking, while writing a schedule, there are often some parameters th
 
 ### 3.2. Composite Schedule Rules
 
-As introduced in the previous section, in TensorIR, each schedule primitive handles only a very basic transformation of the IR, for example, `split` only splits a loop into two. In the real world, the over-fine granularity of those primitives usually leads to repetitive and verbose scheduling code, as [mentioned](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872/43?u=junrushao1994) by developers in our community.
+As introduced in the previous section, in TensorIR, each schedule primitive handles only a very basic transformation of the IR. For example, `split` only splits a loop into two new loops. In the real world, the over-fine granularity of those primitives usually leads to repetitive and verbose scheduling code, as [mentioned](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872/43?u=junrushao1994) by developers in our community.
 
 To make it more convenient and modular, we allow users to register "composite schedules" that apply a sequence of schedule primitives according to certain analysis of the IR. For instance, a composite schedule may inspect a TensorIR block and decide whether we should call `compute_inline` on it.
 
