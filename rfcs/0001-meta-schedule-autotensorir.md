@@ -30,7 +30,7 @@ Meta Schedule is our 3rd generation automatic scheduling system.
 
 **Scheduling and Design Space**
 
-In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called "**scheduling**", and each transformation is called a "**schedule primitive**". These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. **Design space** is the set of all possible schedulings with respect to a TensorIR program.
+In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called "**scheduling**", and each transformation is called a "**schedule primitive**". These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. "**Design space**" is the set of all possible schedulings with respect to a TensorIR program.
 
 **Problems with the Current Scheduling System**
 
