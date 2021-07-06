@@ -28,23 +28,19 @@ Meta Schedule is our 3rd generation automatic scheduling system.
 
 ## 2. Motivation
 
-**Scheduling and Design Space**
+**Scheduling and design space.** In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called "**scheduling**", and each transformation is called a "**schedule primitive**". These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. **Design space** is the set of all possible schedulings with respect to a TensorIR program.
 
-In TVM TensorIR, optimization of a TensorIR program is done via a sequence of transformations. For example, we reorder loops for better locality and we tensorize for specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is called "**scheduling**", and each transformation is called a "**schedule primitive**". These primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs. "**Design space**" is the set of all possible schedulings with respect to a TensorIR program.
-
-**Problems with the Current Scheduling System**
-
+**Problems with the current scheduling system.** Currently we have 3 sets of scheduling APIs:
 * **Manual schedule**: Developers optimize their programs by manually invoking schedule primitives, i.e. explore points in the design space with humans in the loop. This can be a tedious and error-prone approach, hence the creation of AutoTVM and AutoScheduler (Ansor).
 * **AutoTVM**: The automation system requires users to define "schedule templates" as the design space for each operator. Therefore, it is inextensible to hundreds of operators and variety hardware platforms.
 * **AutoScheduler (Ansor)**: It automatically generates schedule templates as the design space, according to a set of predefined "search rules". However, it is non-trivial to extend AutoScheduler to new schedule primitives (tensorize, loop partition, software pipelining, etc).
 * The three systems above have isolated sets of APIs with several layers of their own abstraction, which are not only hard to learn, but also engineering-intensive to customize.
 
-**Benefit of Meta Schedule**
-
+**Benefits of Meta Schedule.**  Meta schedule provides:
 * Succinct syntax, consistent APIs to TensorIR schedule with no other layer of abstraction.
-* Provides unified APIs for implementing manual schedules, AutoTVM-style schedules, and AutoScheduler-style schedules.
+* Unified APIs for implementing manual schedules, AutoTVM-style schedules, and AutoScheduler-style schedules.
 * Extensibility of all the schedule primitives, including tensorization and loop partitioning. Almost no extra effort is needed to use a new primitive in auto-tuning.
-* The automation infrastructure is extensible in every one of its components. Every component of the system can be customized easily in pure python or C++ or both. For example, one can develop a new design space generator in python, a new ProgramRunner in python, etc.
+* The automation infrastructure is extensible on every of its components. Every component of the system can be customized easily in pure python or C++ or both. For example, one can develop a new design space generator in python, a new ProgramRunner in python, etc.
 
 
 ## 3. Guide-level explanation
