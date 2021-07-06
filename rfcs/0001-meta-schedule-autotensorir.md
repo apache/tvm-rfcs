@@ -43,7 +43,7 @@ In TVM TensorIR, optimization of a TensorIR program is done via a sequence of tr
 
 * Succinct syntax, consistent APIs to TensorIR schedule with no other layer of abstraction.
 * Provides unified APIs for implementing manual schedules, AutoTVM-style schedules, and AutoScheduler-style schedules.
-* Extensibility to all the schedule primitives, including tensorization and loop partitioning. Almost no extra effort is needed to use a new primitive in auto-tuning.
+* Extensibility of all the schedule primitives, including tensorization and loop partitioning. Almost no extra effort is needed to use a new primitive in auto-tuning.
 * The automation infrastructure is extensible on every of its components. Every component of the system can be customized easily in pure python or C++ or both. For example, one can develop a new design space generator in python, a new ProgramRunner in python, etc.
 
 
