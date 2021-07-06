@@ -263,17 +263,24 @@ l22, l23 = sch.split(loop=l3, factors=[v12, v13])
 sch.reorder(l14, l18, l15, l19, l22, l16, l20, l23, l17, l21)
 ```
 
-### 4.2. Exploring the Search Space
+### 4.2. Exploring the Design Space
 
 Meta Schedule provides several built-in exploration strategies to exhaustively or efficiently search
 for efficient schedules.
 
-**Program replay**. A simple strategy that replays the user-provided schedule function without using
-or taking any advantage of trace.
+**Random search by replaying schedule functions.** With a user-provided schedule function
+as a black-box design space generator, our system could repetitively invoke such an opaque function
+without doing any extra analysis. The function could be written in C++ or Python, or any language
+that implements packed function FFI. If sampling instructions are present in the function, then each
+invocation results in a different IRModule after being scheduled. Effectively, it is equivalent to
+random search without trace, allowing the flexibility for users to define arbitrary functions that
+trace may not well support (e.g. control flow divergence based on the value of intermediate random
+variables), but it forbids future opportunity of any trace-based analysis.
 
-**Random search**. Extracts the traces as the design space from any design space generator (e.g.
-user-provided schedule function, composite schedule rules applied to each block, or any custom space
-generator), repetitively mutates the random decisions of a random trace and re-executes the traces.
+**Random search by replaying traces.** From a design space generator, our system obtains the
+traces as the search space, and then those traces are replayed repetitively with a builtin interpreter.
+If sampling instructions are present on the traces, each replay explores in a random point in the
+design space of schedules.
 
 **Cost-model-guided evolutionary search**. A more efficient exploration strategy. We define two sets
 of rules:
