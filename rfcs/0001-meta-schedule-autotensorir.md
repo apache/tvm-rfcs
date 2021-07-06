@@ -127,7 +127,7 @@ Several built-in composite schedule rules are shipped with our system to align w
 * Auto tensorize
 * ...
 
-Developers may implement their own rules in either Python or C++, and specify which rules to use with the following syntax:
+Developers may implement their own rules in either Python or C++. They may specify which rules to use with the following syntax:
 
 ```python
 from tvm import meta_schedule as ms
