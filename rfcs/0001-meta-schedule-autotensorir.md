@@ -272,15 +272,19 @@ for efficient schedules.
 as a black-box design space generator, our system could repetitively invoke such an opaque function
 without doing any extra analysis. The function could be written in C++ or Python, or any language
 that implements packed function FFI. If sampling instructions are present in the function, then each
-invocation results in a different IRModule after being scheduled. Effectively, it is equivalent to
-random search without trace, allowing the flexibility for users to define arbitrary functions that
-trace may not well support (e.g. control flow divergence based on the value of intermediate random
-variables), but it forbids future opportunity of any trace-based analysis.
+invocation results in a different IRModule after being scheduled because the random decisions are
+possibly changed across different runs. Effectively, it is equivalent to
+random exploration without trace, allowing the flexibility for users to define arbitrary functions
+that trace may not well support (e.g. control flow divergence based on the value of intermediate
+random variables), but it forbids future opportunity of any trace-based analysis.
 
-**Random search by replaying traces.** From a design space generator, our system obtains the
-traces as the search space, and then those traces are replayed repetitively with a builtin interpreter.
-If sampling instructions are present on the traces, each replay explores in a random point in the
-design space of schedules.
+**Random search by replaying traces.** Traces are obtained from a design space generator, and
+replayed with a builtin interpreter in our system. If sampling instructions are present on the
+traces, then their random decisions are mutated during each replay, i.e. jumps to a new point in the
+design space. Therefore, repetitive replay of those traces are equivalent to exploration of the
+design space. Our system could potentially benefit from trace-based analysis, including rejecting
+obviously invalid schedules (e.g. using too much CUDA resources), doing dead-code elimination to
+simplify a trace, extracting trace-based features used in the cost model, etc.
 
 **Cost-model-guided evolutionary search**. A more efficient exploration strategy. We define two sets
 of rules:
