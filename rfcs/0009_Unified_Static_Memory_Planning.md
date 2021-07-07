@@ -10,6 +10,7 @@ Currently, given a ML model primarily TVM will generate two main artifacts :
 * A1 : Description of the sequential execution of operators :
   1. If the "executor" is "graph", this would be a JSON
   2. if the "executor" is "aot", this would be a main function describing call graph of operators
+  3. if the "executor" is "vm", this would be a series of VM bytecode instructions
 * A2 : library of operators (in the form of runtime.Module)
 
 A1 is generally created out of lowering the "main" relay function and A2 is created lowering fused relay primitive functions → TIR PrimFuncs → C or LLVM artifacts of the operator library.
@@ -361,10 +362,10 @@ Outputs :
 Special Parametric Inputs : 
 * function : The algorithm to be used for planning From a component PoV, the algorithm is a special input with a defined interface.
 
-The current proposal for the interface is as follows :
+The current proposal for the interface of the memory planning algorithm is as follows :
 ```
     struct BufferInfo {
-        Integer uid;
+        String name_hint; // this is the tir.buffer name
         Integer size_bytes;
         Integer alignment;
         Array<BufferInfo> conflicts; //the conflicting bufferinfo objs
@@ -376,6 +377,7 @@ The current proposal for the interface is as follows :
 ```
 void (*foo)(Array<ByfferInfo> buffers, Map<String, Integer> pool_sizes)
 ```
+The memory planning algorithm is expected to populate the assigned pool_name and the offset. Additionally, the second argument provides size constraints for each pool (if any).
 ### Special Considerations :
 
 * tir.constants : TIR does not have the ability to represent constants – which is limiting and often leads to having side-channels to carry constants between TIR compiler passes including this one.
@@ -465,3 +467,7 @@ After Step 1 (introducing tir.constants to hold constant data) : the TIR code sh
 NOTE 1: All the above passes will have a mirror in the python.
 
 NOTE 2: to support tir.constants generally, we'll be enhancing the bound relay.constants to be lowered down to tir.constants to codegen. Those changes will appear through out the stack accordingly.
+
+# Drawbacks
+
+* The relay "main" function that describes the call order to operator PrimFuncs has to be described in TIR to be able to integrate the USMP into the respective executor codegen. However, we dont view this as a major problem as the relay "main" function could easily be lowered to TIR.
