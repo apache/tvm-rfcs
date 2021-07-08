@@ -42,8 +42,9 @@ primitives form a domain-specific language (DSL) describing the transformation o
 * **Manual schedule**: Developers optimize their programs by manually invoking schedule primitives,
   i.e. explore points in the design space with humans in the loop. This can be a tedious and
   error-prone approach, hence the creation of AutoTVM and AutoScheduler (Ansor).
-* **AutoTVM**: The automation system requires users to define "schedule templates" as the design
-  space for each operator. Therefore, it is inextensible to hundreds of operators and variety
+* **AutoTVM**: The automation system requires users to define the design space through
+  per-operator "schedule templates." Therefore, programmer time is a bottleneck in scaling
+  to hundreds of operators across many hardware platforms.
   hardware platforms.
 * **AutoScheduler (Ansor)**: It automatically generates schedule templates as the design space,
   according to a set of predefined "search rules". However, it is non-trivial to extend
