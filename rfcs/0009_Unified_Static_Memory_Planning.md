@@ -375,9 +375,9 @@ The current proposal for the interface of the memory planning algorithm is as fo
     }
 ```
 ```
-void (*foo)(Array<ByfferInfo> buffers, Map<String, Integer> pool_sizes)
+Array<BufferInfo> (*foo)(Array<BufferInfo> buffers, Map<String, Integer> pool_sizes)
 ```
-The memory planning algorithm is expected to populate the assigned pool_name and the offset. Additionally, the second argument provides size constraints for each pool (if any).
+The memory planning algorithm is expected to populate the assigned pool_name with the offset and return the updated array of BufferInfo objects. Additionally, the second argument provides size constraints for each pool (if any).
 ### Special Considerations :
 
 * tir.constants : TIR does not have the ability to represent constants – which is limiting and often leads to having side-channels to carry constants between TIR compiler passes including this one.
