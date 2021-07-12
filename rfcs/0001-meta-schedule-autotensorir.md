@@ -22,7 +22,7 @@
 
 ## 1. Summary
 
-This proposal introduces Meta Schedule: a probabilistic scheduling DSL on TIR that unifies the
+This proposal introduces Meta Schedule: a scheduling DSL on TIR that unifies the
 approaches of AutoTVM and Auto Scheduler (Ansor). Meta schedule provides a pragmatic way to define
 the space of automatic tuning, extensibility in terms of all possible TIR schedule primitives like
 tensorization and loop partitioning, and customizability on every layer of the automation system.
@@ -38,7 +38,9 @@ called "**scheduling**", and each transformation is called a "**schedule primiti
 primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs.
 **Design space** is the set of all possible schedulings with respect to a TensorIR program.
 
-**Problems with the current scheduling system.** Currently we have 3 sets of scheduling APIs:
+### Problems with the current scheduling system
+
+Currently we have 3 sets of scheduling APIs:
 * **Manual schedule**: Developers optimize their programs by manually invoking schedule primitives,
   i.e. explore points in the design space with humans in the loop. This can be a tedious and
   error-prone approach, hence the creation of AutoTVM and AutoScheduler (Ansor).
@@ -52,7 +54,9 @@ primitives form a domain-specific language (DSL) describing the transformation o
 * The three systems above have isolated sets of APIs with several layers of their own abstraction,
   which are not only hard to learn, but also engineering-intensive to customize.
 
-**Benefits of Meta Schedule.**  Meta schedule provides:
+### Benefits of Meta Schedule
+
+Meta schedule provides:
 * Succinct syntax, consistent APIs to TensorIR schedule with no other layer of abstraction.
 * Unified APIs for implementing manual schedules, AutoTVM-style schedules, and AutoScheduler-style
   schedules.
@@ -64,6 +68,16 @@ primitives form a domain-specific language (DSL) describing the transformation o
 
 
 ## 3. Guide-level explanation
+
+Meta Schedule DSL is a flexible way to define or auto-generate the design space.
+In this section, we will introduce its APIs to:
+1) Manually define a schedule using existing schedule primitives (Section 3.1);
+2) Define a composite schedule to simplify the ap sequence of schedule primitives (Section 3.2);
+3) Manually define a design space of possible schedules,
+a.k.a. AutoTVM-style schedule templates (Section 3.3);
+4) Automatically generate the design space, a.k.a. Ansor-style search rules (Section 3.4);
+5) Mixing the usage of manual schedule, AutoTVM and Ansor-style design space specification in
+Meta Schedule (Section 3.5).
 
 In this section, we describe the syntax of meta schedule DSL, and how it could be used to describe
 and auto-generate the design space.
@@ -95,7 +109,7 @@ sch.reorder(
 )
 ```
 
-In this example, the developers may tweak the tile sizes and measure the performance of the
+In this manual scheduling example, the developers tweak the tile sizes and measure the performance of the
 generated kernels to explore the opportunities of potential optimization.
 
 Generally speaking, while writing a schedule, there are often some parameters that are hard to
@@ -113,8 +127,39 @@ scheduling code, as
 by developers in our community.
 
 To make it more convenient and modular, we allow users to register "composite schedules" that apply
-a sequence of schedule primitives according to certain analysis of the IR. For instance, a composite
-schedule may inspect a TensorIR block and decide whether we should call `compute_inline` on it.
+a sequence of schedule primitives according to certain analysis of the IR. The word "composite" here
+is used against "primitives", which means it is a transformation "composed" of those "primitives".
+
+For example, suppose we have a composite schedule called `Inline-All-Elementwise-Operations`, which
+inlines all the elementwise computation into their consumers. Applying it to the following TensorIR:
+
+```python
+@tvm.script.tir
+def example_func(...):
+  for i, j in ...:
+    with tir.Block("B") ...:
+      B[i, j] = A[i, j] + 1
+  for i, j in ...:
+    with tir.Block("C") ...:
+      C[i, j] = B[i, j] + 1
+  for i, j in ...:
+    with tir.Block("D") ...:
+      D[i, j] = C[i, j] + 1
+
+sch = tir.Schedule(example_func)
+InlineAllElementwiseOperations().apply(sch, sch.get_block("D"))
+print(tvm.script.asscript(sch.mod))
+```
+
+We get:
+
+```python
+@tvm.script.tir
+def example_func(...):
+  for i, j in ...:
+    with tir.Block("D") ...:
+      D[i, j] = A[i, j] + 1 + 1 + 1
+```
 
 ### 3.3. AutoTVM-style Design Space Description
 
