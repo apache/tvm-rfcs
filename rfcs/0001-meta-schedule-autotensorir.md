@@ -122,13 +122,13 @@ best schedule according to measurement results on their device.
 As introduced in the previous section, in TensorIR, each schedule primitive handles only a very
 basic transformation of the IR. For example, `split` only splits a loop into two new loops. In the
 real world, the over-fine granularity of those primitives usually leads to repetitive and verbose
-scheduling code, as
-[mentioned](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872/43?u=junrushao1994)
-by developers in our community.
+scheduling code. Take the code snippet in the previous section as an example, a sequence of `split`s
+are invoked, followed by a `reorder`, and all these together are called "SSRSRS" tiling.
 
-To make it more convenient and modular, we allow users to register "composite schedules" that apply
-a sequence of schedule primitives according to certain analysis of the IR. The word "composite" here
-is used against "primitives", which means it is a transformation "composed" of those "primitives".
+To make it more convenient and modular, we allow users to register **composite schedules** that apply
+a sequence of schedule primitives according to certain analysis of the IR. The word *composite* here
+is used against the word *primitive*, which means it is a transformation *composed* of those
+*primitives*.
 
 For example, suppose we have a composite schedule called `Inline-All-Elementwise-Operations`, which
 inlines all the elementwise computation into their consumers. Applying it to the following TensorIR:
@@ -164,7 +164,7 @@ def example_func(...):
 ### 3.3. AutoTVM-style Design Space Description
 
 Meta schedule extends the schedule DSL with sampling instructions. When included in a schedule,
-these instructions parametrize the schedule from a single deterministic point to a space supported
+these instructions parameterize the schedule from a single deterministic point to a space supported
 by random variables (tile size, etc.), making it possible for developers to describe the design
 space with meta schedule APIs.
 
