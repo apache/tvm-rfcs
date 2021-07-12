@@ -163,19 +163,23 @@ def example_func(...):
 
 ### 3.3. AutoTVM-style Design Space Description
 
-Meta schedule extends the schedule DSL with sampling instructions. When included in a schedule,
-these instructions parameterize the schedule from a single deterministic point to a space supported
-by random variables (tile size, etc.), making it possible for developers to describe the design
-space with meta schedule APIs.
+Meta schedule extends the schedule DSL with a set of new schedule primitives with randomness,
+called **sampling instructions**. These primitives do not transform the TensorIR,
+but instead will generate random decisions from specific distributions in each run,
+for example, uniformly pick a set of tile sizes of loop within all the possible choices.
+When included in a schedule,
+the new instructions parameterize the schedule from a single deterministic point
+to a space supported by random variables (tile size, etc.),
+making it possible for developers to describe the design space with meta schedule APIs.
 
 We can extend the matmul example above to cover all possible tilings using these sampling
 instructions:
 
 ```python
 # Sample tile sizes
-i_tiles = sch.sample_perfect_tile(i, n=4)
-j_tiles = sch.sample_perfect_tile(j, n=4)
-k_tiles = sch.sample_perfect_tile(k, n=2)
+i_tiles = sch.sample_perfect_tile(i, n=4)  # was: i_tiles = [16, 8, 8, 8]
+j_tiles = sch.sample_perfect_tile(j, n=4)  # was: j_tiles = [16, 8, 8, 8]
+k_tiles = sch.sample_perfect_tile(k, n=2)  # was: k_tiles = [256, 8]
 # Tile the loops according to the random variables
 i_0, i_1, i_2, i_3 = sch.split(loop=i, factors=i_tiles)
 j_0, j_1, j_2, j_3 = sch.split(loop=j, factors=j_tiles)
