@@ -148,7 +148,7 @@ sch.reorder(
 
 ### 3.4. AutoScheduler-style Design Space Generation
 
-AutoScheduler (Ansor) generates schedule templates by applying their SearchRules to each stage.
+AutoScheduler (Ansor) generates schedule templates by applying a set of **SearchRule** to each stage.
 SearchRule analyzes TE and eagerly trigger schedule primitives accordingly in its internally
 maintained mini IR.
 
