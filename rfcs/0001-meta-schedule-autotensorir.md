@@ -468,7 +468,9 @@ could be easily plugged in.
 
 ## 5. Drawbacks
 
-TBD
+Meta schedule requires integration with Relay operator strategy and compile engine (TECompiler) to
+properly lower a Relay subgraph for task extraction. Further, TE schedules in TOPI will need to be
+migrated to TensorIR schedules.
 
 ## 6. Rationale and alternatives
 
@@ -510,8 +512,8 @@ TensorFlow's `tf.cond`.
 
 Sampling instructions may lead to wrong schedules on CUDA, e.g. the resulting program uses too much
 shared memory, too many threads, etc. It is detected by a postprocessor. To accelerate the process,
-it is possible that we introduce an assertion statement that exits early if the GPU code is not
-valid, and its syntax can be:
+it is possible to introduce an assertion statement that exits early if the GPU code is not valid,
+and its syntax can be, for example:
 
 ```python
 sch.assert(j_2 * j_2 <= 1024)
