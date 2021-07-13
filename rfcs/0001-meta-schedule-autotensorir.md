@@ -32,7 +32,7 @@ Meta Schedule is our 3rd generation automatic scheduling system.
 ## 2. Motivation
 
 **Scheduling and design space.** In TVM TensorIR, optimization of a TensorIR program is done via a
-sequence of transformations. For example, we reorder loops for better locality and we tensorize for
+sequence of transformations. For example, reordering loops for better locality and tensorizing for
 specific hardware intrinsics. The process of invoking such a set of pre-defined transformations is
 called "**scheduling**", and each transformation is called a "**schedule primitive**". These
 primitives form a domain-specific language (DSL) describing the transformation of TensorIR programs.
@@ -40,7 +40,7 @@ primitives form a domain-specific language (DSL) describing the transformation o
 
 ### Problems with the current scheduling system
 
-Currently we have 3 sets of scheduling APIs:
+Currently there are have 3 sets of scheduling APIs in TVM:
 * **Manual schedule**: Developers optimize their programs by manually invoking schedule primitives,
   i.e. explore points in the design space with humans in the loop. This can be a tedious and
   error-prone approach, hence the creation of AutoTVM and AutoScheduler (Ansor).
@@ -70,17 +70,16 @@ Meta schedule provides:
 ## 3. Guide-level explanation
 
 Meta Schedule DSL is a flexible way to define or auto-generate the design space.
-In this section, we will introduce its APIs to:
-1) Manually define a schedule using existing schedule primitives (Section 3.1);
-2) Define a composite schedule to simplify the ap sequence of schedule primitives (Section 3.2);
-3) Manually define a design space of possible schedules,
+
+This section introduces its syntax of meta schedule DSL and usage in terms of describing and
+auto-generating the design space, more specifically, its APIs for:
+1) Manually constructing a schedule using existing schedule primitives (Section 3.1);
+2) Defining composite schedule to simplify the ap sequence of schedule primitives (Section 3.2);
+3) Describing a design space of possible schedules,
 a.k.a. AutoTVM-style schedule templates (Section 3.3);
-4) Automatically generate the design space, a.k.a. Ansor-style search rules (Section 3.4);
+4) Automatically generating the design space, a.k.a. Ansor-style search rules (Section 3.4);
 5) Mixing the usage of manual schedule, AutoTVM and Ansor-style design space specification in
 Meta Schedule (Section 3.5).
-
-In this section, we describe the syntax of meta schedule DSL, and how it could be used to describe
-and auto-generate the design space.
 
 ### 3.1. Manual Schedule
 
@@ -125,12 +124,12 @@ real world, the over-fine granularity of those primitives usually leads to repet
 scheduling code. Take the code snippet in the previous section as an example, a sequence of `split`s
 are invoked, followed by a `reorder`, and all these together are called "SSRSRS" tiling.
 
-To make it more convenient and modular, we allow users to register **composite schedules** that apply
+To make it more convenient and modular, users are allowed to register **composite schedules** that apply
 a sequence of schedule primitives according to certain analysis of the IR. The word *composite* here
 is used against the word *primitive*, which means it is a transformation *composed* of those
 *primitives*.
 
-For example, suppose we have a composite schedule called `Inline-All-Elementwise-Operations`, which
+For example, suppose there is a composite schedule called `Inline-All-Elementwise-Operations`, which
 inlines all the elementwise computation into their consumers. Applying it to the following TensorIR:
 
 ```python
@@ -151,7 +150,7 @@ InlineAllElementwiseOperations().apply(sch, sch.get_block("D"))
 print(tvm.script.asscript(sch.mod))
 ```
 
-We get:
+The result after applying the composite schedule is:
 
 ```python
 @tvm.script.tir
@@ -172,7 +171,7 @@ the new instructions parameterize the schedule from a single deterministic point
 to a space supported by random variables (tile size, etc.),
 making it possible for developers to describe the design space with meta schedule APIs.
 
-We can extend the matmul example above to cover all possible tilings using these sampling
+The matmul example above is extended to cover all possible tilings using these sampling
 instructions:
 
 ```python
@@ -233,7 +232,7 @@ design_space_generator = ms.PostOrderApply(rules=[
 
 ### 3.5. Unifying manual schedule / AutoTVM / Ansor
 
-In this section, we show that the design space induced by TE manual schedule, AutoTVM and Ansor are
+This subsection shows that the design space induced by TE manual schedule, AutoTVM and Ansor are
 all subsets of meta schedule, and meta schedule further allows mixing those three styles to search
 jointly.
 
@@ -252,7 +251,7 @@ operator-specific scheduling.
 
 ## 4. Reference-level explanation
 
-In this section, we introduce the underlying techniques for the automation system to extract and
+This section introduces the underlying techniques for the automation system to extract and
 explore the design space. The figure below briefly illustrates the workflow of the system:
 
 ![meta-schedule-workflow](../resources/meta-schedule-workflow.png)
@@ -261,7 +260,7 @@ explore the design space. The figure below briefly illustrates the workflow of t
 
 **Trace**. To represent the design space defined by the meta schedule DSL, the underlying system
 records all the instructions users applied to the schedule class, including sampling and schedule
-primitives. We call this list of instructions a trace.
+primitives. This list of instructions a trace is called a trace.
 
 For instance, executing the example above results in the following trace:
 
@@ -284,7 +283,7 @@ sizes works best on a specific hardware.
 spaces represented by every single trace.
 
 **Fork a trace**. When two different decisions in the scheduling process are equally important to
-generate high-performance schedules, we allow forking the trace into two, and the design space is
+generate high-performance schedules, it is allowed to fork the trace into two, and the design space is
 the union of the forked traces.
 
 The trace is not strictly user-facing, but can be accessed and printed with the following syntax:
@@ -317,7 +316,7 @@ sch.reorder(l14, l18, l15, l19, l22, l16, l20, l23, l17, l21)
 
 Meta Schedule provides several built-in exploration strategies to exhaustively or efficiently search
 for efficient schedules. Those strategies are mostly supported by re-execute either a function or a
-trace with a builtin interpreter in our system, and we call this process **replay**.
+trace with a builtin interpreter in our system, and this process is called **replay**.
 
 #### Random search by replaying schedule functions
 
@@ -338,13 +337,16 @@ from manual schedule, template-based or template-free design space generation.
 If sampling instructions are present on the traces,
 then their random decisions are mutated during each replay, i.e. jumps to a new point in the
 design space. Therefore, repetitive replay of those traces are equivalent to exploration of the
-design space. Our system could potentially benefit from trace-based analysis, including rejecting
-obviously invalid schedules (e.g. using too much CUDA resources), doing dead-code elimination to
-simplify a trace, extracting trace-based features used in the cost model, etc.
+design space. Our system could potentially benefit from trace-based analysis, making the search more
+efficient, including rejecting obviously invalid schedules (e.g. using too much CUDA resources),
+doing dead-code elimination to simplify a trace, extracting trace-based features used in the cost
+model, etc.
 
 #### Cost-model-guided evolutionary search
 
-A more efficient exploration strategy. We define two sets of rules:
+A more efficient exploration strategy, introduced in the Section 5.1 of Ansor's paper [1].
+
+The evolutionary search strategy requires two extra sets of rules:
 
 * Mutator: defines how to jump to a point’s "neighbor" in the design space
 * Postprocessor: after the trace is executed, there are some extra rules we want to execute, for
@@ -362,16 +364,31 @@ applies postprocessors, and asks the cost model to predict its performance. Afte
 iterations, the new schedules with the highest scores are finally compiled and measured on device.
 Epsilon-greedy is used in this process to balance exploitation and exploration.
 
-### 4.3. Python-first for flexibility & customizability
+### 4.3. Database
 
-We implement the system in a way that all levels are decoupled and open to customization, aiming at
-providing a playground for developers to try out new ideas and potentially deliver performance
+All the measure records are serialized and stored in a database. The schema of the database has the
+following information:
+
+- The workload, a serialized TensorIR;
+- The hardware target where the measure is conducted;
+- Argument type: the shapes and dtypes of the input tensors fed to the measured PrimFunc.
+This field can be useful for future dynamic-shape workloads;
+- The trace, including the schedule primitives used and their corresponding decisions (if any);
+- The measured running time;
+- The version of the log.
+
+### 4.4. Python-first for flexibility & customizability
+
+The system is implemented in a way that all levels are decoupled and open to customization, aiming
+at providing a playground for developers to try out new ideas and potentially deliver performance
 quickly.
 
 While all the important APIs are implemented in C++ for efficiency, every part of the system can be
 easily switched to customized python implementation. For example,
 
-**Customize design space in python**. Can be a python function that does the schedule
+#### Customize design space in python
+
+The design space can be defined as a python function
 
 ```python
 def schedule_matmul(sch) -> sch:
@@ -395,8 +412,10 @@ def schedule_matmul(sch) -> sch:
     return sch
 ```
 
-**Customize composite schedule in python**. We provide two ways to define a composite schedule in
-python:
+#### Customize composite schedule in python
+
+The system provides two interfaces to define a composite schedule in python, one is more succinct,
+and the other is more comprehensive:
 
 Method 1. Derive from `PyCompositeSchedule`, and implement two methods `initialize` and `apply`:
 
@@ -427,11 +446,14 @@ def multi_level_tiling(sch: Schedule, block: BlockRV) -> Union[Schedule, List[Sc
     ...
 ```
 
-**Customize exploration strategies in python**. Developers can implement any search algorithm in
-python as well by deriving from `PySearchPolicy`, and the syntax is identical to customizing with
-`PyCompositeSchedule`.
+#### Customize exploration strategies in python
 
-**Other customizable components**. This list includes:
+Developers can implement any search algorithm in python as well by deriving from `PySearchPolicy`,
+and the syntax is identical to customizing with `PyCompositeSchedule`.
+
+#### Other customizable components
+
+This list includes:
 
 * Cost model
 * Database
@@ -446,17 +468,17 @@ could be easily plugged in.
 
 ## 5. Drawbacks
 
-We are not aware of any drawbacks of the proposed system.
+TBD
 
 ## 6. Rationale and alternatives
 
-The system is designed with the principle of minimalism: different from alternative solutions, we do
-not require any change in existing codebase, or extra APIs to learn. It could potentially lower the
-bar of using automation systems. 
+The system is designed with the principle of minimalism: Assuming users already know TensorIR
+scheduling APIs, there is no more extra API set to learn; The previous programs that schedules
+TensorIR still work out of box with the meta schedule DSL. It could potentially lower the bar of
+adopting this system.
 
-Unifying manual scheduling, AutoTVM's semi automatic templates and AutoScheduler's (Ansor's) fully
-automatic sketch generation provides flexible way to balance injection new domain knowledge and
-automation.
+Unifying manual scheduling, AutoTVM's semi automatic templates and AutoScheduler's fully automatic
+sketch generation provides flexible way to balance injection new domain knowledge and automation.
 
 Flexibility in customization allows quick try-out on new tasks, new strategies and new hardware
 targets without deep knowledge of the system.
@@ -480,8 +502,8 @@ could automatically generate schedule templates for almost all the operators on 
 
 **Supporting Control Flow and Assertions**
 
-Right now the meta schedule DSL does not support control flow. Although we didn’t see any real-world
-use case right now, it is possible that it could appear in some future workloads.
+Right now the meta schedule DSL does not support control flow. Although there is no report of
+real-world use case right now, it is possible that it could appear in some future workloads.
 
 A real-world issue we could see is that sampling may lead to wrong schedules on CUDA, e.g. the
 schedule results in a CUDA program that uses too much shared memory, too many threads, etc. In this
@@ -491,11 +513,17 @@ case, we need to halt the program immediately. Therefore, introducing assertion 
 
 **Unifying Manual Scheduling, AutoTVM and Ansor in TOPI**
 
-Meta schedule provides an idiomatic approach to unify the three existing scheduling APIs in TVM:
+As described in Section 3.5, meta schedule provides an idiomatic approach to unify the three
+existing scheduling APIs in TVM:
 
-* Manual schedules are meta schedules without sampling instructions
-* AutoTVM templates are meta schedules where knobs are replaced by sampling instructions
-* Each of Ansor’s search rules generates a snippet of a meta schedule
+* Manual schedules are meta schedules without sampling instructions;
+* AutoTVM templates are meta schedules where knobs are replaced by sampling instructions;
+* Each of Ansor’s search rules generates a snippet of a meta schedule;
+* Mixture of the above three approaches to cover larger design space.
 
-We further allow mixing different styles of scheduling and exploring the union space, which could
-help dispatch to different implementations.
+It is future work to unify these existing scheduling APIs on TOPI operators.
+
+
+[1] Zheng, Lianmin, et al. "Ansor: Generating high-performance tensor programs for deep learning."
+14th {USENIX} Symposium on Operating Systems Design and Implementation ({OSDI} 20). 2020.
+
