@@ -316,28 +316,35 @@ sch.reorder(l14, l18, l15, l19, l22, l16, l20, l23, l17, l21)
 ### 4.2. Exploring the Design Space
 
 Meta Schedule provides several built-in exploration strategies to exhaustively or efficiently search
-for efficient schedules.
+for efficient schedules. Those strategies are mostly supported by re-execute either a function or a
+trace with a builtin interpreter in our system, and we call this process **replay**.
 
-**Random search by replaying schedule functions.** With a user-provided schedule function
-as a black-box design space generator, our system could repetitively invoke such an opaque function
-without doing any extra analysis. The function could be written in C++ or Python, or any language
-that implements packed function FFI. If sampling instructions are present in the function, then each
-invocation results in a different IRModule after being scheduled because the random decisions are
-possibly changed across different runs. Effectively, it is equivalent to
-random exploration without trace, allowing the flexibility for users to define arbitrary functions
+#### Random search by replaying schedule functions
+
+With a user-provided schedule function
+as a black-box design space generator, our system could repetitively invoke such an opaque TVM
+packed function without doing any extra analysis.
+If sampling instructions are present in the trace, then scheduling is non-deterministic
+(random decisions may not be repeated across runs)
+Effectively, it is equivalent to random exploration without trace,
+allowing the flexibility for users to define arbitrary functions
 that trace may not well support (e.g. control flow divergence based on the value of intermediate
 random variables), but it forbids future opportunity of any trace-based analysis.
 
-**Random search by replaying traces.** Traces are obtained from a design space generator, and
-replayed with a builtin interpreter in our system. If sampling instructions are present on the
-traces, then their random decisions are mutated during each replay, i.e. jumps to a new point in the
+#### Random search by replaying traces
+
+A builtin interpreter directly replays the traces obtained
+from manual schedule, template-based or template-free design space generation.
+If sampling instructions are present on the traces,
+then their random decisions are mutated during each replay, i.e. jumps to a new point in the
 design space. Therefore, repetitive replay of those traces are equivalent to exploration of the
 design space. Our system could potentially benefit from trace-based analysis, including rejecting
 obviously invalid schedules (e.g. using too much CUDA resources), doing dead-code elimination to
 simplify a trace, extracting trace-based features used in the cost model, etc.
 
-**Cost-model-guided evolutionary search**. A more efficient exploration strategy. We define two sets
-of rules:
+#### Cost-model-guided evolutionary search
+
+A more efficient exploration strategy. We define two sets of rules:
 
 * Mutator: defines how to jump to a point’s "neighbor" in the design space
 * Postprocessor: after the trace is executed, there are some extra rules we want to execute, for
