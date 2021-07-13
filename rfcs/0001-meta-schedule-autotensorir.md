@@ -488,9 +488,8 @@ targets without deep knowledge of the system.
 **Tensor Expression (TE)** in TVM is a DSL that decouples compute and schedule, which provides
 convenient ways to handcraft optimized kernels for different hardware targets.
 
-**TensorIR** is the latest generation of TVM’s low-level IR. Its capability of eagerly applying
-schedule primitives opens the door for meta schedule, our proposed new-generation auto scheduling
-system.
+**TensorIR** is the low-level IR in TVM. Its capability of eagerly applying schedule primitives
+opens the door for meta schedule, our proposed new-generation auto scheduling system.
 
 **AutoTVM** is the 1st generation automation framework in TVM, which requires developers to
 implement per-operator scheduling templates, and the system could handle the tuning process.
@@ -500,14 +499,23 @@ could automatically generate schedule templates for almost all the operators on 
 
 ## 8. Unresolved questions
 
-**Supporting Control Flow and Assertions**
+**Control Flow**
 
-Right now the meta schedule DSL does not support control flow. Although there is no report of
-real-world use case right now, it is possible that it could appear in some future workloads.
+The meta schedule DSL does not support control flow yet. Although there is no report of
+real-world use case at the time of writing, it is possible that it could appear in some future
+workloads. The best syntax of the control flow is not determined yet, but a working example could be
+TensorFlow's `tf.cond`.
 
-A real-world issue we could see is that sampling may lead to wrong schedules on CUDA, e.g. the
-schedule results in a CUDA program that uses too much shared memory, too many threads, etc. In this
-case, we need to halt the program immediately. Therefore, introducing assertion may be helpful.
+**Assertion**
+
+Sampling instructions may lead to wrong schedules on CUDA, e.g. the resulting program uses too much
+shared memory, too many threads, etc. It is detected by a postprocessor. To accelerate the process,
+it is possible that we introduce an assertion statement that exits early if the GPU code is not
+valid, and its syntax can be:
+
+```python
+sch.assert(j_2 * j_2 <= 1024)
+```
 
 ## 9. Future possibilities
 
@@ -521,8 +529,9 @@ existing scheduling APIs in TVM:
 * Each of Ansor’s search rules generates a snippet of a meta schedule;
 * Mixture of the above three approaches to cover larger design space.
 
-It is future work to unify these existing scheduling APIs on TOPI operators.
-
+At the time of writing, TOPI contains a number of schedule functions implemented either in manual TE
+or AutoTVM-style. It is our future work to unify these existing scheduling APIs on TOPI operators,
+and enable different styles to be auto-tuned jointly.
 
 [1] Zheng, Lianmin, et al. "Ansor: Generating high-performance tensor programs for deep learning."
 14th {USENIX} Symposium on Operating Systems Design and Implementation ({OSDI} 20). 2020.
