@@ -56,6 +56,13 @@ Currently there are have 3 sets of scheduling APIs in TVM:
 
 ### Benefits of Meta Schedule
 
+The existing three scheduling systems are mutually incompatible with each other in terms of API
+design and divergence: besides manual TE scheduling, AutoTVM requires users to learn a new set of
+APIs, and AutoScheduler brings in another set of C++-based search rules. It adds the users' mental
+overhead to understand and extend the existing systems. Further, the inability to switch between
+template-based and template-free auto-tuning could lead to inferior customizability and hence worse
+performance.
+
 Meta schedule provides:
 * Succinct syntax, consistent APIs to TensorIR schedule with no other layer of abstraction.
 * Unified APIs for implementing manual schedules, AutoTVM-style schedules, and AutoScheduler-style
