@@ -17,8 +17,8 @@
 
 * Feature Name: Meta Schedule (Formerly AutoTIR)
 * Start Date: 2021-05-28
-* RFC PR: TBD (apache/tvm-rfcs#0000)
-* GitHub Issue: TBD (apache/tvm-rfcs#0000)
+* RFC PR: https://github.com/apache/tvm-rfcs/pull/5/
+* GitHub Issue: https://github.com/apache/tvm/issues/8473
 
 ## 1. Summary
 
