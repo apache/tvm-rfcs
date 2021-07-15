@@ -18,7 +18,7 @@ Ethos™-U55 is a NPU that is designed to uplift ML performance by working as an
 The scope for this RFC is to add support for offloading to the Arm Ethos-U55 NPU. The initial machine learning framework that we use for testing this is TensorFlow Lite. Future RFCs and pull requests will address additional NPUs, such as the Ethos-U65, and other frameworks as the port evolves.
 
 Please refer to Technical Reference Manual (TRM) for more details – https://developer.arm.com/documentation/102420/0200.
-* Reference : https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u5
+* Reference : https://www.arm.com/products/silicon-ip-cpu/ethos/ethos-u55
 
 # Guide-level explanation
 
