@@ -1,7 +1,7 @@
     Feature Name: Arm® Ethos™-U Integration
-    Start Date: <TBD>
-    RFC PR: <TBD>
-    GitHub Issue: <TBD>
+    Start Date: 2020 May
+    RFC PR: https://github.com/apache/tvm-rfcs/pull/11
+    GitHub Issue: https://github.com/apache/tvm/issues/8482
 
 # Motivation
 
