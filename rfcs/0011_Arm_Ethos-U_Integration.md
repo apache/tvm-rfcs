@@ -11,7 +11,7 @@ Arm® Ethos™-U is a series of NPUs that will enable low-cost and highly effici
 
 ### Ethos™-U55
 
-![](./assets/000x/ethosu_hw.png)
+![](./assets/0011/ethosu_hw.png)
 
 Ethos™-U55 is a NPU that is designed to uplift ML performance by working as an offload target for micro-controllers. It can accelerate quantized ML operators such as Convolution2D, Depthwise Convolution, Pooling and Elementwise Operators.  For convolution-type operators, Ethos-U55 supports hardware enabled loseless de-compression of weights to increase inference performance and reduce power.
 
@@ -37,7 +37,7 @@ Please take a look at our provided example in the last PR (once its published).
 
 ## Design Architecture Overview
 
-![](./assets/000x/ethosu_compiler_arch.png)
+![](./assets/0011/ethosu_compiler_arch.png)
 
 We rely on the graph partitioning infrastructure in Relay (commonly known as BYOC) to integrate the Relay and TIR pass pipeline to generate c-source artifacts that could be used in an embedded deployment environment. Therefore, the generated c-sources are expected to be bundled with AOT executor in the Model Library Format (MLF) tarball. The embedded user can easily use MLF.tar as he/she would use it with the AOT executor in a typical embedded environment.
 
