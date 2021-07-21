@@ -130,7 +130,7 @@ Given, that the complexity of this component, we'll be putting up a seperate RFC
 
 ### C4. Translating Ethos™-U TIR Primfuncs to C-sources that call to the Ethos™-U driver APIs to perform the execution.
 
-Ethos™-U hardware is used from the host CPU via invoking a driver API call with a command stream (a uNPU specific binary artefact) that describes the hardware operators that need to execute. This component will use the TIR Primfunc to extract the hardware operators and buffer information. Thereafter, we'll be using Arm® Vela (https://pypi.org/project/ethos-u-vela/) compiler's backend python APIs to convert the TIR Primfunc to a command stream. Finally, the generated command stream will be wrapped in a c-source that invokes it using the Ethos™-U driver APIs.
+Ethos™-U hardware is used from the host CPU via invoking a driver API call with a command stream (a Ethos™-U specific binary artefact) that describes the hardware operators that need to execute. This component will use the TIR Primfunc to extract the hardware operators and buffer information. Thereafter, we'll be using Arm® Vela (https://pypi.org/project/ethos-u-vela/) compiler's backend python APIs to convert the TIR Primfunc to a command stream. Finally, the generated command stream will be wrapped in a c-source that invokes it using the Ethos™-U driver APIs.
 
 ```
 #include <stdio.h>
