@@ -1,6 +1,6 @@
 - Feature Name: vectorized-tir-buffers
 - Start Date: 2021-07-22
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0012](https://github.com/apache/tvm-rfcs/pull/0012)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 
 # Summary
