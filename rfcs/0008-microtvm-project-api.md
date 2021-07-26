@@ -48,7 +48,8 @@ As a goal, this proposal aims to allow for the same use cases as are currently s
 improvements:
 
 1. Integrating more naturally with build systems typical of embedded platforms.
-2. Allowing TVM to automatically generate projects  platforms to define automated scripts to build projects
+2. Allowing TVM to automatically generate projects for platforms and define automated scripts to
+   build such projects.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -67,7 +68,7 @@ models on non-traditional OS such as Arduino, Zephyr, and mobile platforms such 
 To provide support for a platform, a **template project** is first defined. Template projects are
 expected to exist entirely inside a directory and are identified to TVM by the path to the directory
 locally. Template projects may live either inside the TVM repository (when they can be included in the
-TVM CI) or in other version control repositories. The template project contains at minium an
+TVM CI) or in other version control repositories. The template project contains at minimum an
 implementation of the **Project API** inside an executable program known as the
 **TVM Project API Server**.
 
@@ -82,6 +83,12 @@ Below is a survey of example workflows used with the Project API Server:
 
 ## Generating a project
 
+Suggested `tvmc` command-line:
+
+```
+$ tvmc micro generate-project --template=path/to/template path/to/project
+```
+
 1. The user imports a model into TVM and builds it using `tvm.relay.build`.
 2. The user supplies TVM with the path to the template project and a path to a non-existent
    directory where the generated project should live.
@@ -91,6 +98,13 @@ Below is a survey of example workflows used with the Project API Server:
 5. TVM invokes the Project API server `generate_project` method to generate the new project.
 
 ## Building and Flashing
+
+Suggested `tvmc` command-line:
+
+```
+$ tvmc micro build path/to/project
+$ tvmc micro flash path/to/project
+```
 
 1. The user follows the steps under [Generating a project](#generating-a-project).
 2. TVM expects the Project API server to copy itself to the generated project. It launches a
@@ -103,6 +117,12 @@ Below is a survey of example workflows used with the Project API Server:
    `options` can be used to specify a device serial number.
 
 ## Host-driven model inference
+
+Suggested `tvmc` command-line:
+
+```
+$ tvmc run --device=micro --project=path/to/project <run_options>
+```
 
 1. The user follows the steps under [Generating a project](#generating-a-project).
 2. TVM invokes the Project API server `connect_transport` method to connect to the remote on-device
@@ -286,7 +306,7 @@ These can be specified by the user to allow them to give platform SDK-specific o
 method.
 
 ```
-ProjectOption = collections.namedtuple('ProjectOption', ('name', 'help'))
+{"name": "str", "choices": ["str"], "help": "str"}
 ```
 
 It's expected that user-facing clients of the Project API could expose these either as command-line
@@ -297,16 +317,22 @@ flags or e.g. accepting them via a JSON or YAML file.
 In response to a `server_info_query`, an API server should return this structure:
 
 ```
-ServerInfo = collections.namedtuple('ServerInfo', ('platform_name', 'is_template', 'model_library_format_path', 'project_options'))
+{
+    "is_template": "bool",
+    "model_library_format_path": "str",
+    "platform_name": "str",
+    "project_options": ["ProjectOption"],
+    "protocol_version": "int"
+
 ```
 
 Its members are documented below:
-- `platform_name`: A unique slug identifying this API server.
 - `is_template`: True when this server lives in a template project. When True, `generate_project` can be called.
 - `model_library_format_path`: None when `is_template` is True; otherwise, the path, relative to the API server,
+- `platform_name`: A unique slug identifying this API server.
   of the Model Library Format archive used to create this project.
 - `project_options`: list of `ProjectOption`, defined above.
-
+- `protocol_version`: Version of the protocol (e.g. ProjectHandler interface) supported by the API server.
 
 ## Changes to AutoTVM
 
