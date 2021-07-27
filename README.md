@@ -85,7 +85,8 @@ the RFC process:
       must be completely described in the pull request.
 - **Tracking Issue**: When the RFC review is nearly done and about to merge,
   a tracking issue will be created in the main TVM repository with the
-  *rfc-tracking* label (added by a committer), where implementors can continue sharing
+  title "[RFC][Tracking][<RFC-no.>] <RFC-title>" and *rfc-tracking* label
+  (added by a committer), where implementors can continue sharing
   implementation details (including links to pull requests). The issue will be
   closed when the RFC is either completed or postponed.
 - **Implementation**: Work will begin on the RFC, with pull requests linking
