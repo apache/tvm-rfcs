@@ -386,7 +386,15 @@ def default_module_loader(pre_load_function=None):
 # Drawbacks
 [drawbacks]: #drawbacks
 
-Why should we *not* do this?
+The main drawback of this approach is added complexity to TVM's autotuning process. In particular,
+developers have to understand:
+
+ - Use of a separate binary program which may reside in a different virtualenv or be implmeneted in
+   a different language.
+ - Stack traces which may be split across the two binaries.
+
+The author's opinion is that these drawbacks are outweighed by the complexity minimized in not
+requiring TVM to share a compatible set of Python dependencies with each supported micro platform.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
