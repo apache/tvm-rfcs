@@ -1,7 +1,7 @@
 - Feature Name: microtvm_project_api
 - Start Date: 2020-06-09
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- RFC PR: [apache/tvm-rfcs#0008](https://github.com/apache/tvm-rfcs/pull/0008)
+- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/8595)
 
 # Summary
 [summary]: #summary
@@ -44,6 +44,18 @@ simplifies the `Compiler` interaction into a project-level Build, and adds an ex
 `generate_project` method to the interface. These changes remove the need to build components
 and drive the link process from TVM.
 
+Additionally, when integrating microTVM with RTOS platforms, a project management question comes up:
+should TVM include all Python dependencies needed to interact with each RTOS as *dependencies of
+TVM*? Given a large chunk (majority) of TVM's user base do not plan to interact with microcontroller
+platforms, it seems a bit unreasonable to require everyone to install micro-specific dependencies.
+One *can* use PyPI [extras](https://setuptools.readthedocs.io/en/latest/userguide/dependency_management.html#optional-dependencies)
+for this task, but there is still the issue of conflicts between dependencies listed in
+`extras_require` and those core dependencies of TVM. For example, if a `micro` `extras_require` were
+to be added to TVM, and one of those packages required an old version of TensorFlow, it would be
+impossible for TVM to update its core dependency on TensorFlow without unbreaking the platform
+integration. This conflict is at odds with making TVM as easy to integrate with micro platforms as
+possible.
+
 As a goal, this proposal aims to allow for the same use cases as are currently supported with these
 improvements:
 
@@ -77,7 +89,8 @@ the path to the top-level directory. TVM launches an instance the Project API Se
 standard location in that directory). TVM communicates with the Project API Server using JSON-RPC
 over standard OS pipes.
 
-TVM supplies generated code to the Project API Server using [Model Library Format](0001-model-library-format.md).
+TVM supplies generated code to the Project API Server using
+[Model Library Format](https://tvm.apache.org/docs/dev/model_library_format.html).
 
 Below is a survey of example workflows used with the Project API Server:
 
