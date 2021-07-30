@@ -490,8 +490,8 @@ ASCII alphabet is chosen to represent binary data, and the binary data is transl
 alphabet. Since there aren't enough ASCII characters to represent all 2^8 == 256 binary values in
 one byte, a smaller alphabet is chosen, typically with 64 or 85 characters. This is referred to as
 `base64` or `base85`, and the binary data is encoded by modular arithmetic into the smaller
-alphabet. Python provides standard support for these via the `base64` module, so the most compact
-encoding (`base85`) was chosen from those standards to encode binary data in the Project API.
+alphabet. Python provides standard support for these via the `base64` module, so the more widely-
+used encoding (`base64`) was chosen from those standards to encode binary data in the Project API.
 
 ### Timeouts
 
