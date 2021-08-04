@@ -1,7 +1,7 @@
-- Feature Name: Arm(R) CMSIS-NN Integration for Cortex-M
+- Feature Name: [RFC] Use CMSIS-NN with TVM
 - Start Date: July 2021
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- RFC PR: https://github.com/apache/tvm-rfcs/pull/15
+- GitHub Issue: https://github.com/apache/tvm/issues/8646
 
 # Summary
 
