@@ -1,7 +1,7 @@
 - Feature Name: microtvm_project_api
 - Start Date: 2020-06-09
 - RFC PR: [apache/tvm-rfcs#0008](https://github.com/apache/tvm-rfcs/pull/0008)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/8595)
+- GitHub Issue: [apache/tvm#8595](https://github.com/apache/tvm/issues/8595)
 
 # Summary
 [summary]: #summary
