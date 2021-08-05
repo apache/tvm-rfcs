@@ -100,5 +100,5 @@ We will add new unit test which will rely on PaddlePaddle framework, also the te
 For this RFC, we have make a established plan,
 
 - About 200 operators will be supported in this quarter, such as deformable_conv/multiclass_nms
-- Control flow operators will be supported in this year, mainly about while_loop/if/
+- Control flow operators will be supported in this year, mainly about while_loop/if
 - Quantized model will be supported in this year, include quantized model from `PaddleDetection`/`PaddleClas`/`PaddleSeg`
