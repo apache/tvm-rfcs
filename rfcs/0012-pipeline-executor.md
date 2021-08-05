@@ -51,7 +51,7 @@ There are three benefits for Pipeline Executor
 Pipeline Executor provides:
 * Compute single network on  Multiple backend in parallel to improve performance.
 
-* With RPC help do ML network distribute computation cross multiple remote device
+* Use RPC to perform distributed computation cross multiple remote devices.
 
 * User can use Pipeline Executor to integrate pre-compute processing and pos-processing with
   network compute together and compute in same executor.
