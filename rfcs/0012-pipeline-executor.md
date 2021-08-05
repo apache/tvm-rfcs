@@ -279,8 +279,7 @@ Pipeline executor works asynchronously. Unlike the graph executor that launches 
     get_output
     get_output
 
-get_output can be called before set_input/run, and it may return a empy array that means no output ready
-or a valid output.
+`get_output` can be called anytime, and it will return an empty array if no output is ready.
 
 following is one example
 
