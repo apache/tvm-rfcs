@@ -49,7 +49,7 @@ to be more efficient to use SOC heterogeneous hardware resource to achieve a bet
 There are three benefits for Pipeline Executor
 
 Pipeline Executor provides:
-* Compute single network on  Multiple backend in parallel to improve performance.
+* Compute a single network on multiple backends in parallel to improve performance.
 
 * Use RPC to perform distributed computation cross multiple remote devices.
 
