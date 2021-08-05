@@ -62,10 +62,10 @@ subgraphs and relies on graph_executor for operator storage and execution.
 
 This section introduces the use case for Pipeline Executor.
 
-* 1. Manually constructing pipeline subgraph from a network compute graph.
-* 2. Manually contstructin pipeline subgraph configuration for dependency and target device...
-* 3. Use pipeline_executor to build pipeline module with the said subgraph and configuration.
-* 4. Use pipeline_executor to load pipeline module to run network in pipeline parallism mode.
+* 1. Manually constructing pipeline subgraphs from a network compute graph.
+* 2. Manually constructing pipeline subgraph configuration for dependency and target device.
+* 3. Use pipeline_executor to build a pipeline module with the subgraphs and configuration.
+* 4. Use pipeline_executor to load the pipeline module to run network in pipeline parallelism mode.
 
 ### 3.1. Manually constructing pipeline subgraph from a network compute graph.
 pipeline subgraph is subset of network compute graph, there are dependency relation
