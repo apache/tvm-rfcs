@@ -270,8 +270,8 @@ following is a example
 
 ### 3.4. Use pipeline_executor to load pipeline module to run network in pipeline parallism mode.
 
-Pipeline executor working at asynchronous mode, unlike the synchronous mode set_input->run->get_out
-sequence, Pipeline executor execte in such order for example.
+Pipeline executor works asynchronously. Unlike the graph executor that launches a task by calling a blocking
+`run` API, we can kick off a task by calling a non-blocking `set_input` API in pipeline executor:
     set_input--> run
     set_input--> run
     get_ouput
