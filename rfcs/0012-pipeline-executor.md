@@ -30,15 +30,14 @@ reduce compute latency.
 
 
 
-Currently more and more edge device inference deployment cases happens on SOC device,
-SOC device have heterogenous chipset like GPU, FPGA, CPU, DSP…, to reach the best
-performance there is a requirement to run the ML network parallel in these heterogenous
-chipset, however currently graph executor solution only doing the serialize operator 
-execution without papalism logic and the existing data papalism solution only support
-parallel on same chipset(device), then only way to do batch processing on heterogenous
-device with tvm is that treat whole ML network as schedule unit and running them on
-different heterogenous device but that would cause latency issue(low speed chipset
-generate big latency for single data processing) .
+Currently more and more edge device inference deployments happen on SOC devices.
+Since SOC devices have heterogeneous chipset like GPU, FPGA, CPU, DSP, etc. To reach the best
+performance, there is a requirement to run an ML network in these heterogeneous chipsets.
+However, currently graph executor does not have parallelism logic, and the existing data parallelism
+solution only supports parallel on homogeneous chipset(device). Then, the only way to do batch processing
+on heterogeneous devices with TVM is to treat a whole ML network as a schedule unit and run it on
+different heterogeneous devices, but that would cause latency issue (low speed chipset becomes the
+latency bottleneck for single data processing).
 
 Therefore, we need an runtime executor that can provide papalism scheduling function
 with a smaller schedule unit like subgraph (a group of operator with dependency relation)
