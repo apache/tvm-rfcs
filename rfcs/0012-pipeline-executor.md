@@ -46,7 +46,7 @@ to be more efficient to use SOC heterogeneous hardware resource to achieve a bet
 
 ### Benefits of Pipeline Executor
 
-There are three benefit for Pipeline Executor
+There are three benefits for Pipeline Executor
 
 Pipeline Executor provides:
 * Compute single network on  Multiple backend in parallel to improve performance.
