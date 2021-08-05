@@ -57,8 +57,8 @@ Pipeline Executor provides:
   network compute together and compute in same executor.
 
 ## 3. Guide-level explanation
-Pipeline Executor is a runtime executor which implement pipeline execution logic for multiple
-subgraph and relies on graph_executor for operator storage, execution.
+Pipeline Executor is a runtime executor which implements pipeline execution logic for multiple
+subgraphs and relies on graph_executor for operator storage and execution.
 
 This section introduce the use case for Pipeline Executor.
 
