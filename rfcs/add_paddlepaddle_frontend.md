@@ -1,6 +1,6 @@
 - Feature Name: add-paddlepaddle-frontend
-- Start Date: 2021-08-08
-- RFC PR: TODO
+- Start Date: 2021-08-05
+- RFC PR: https://github.com/apache/tvm-rfcs/pull/19
 - GitHub Issue: TODO
 
 # Summary
