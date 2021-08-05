@@ -339,8 +339,8 @@ The network pipeline compute effect
 ## 5. Drawbacks
 
 
-Pipeline executor currently need manually subgraph split and configuration construct,
-Further graph split feature would doing automatically split.
+Pipeline executor currently needs manually subgraph splitting and configuration construction.
+Further graph splitting feature would do automatically split.
 
 ## 6. Rationale and alternative
 
