@@ -41,7 +41,7 @@ Based on this background, we proposed this RFC addle frontend for TVM, improve u
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-If you dive in the pull request code, there's 2 concepts imported from PaddlePaddle you may want to know,
+If you dive into the pull request code, there's 2 concepts imported from PaddlePaddle you may want to know,
 - `paddle.jit.load`: Recommended API to load exported inference model, the type of return result is `TranslatedLayer`, stores `Program`(similar with computation graph) and parameters;
 - `paddle.static.load_inference_model`: API to compatible with old version PaddlePaddle's model, the type of return result is `Program`, and all the parameters save in `Scope`, for the default situation, we can extract the parameters from the `paddle.fluid.global_scope()`.
 
