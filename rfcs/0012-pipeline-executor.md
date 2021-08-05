@@ -39,9 +39,9 @@ on heterogeneous devices with TVM is to treat a whole ML network as a schedule u
 different heterogeneous devices, but that would cause latency issue (low speed chipset becomes the
 latency bottleneck for single data processing).
 
-Therefore, we need an runtime executor that can provide papalism scheduling function
-with a smaller schedule unit like subgraph (a group of operator with dependency relation)
-to be more efficient to use SOC heterogenous hardware resource and get better performance.
+Therefore, we need a runtime executor that can provide parallel scheduling functionality
+with a finer-grained schedule unit like subgraph (a group of operator with dependency relation)
+to be more efficient to use SOC heterogeneous hardware resource to achieve a better performance.
 
 
 ### Benefits of Pipeline Executor
