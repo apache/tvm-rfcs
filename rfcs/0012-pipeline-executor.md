@@ -210,7 +210,7 @@ split = [11, 22]
 mods = pipeline_graph(mod["main"], split)
 ```
 
-### 3.2. Manually contstructin pipeline subgraph configuration for dependency and target device...
+### 3.2. Manually constructing pipeline subgraph configuration for dependency and target device
 There are dependency between pipeline subgraph, for example we have 3 pipeline subgraph named
 s1, s2, and s3, s2 input is s1 output and s2 output is s3 input, we need to construct a configuation
 file to descript such dependency relation, such configuratin also need to involved "target" and
