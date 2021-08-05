@@ -68,11 +68,10 @@ This section introduces the use case for Pipeline Executor.
 * 4. Use pipeline_executor to load the pipeline module to run network in pipeline parallelism mode.
 
 ### 3.1. Manually constructing pipeline subgraph from a network compute graph.
-pipeline subgraph is subset of network compute graph, there are dependency relation
-between different pipeline subgraph, each pipeline subgraph running on different backend
-, the purpose of split network into pipeline subgraph is to do network compute on different
-compute unit and pipeline them to reduce compute latency, following is example for network
-compute graph split.
+A pipeline subgraph is subgraph of network compute graph. Every pipeline subgraph from a network
+have data dependency, and runs on different backends. The purpose of splitting a network into
+pipeline subgraphs is to do network compute on different compute units and pipeline them to improve
+compute throughput. Following is an example for network compute graph splitting.
 
 ```python
 import tvm
