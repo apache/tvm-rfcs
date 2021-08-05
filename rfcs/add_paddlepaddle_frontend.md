@@ -97,7 +97,7 @@ We will add new unit test which will rely on PaddlePaddle framework, also the te
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-For this RFC, we have make a established plan,
+For this RFC, we have made a established plan,
 
 - About 200 operators will be supported in this quarter, such as deformable_conv/multiclass_nms
 - Control flow operators will be supported in this year, mainly about while_loop/if
