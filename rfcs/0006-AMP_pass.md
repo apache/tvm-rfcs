@@ -6,48 +6,48 @@
 # Summary
 [summary]: #summary
 
-Many pieces of hardware support operation not only on 32 bit floating point, but also 16 bit floating point. 
+Many pieces of hardware support arithmetic not only on IEEE 32 bit floating point numbers, but also IEEE 16 bit floating point numbers. 
 These 16 bit operations typically have higher theoretical throughput and involve less use of memory bandwidth.
-As a result, we can see significant increases from changing normal 32 bit operations with 16 bit analogs. 
-Surprisingly, for many operations this has little effect on the results, though some care must had when changing 
-operations. Some 16 bit floating point operations such as `exp` and `log` for example are considered less safe 
+As a result, we can see significant increases in speed from changing 32 bit floating point operations into 16 bit analogs for many models.
+Surprisingly, this change has little affect on the results of some models, though some care must had when changing a select few
+operations. Some 16 bit floating point operations such as `exp` and `log` for example are considered unsafe to use 16 bit analogs 
 due to loss of [numerical precision](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf). 
-In general for a function `f`, if `|f(x)| >> |x|` for expected 
-ranges of input we probably do not want to use the 16 bit floating point versions.
+In general for a function `f`, if `|f(x)| >> |x|` for expected ranges of input we probably do not want to use the 16 bit floating point versions.
 
-This feature will be a relay pass which automatically converts a 32 bit floating point model into a reduced bit 
-floating point analog. For the initial pass IEEE's 16 bit floating point will be targeted though future support
-for bfloat16 should be in mind.
+This RFC describes a relay pass which automatically converts a 32 bit floating point model into a reduced bit 
+floating point analog. For the initial work, IEEE's 16 bit floating point will be targeted though future support
+for bfloat16 will be held in mind. Additionally, we discuss some additional work that must be done to support 16 bit floating point 
+on some common targets.
 
 # Motivation
 [motivation]: #motivation
 
 Many machine learning models can move significant portions of their computational graphs into the FP16 space 
-without significant loss of accuracy. For many pieces of hardware this also comes with a boost in speed. In 
-the past utilizing FP16 in mixed precision training saw significant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
+without significant loss of accuracy. For many pieces of hardware this also comes with a boost in speed. For example, 
+Pytorch saw utilizing FP16 in mixed precision training saw significant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
 
-We should expect similar increases for inference. This speed increase without accuracy loss is highly desirable
+We should expect similar increases for inference. This speed increase without significant accuracy loss is highly desirable
 for many users.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Operations are partitioned into colors denoted "Green", "Red", and "Gray" which represents the benefit 
-of using a reduced floating point version of the operation. "Green" operations are compute intensive
+Operations are partitioned into categories denoted "ALLOW", "DENY", and "FOLLOW" which represents the benefit 
+of using a reduced floating point version of the operation. "ALLOW" operations are compute intensive
 and almost always see hardware memory and latency savings by utilizing a reduced floating point form.
-Examples of these operations are matrix multiplies and convolutions. "Gray" operations see little to 
+Examples of these operations are matrix multiplication and convolutions. "FOLLOW" operations see little to 
 no savings in using reduced floating point forms -- at least not enough to justify the overhead of 
-casting values back and forth from FP32. "Red" operations meanwhile are operations we do not want to 
+casting values back and forth from FP32. "DENY" operations meanwhile are operations we do not want to 
 use reduced floating point forms on, usually due to numerical precision reasons.
 
-In general we always want to insert casts into reduced floating point space for "Green" operations, 
-are fine with transforming "Gray" operations into reduced floating point space if their inputs are already
-in that form, and want to explicitly cast back into full floating point space for "Red" operations. 
+In general we always want to insert casts into reduced floating point space for "ALLOW" operations, 
+are fine with transforming "FOLLOW" operations into reduced floating point space if their inputs are already
+in that form, and want to explicitly cast back into full floating point space for "DENY" operations. 
 Each operation will be placed into one of these lists via a "coloring" function which take in Relay `CallNodes`
-and returns a color. For example, we might have a function which colors only a convolution as "Green" if it 
-has a large enough kernel and "Gray" otherwise. For the default implementation we will keep things simple
-however and do something like place all convolutions in the "Green" list, all element-wise operations in 
-the "Gray" list, and so on. Still, the code will be designed to be easily extensible via overwriting 
+and returns a color. For example, we might have a function which colors only a convolution as "ALLOW" if it 
+has a large enough kernel and "FOLLOW" otherwise. For the default implementation we will keep things simple
+however and do something like place all convolutions in the "ALLOW" list, all element-wise operations in 
+the "FOLLOW" list, and so on. Still, the code will be designed to be easily extensible via overwriting 
 this "coloring" function.
 
 The final variable we must keep in mind is the fact that some hardware platforms can operate on reduced
@@ -110,7 +110,7 @@ TVM is not the best tool for making models go fast as we leave a lot of free spe
 [prior-art]: #prior-art
 
 Many of the ideas are taken from Tensorflow's [automatic mixed precision training framework](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf)
-and the initial "Green", "Gray", and "Red" lists are based [similarly](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h). 
+and the initial "ALLOW", "FOLLOW", and "DENY" lists are based [similarly](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h). 
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
