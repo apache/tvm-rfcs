@@ -1,7 +1,7 @@
 - Feature Name: Automatic Mixed Precision Pass
 - Start Date: 2021-06-08 
-- RFC PR: TODO
-- GitHub Issue: TODO
+- RFC PR: https://github.com/apache/tvm-rfcs/pull/6
+- GitHub Issue: https://github.com/apache/tvm/issues/8296
 
 # Summary
 [summary]: #summary
