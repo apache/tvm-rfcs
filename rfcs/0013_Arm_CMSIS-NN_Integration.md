@@ -3,15 +3,20 @@
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/15
 - GitHub Issue: https://github.com/apache/tvm/issues/8646
 
+# Acronyms
+CMSIS: Common Microcontroller Software Interface Standard
+ACL: The Compute Library for the Arm® Architecture
+MLF: Model Library Format
+
 # Summary
 
-This RFC introduces plan of integration of CMSIS-NN library into TVM. It consists of efficient kernels targetted for Arm's Cortex-M architecture.
+This RFC introduces plan of integration of CMSIS-NN library into TVM. It consists of efficient kernels targeted for Arm's Cortex-M architecture.
 
 Please refer to the following pages for more details on CMSIS-NN.
 https://arm-software.github.io/CMSIS_5/NN/html/index.html
 https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN
 
-First PR in the series of PRs to fullfill this integration would be graph partitioner for softmax int8. Detailed plan can found below in this RFC.
+First PR in the series of PRs to fulfill this integration would be graph partitioner for softmax int8. Detailed plan can found below in this RFC.
 
 
 # Motivation
@@ -21,12 +26,12 @@ CMSIS-NN library consists of hand-tuned kernels that are suitable for Cortex-M a
 
 # Guide-level explanation
 
-TVM's external code generation infrastructure allows for the automatic partitoning and code generation using the external compiler. Partitioned subgraphs containing operator(s) targetted for Cortex-M can then be translated into the CMSIS-NN C APIs which eventually become part of MLF. For this integration, we are heavily dependent on the TVM's infrastructure for external code generation.
+TVM's external code generation infrastructure allows for the automatic partitioning and code generation using the external compiler. Partitioned subgraphs containing operator(s) targeted for Cortex-M can then be translated into the CMSIS-NN C APIs which eventually become part of MLF. For this integration, we are heavily dependent on the TVM's infrastructure for external code generation.
 
 If a user runs tvmc, they will get a MLF format archive which calls out to the CMSIS operators.
 
 ```
-tvmc --target=c,cmsisnn --output-format=mlf --executor=aot
+tvmc --target=cmsisnn,c --output-format=mlf --executor=aot
 ```
 
 
@@ -106,7 +111,7 @@ P10: Support for MatMul
 
 CMSIS-NN integration into TVM builds on top of ACL's integration into TVM. Existing infrastructure of BYOC allows for graph partitioning to detach the operators or chain of operations as a separate subgraph that then can be compiled for Cortex-M.
 
-Reference: [Arm Compute Lib] (https://tvm.apache.org/docs/deploy/arm_compute_lib.html)
+Reference: [ACL] (https://tvm.apache.org/docs/deploy/arm_compute_lib.html)
 
 Code generation for CMSIS-NN will use the newly introduced target hooks.
 
