@@ -210,10 +210,10 @@ mods = pipeline_graph(mod["main"], split)
 ```
 
 ### 3.2. Manually constructing pipeline subgraph configuration for dependency and target device
-There are dependency between pipeline subgraph, for example we have 3 pipeline subgraph named
-s1, s2, and s3, s2 input is s1 output and s2 output is s3 input, we need to construct a configuation
-file to descript such dependency relation, such configuratin also need to involved "target" and
-"device" information following is a example.
+There are dependencies between pipeline subgraphs. For example, we have 3 pipeline subgraphs named
+`s1`, `s2`, and `s3`. Their dependencies are `s1 -> s2 -> s3`. Users need to construct a configuation
+file to describe such relation. The configuration also needs to involve "target" and "device" information
+as the following example.
 
 ```python
 mconfig = {"target_host": None, "mod_name": "default", "build": None, "params": None}
