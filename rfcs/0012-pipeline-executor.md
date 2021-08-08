@@ -53,7 +53,7 @@ Pipeline Executor provides:
 
 * Use RPC to perform distributed computation cross multiple remote devices.
 
-* User can use Pipeline Executor to integrate pre-compute processing and pos-processing with
+* Users can use Pipeline Executor to integrate pre-compute processing and post-processing with
   network compute together and compute in same executor.
 
 ## 3. Guide-level explanation
