@@ -68,10 +68,13 @@ the RFC process:
 	- A committer of the corresponding area will approve and merge the RFC.
       Normally the corresponding committer will become the shepherd of the
       implementation PRs.
-	- RFCs are numbered consecutively based on their order of proposal,
-      regardless of if they are accepted or postponed.
-    - Legacy RFCs will be numbered consecutively, prefixed with the letter
-      `L` to indicate it is a legacy RFC. For example, `L0001`.
+	- RFCs are numbered according to the PR number assigned by GitHub in the
+      `tvm-rfcs` repository. To allocate a new RFC number, open a PR against
+      `tvm-rfcs` (initially, you might need to use a dummy number in the filename
+      for the RFC content; this can be updated after the RFC PR is created).
+    - Legacy RFCs are those RFCs which were accepted prior to forming the tvm-rfcs
+      repo. These will be numbered consecutively, prefixed with the letter `L` to
+      indicate it is a legacy RFC. For example, `L0001`.
 	- A successful RFC will include an overview with the problem the RFC is
       attempting to address, a proposed solution that describes the design and
       implementation strategy, and a timeline for completion. Optional sections can
