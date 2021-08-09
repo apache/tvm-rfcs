@@ -7,11 +7,12 @@
 
 Currently, given a ML model primarily TVM will generate two main artifacts :
 
-* A1 : Description of the sequential execution of operators :
+* A1 : executor configuration : the description of the sequential execution of operators
   1. If the "executor" is "graph", this would be a JSON
   2. if the "executor" is "aot", this would be a main function describing call graph of operators
   3. if the "executor" is "vm", this would be a series of VM bytecode instructions
 * A2 : library of operators (in the form of runtime.Module)
+* A3 : compiled parameters of the model
 
 A1 is generally created out of lowering the "main" relay function and A2 is created lowering fused relay primitive functions → TIR PrimFuncs → C or LLVM artifacts of the operator library.
 
@@ -19,7 +20,7 @@ A1 is generally created out of lowering the "main" relay function and A2 is crea
 
 Yes, there is.
 
-For A1, the inter-(fused) operator tensors are visible in the "main" relay function. Thus, there exists currently a Relay level pass known as "GraphPlanMemory" that works on the Relay IR to share the space used by tensors which are not live simultaneously and are visible between (fused) operators . Currently, the said pass will use Shared Memory Buffer Object memory planning scheme (See https://blog.tensorflow.org/2020/10/optimizing-tensorflow-lite-runtime.html) to perform the planning.
+For A1, the inter-(fused) operator tensors are visible in the "main" relay function. There exists currently a Relay level pass known as "GraphPlanMemory" that works on the Relay IR to share the space used by tensors which are not live simultaneously and are visible between (fused) operators . Currently, the said pass will use Shared Memory Buffer Object memory planning scheme (See https://blog.tensorflow.org/2020/10/optimizing-tensorflow-lite-runtime.html) to perform the planning.
 
 For A2, the operators are lowered to TIR PrimFuncs. There exist a pass called StorageRewrite that more or less does the same thing as "GraphPlanMemory" but on TIR for the tensors visible within (fused) operators and are not live simultaneously.
 
@@ -53,7 +54,7 @@ Example TIR :
              }
 ```
 
-The above TIR snippet shows that two intra operator buffers PaddedInput, DepthwiseConv2d is not visible to Relay Graph Plan Memory to be shared.
+The above TIR snippet shows that two intra operator buffers PaddedInput, DepthwiseConv2d are not visible for optimization by the Relay-level GraphPlanMemory approach.
 
 * Assumption of local optimization : performing sharing inside the operator first and sub-subsequently sharing that workspace with inter-operator tensors, would be sub-optimal.
 
@@ -63,7 +64,7 @@ Thus, for the embedded use-cases, we'd need a unified static memory planner that
 
 G1. There would be no TVMBackendAlloc(/Free)Workspace calls generated for tir.allocates that could be evaluated at compile time.
 
-Currently, the TVM codegen and the AoT executor relies on TVMB(A/F)W calls to increment/decrement a pointer of user provided workspace buffer. By the end of this set of work, if the backend uses Unified Static Memory Planning, there should not be TVMB(A/F)W calls rather correct offset in to the user provided buffer should be codegen'd for allocates that could be evaluated at compile time. The dynamically sized allocates will remain untouched, thus will be lowered as usual.
+Currently, the TVM codegen and the AoT executor relies on TVMB(A/F)W calls to increment/decrement a pointer of user provided workspace buffer. By the end of this set of work, if the backend uses Unified Static Memory Planning, there should not be TVMB(A/F)W calls rather correct offset in to the user provided buffer should be codegen'd for allocates for which the size argument could be evaluated at compile time. The dynamically sized allocates will remain untouched, thus will be lowered as usual.
 
 G2. The static memory planning algorithm should be changeable.
 
@@ -377,7 +378,7 @@ The current proposal for the interface of the memory planning algorithm is as fo
 ```
 Array<BufferInfo> (*foo)(Array<BufferInfo> buffers, Map<String, Integer> pool_sizes)
 ```
-The memory planning algorithm is expected to populate the assigned pool_name with the offset and return the updated array of BufferInfo objects. Additionally, the second argument provides size constraints for each pool (if any).
+The memory planning algorithm is expected to populate pool_name and pool_offset and return the updated array of BufferInfo objects. Additionally, the second argument provides size constraints for each pool (if any).
 ### Special Considerations :
 
 * tir.constants : TIR does not have the ability to represent constants – which is limiting and often leads to having side-channels to carry constants between TIR compiler passes including this one.
@@ -459,14 +460,16 @@ After Step 1 (introducing tir.constants to hold constant data) : the TIR code sh
 ```
 # Code Structure
 
-* src/tir/usmp/analysis/ -- this is where analysis pases of USMP will live
-* src/tir/usmp/transforms/ -- this is where transform pases of USMP will live
+* src/tir/usmp/analysis/ -- this is where analysis passes of USMP will live
+    * python/tir/usmp/analysis/ -- python interface to call analysis passes of USMP
+* src/tir/usmp/transforms/ -- this is where transform passes of USMP will live
+    * python/tir/usmp/transform/ -- python interface to call analysis pases of USMP
 * src/tir/usmp/usmp.cc -- this is main intergration of USMP that exposes the full TIR --> TIR transformation as described.
+    * python/tir/usmp/ -- python interface to call the integrated the USMP
 * tests/python/unittest/test_tir_usmp_*.py -- this where unittests for each of the passes and pass pipeline for USMP as a component will live.
 
-NOTE 1: All the above passes will have a mirror in the python.
 
-NOTE 2: to support tir.constants generally, we'll be enhancing the bound relay.constants to be lowered down to tir.constants to codegen. Those changes will appear through out the stack accordingly.
+NOTE : to support tir.constants generally, we'll be enhancing the bound relay.constants to be lowered down to tir.constants to codegen. Those changes will appear through out the stack accordingly.
 
 # Drawbacks
 
