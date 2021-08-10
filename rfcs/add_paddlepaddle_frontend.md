@@ -23,7 +23,7 @@ Currently, PaddlePaddle has built a prosperous technological ecology, there are 
 - [PaddleNLP](https://github.com/PaddlePaddle/PaddleNLP)
 - [DeepSpeech](https://github.com/PaddlePaddle/DeepSpeech)
 
-As of version 2.0, PaddlePaddle supports imperative programming like PyTorch. Furthermore, a mechanism of `Dynamic to Static` is provided to export PaddlePaddle a model in graph representation, which is more friendly for deployment. The following example code shows how to export a PaddlePaddle model,
+As of version 2.0, PaddlePaddle supports imperative programming like PyTorch. Furthermore, a mechanism of `Dynamic to Static` is provided to export a PaddlePaddle model to graph representation, which is more friendly for deployment. The following example code shows how to export a PaddlePaddle model,
 
 ```
 import paddle
@@ -35,7 +35,7 @@ paddle.jit.save(model, "model/infer", input_spec=[input_spec])
 ```
 
 PaddlePaddle's deployment is supported by Paddle Inference/Paddle Lite/OpenVINO/Tengine/Adlik now. We noticed that there are lots of developers converting models to ONNX format for the compatibility with TVM, but only a limited number of models are convertible due to lack of ONNX operators.  
-Based on this background, we proposed this RFC PaddlePaddle frontend for TVM, improving usability for PaddlePaddle users and enhancing the compatibility between PaddlePaddle and TVM.
+Based on this background, we proposed this RFC to add a PaddlePaddle frontend for TVM, improving usability for PaddlePaddle users and enhancing the compatibility between PaddlePaddle and TVM.
 
 
 # Guide-level explanation
@@ -92,7 +92,7 @@ It's the first time we have added a PaddlePaddle frontend to an ML compiler.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-We will add new unit test cases that rely on PaddlePaddle framework, and this may increase time-cost of unit tests. If there are any problems, please let me know.
+We will add new unit test cases that rely on PaddlePaddle framework, and this may increase time-cost of unit tests. If there are any proslems, please let me know.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
