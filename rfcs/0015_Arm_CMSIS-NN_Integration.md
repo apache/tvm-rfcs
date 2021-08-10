@@ -47,7 +47,16 @@ def @main(%a: Tensor[(1, 16, 16, 3), int8]) -> Tensor[(1, 16, 16, 3), int8] {
 }
 ```
 
-Following code block shows result of the graph partitioning for cmsisnn target.
+Here is the API to obtain the partitioned function aimed at CMSIS-NN.
+
+```python
+    # API to call CMSIS-NN partitioning
+    from tvm.relay.op.contrib import cmsisnn
+        # Here, module is the relay module
+        cmsisnn_module = cmsisnn.partition_for_cmsisnn(module)        
+```
+
+Following code block shows the resultant IRModule.
 
 ```python
 def @main(%a: Tensor[(1, 16, 16, 3), int8]) -> Tensor[(1, 16, 16, 3), int8] {
@@ -64,7 +73,16 @@ def @tvmgen_default_cmsisnn_0(%cmsisnn_0_i0: Tensor[(1, 16, 16, 3), int8], Inlin
 }
 ```
 
-Target hooks for `relay_to_tir` implemented as part of https://github.com/apache/tvm-rfcs/pull/10 is used to obtain the following tir for graph with softmax. These hooks provide us with the flexibility to reuse memory planning and much of the TVM's code generation capabilities.
+Above partitioned function is presented to the CMSIS-NN external code generator for *tir* generation using the TVM's build() API. 
+
+```python
+    # Invoke AOT compiler to get the MLF containing CMSIS-NN APIs
+    with tvm.target.Target("c -runtime=c --link-params -mcpu=cortex-m55 --executor=aot --unpacked-api=1"):
+        factory = tvm.relay.build(cmsisnn_mod)
+
+```
+
+Intermediate *tir* looks like this:
 
 ```python
 primfn(placeholder_1: handle, out_write_1: handle) -> ()
@@ -78,14 +96,18 @@ primfn(placeholder_1: handle, out_write_1: handle) -> ()
     }
 }
 ```
+In future, target hooks for `relay_to_tir` implemented as part of [Additional Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10) will be used to obtain the above tir for graph with softmax. These hooks provide us with the flexibility to reuse memory planning and much of the TVM's code generation capabilities.
 
-At last, code generator identifies the extern_call and generates code for softmax with the CMSIS-NN API for softmax int8.
+At last, code generator identifies the *tir* extern_call(s) and generates *c* code for softmax with the CMSIS-NN API for softmax int8.
 
-For more complex operations, CMSIS-NN structures will need to be used. For this purpose, `tir_to_runtime` will be used to extend the existing C Codegen and produce C code with the appropriate headers and calling patterns. Please refer to the [Additional Target Hooks RFC] (https://github.com/apache/tvm-rfcs/pull/10).
+Note: There are no changes required in config.cmake as the CMSIS-NN APIs corresponding to the operators are hard coded. The testing infrastructure links them to the CMSIS-NN library. Execution of the networks works similar to what has been described in [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11).
+
+For more complex operations, CMSIS-NN structures will need to be used. For this purpose, `tir_to_runtime` will be used to extend the existing C Codegen and produce C code with the appropriate headers and calling patterns. Please refer to the [Additional Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10).
+
 
 # Testing
 
-As we introduce the operators, we will keep on adding individual unit tests. Once the operator support is partially completed, we will start adding network tests. We are planning to use [Arm® Corestone™-300 Fixed Virtual Platform] (https://developer.arm.com/ip-products/subsystem/corstone/corstone-300) to run these tests in the CI. Reference: [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11/files)
+As we introduce the operators, we will keep on adding individual unit tests. Once the operator support is partially completed, we will start adding network tests. We are planning to use [Arm® Corestone™-300 Fixed Virtual Platform] (https://developer.arm.com/ip-products/subsystem/corstone/corstone-300) to run these tests in the CI. Reference: [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11/files). In its absence, tests to check the correctness of *tir* can be added.
 
 # Drawbacks
 
