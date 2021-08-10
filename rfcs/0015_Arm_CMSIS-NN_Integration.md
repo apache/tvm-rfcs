@@ -7,14 +7,15 @@
 CMSIS: Common Microcontroller Software Interface Standard
 ACL: The Compute Library for the Arm® Architecture
 MLF: Model Library Format
+FVP: Arm® Corestone™-300 Fixed Virtual Platform
 
 # Summary
 
 This RFC introduces plan of integration of CMSIS-NN library into TVM. It consists of efficient kernels targeted for Arm's Cortex-M architecture.
 
 Please refer to the following pages for more details on CMSIS-NN.
-https://arm-software.github.io/CMSIS_5/NN/html/index.html
-https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN
+* https://arm-software.github.io/CMSIS_5/NN/html/index.html
+* https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN
 
 First PR in the series of PRs to fulfill this integration would be graph partitioner for softmax int8. Detailed plan can found below in this RFC.
 
@@ -26,7 +27,7 @@ CMSIS-NN library consists of hand-tuned kernels that are suitable for Cortex-M a
 
 # Guide-level explanation
 
-TVM's external code generation infrastructure allows for the automatic partitioning and code generation using the external compiler. Partitioned subgraphs containing operator(s) targeted for Cortex-M can then be translated into the CMSIS-NN C APIs which eventually become part of MLF. For this integration, we are heavily dependent on the TVM's infrastructure for external code generation.
+TVM's BYOC infrastructure allows for the partitioning and code generation using the external compiler. Partitioned subgraphs containing operator(s) targeted for Cortex-M can then be translated into the CMSIS-NN C APIs which eventually become part of MLF.
 
 If a user runs tvmc, they will get a MLF format archive which calls out to the CMSIS operators.
 
@@ -37,7 +38,7 @@ tvmc --target=cmsisnn,c --output-format=mlf --executor=aot
 
 # Reference-level explanation
 
-We will enable this integration by considering TFLite networks, but is equally applicable for all other networks that can be translated into Relay IR. TFLite test that contains just a quantized (int8) softmax is first converted as a sequence of following relay operations: *dequantize -> softmax -> quantize* by the TFLite frontend. Please refer to the code snippet below.
+We will enable this integration by considering TFLite networks, but is equally applicable for all other networks that can be translated into Relay IR. TFLite test that contains just a quantized (int8) softmax is first converted as a sequence of following relay operations: *dequantize -> softmax -> quantize* by the TFLite frontend. Please refer to the relay code snippet below obtained from TFLite frontend.
 
 ```python
 def @main(%a: Tensor[(1, 16, 16, 3), int8]) -> Tensor[(1, 16, 16, 3), int8] {
@@ -102,12 +103,14 @@ At last, code generator identifies the *tir* extern_call(s) and generates *c* co
 
 Note: There are no changes required in config.cmake as the CMSIS-NN APIs corresponding to the operators are hard coded. The testing infrastructure links them to the CMSIS-NN library. Execution of the networks works similar to what has been described in [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11).
 
-For more complex operations, CMSIS-NN structures will need to be used. For this purpose, `tir_to_runtime` will be used to extend the existing C Codegen and produce C code with the appropriate headers and calling patterns. Please refer to the [Additional Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10).
+Once the entire infrastructure for CMSIS-NN mapping is in place using softmax API, we will add more complex operations such as depthwise convolution and pooling gradually to both the graph partitioning and code generation infrastructure.
 
 
 # Testing
 
-As we introduce the operators, we will keep on adding individual unit tests. Once the operator support is partially completed, we will start adding network tests. We are planning to use [Arm® Corestone™-300 Fixed Virtual Platform] (https://developer.arm.com/ip-products/subsystem/corstone/corstone-300) to run these tests in the CI. Reference: [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11/files). In its absence, tests to check the correctness of *tir* can be added.
+As we introduce the operators, we will keep on adding individual unit tests. Once the operator support is partially completed, we will start adding network tests. We are planning to use [Arm® Corestone™-300 Fixed Virtual Platform] (https://developer.arm.com/ip-products/subsystem/corstone/corstone-300) to run these tests in the CI. Reference: [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11/files). There will be two kinds of checks a unit test would provide: one around the correctness of the partitioned function and the other around validity of the output from corstone-300 against native TVM output.
+
+In case the above infrastructure is not available, we can test the correctness of *tir* in the unit tests.
 
 # Drawbacks
 
@@ -117,7 +120,7 @@ CMSIS-NN APIs provide hand coded kernels. Therefore, code generation skips the a
 
 Before adding other operators from CMSIS-NN, the integration will be enabled only for softmax.
 
-P1: Graph partitioner for CMSIS-NN target
+P1: Graph partitioner for CMSIS-NN target for Softmax
 P2: Code generation using existing BYOC
 P3: tvmc support to generate code for CMSIS-NN
 P4: Move this implementation using `tir_to_runtime` from target hooks
