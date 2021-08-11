@@ -56,9 +56,19 @@ relay.frontend.from_paddle(program_or_layer, shape_dict=None, scope=None)
 The following example code shows how to import a PaddlePaddle model,
 ```
 import paddle
-model = paddle.jit.load('model/infer')
+from tvm.contrib.download import download_testdata
+from tvm.contrib.tar import untar
+from tvm import relay
 
-shape_dict = {'image': [1, 3, 224, 224]}
+# Download PaddlePaddle ResNet50 model
+model_url = 'https://bj.bcebos.com/x2paddle/models/paddle_resnet50.tar'
+model_path = download_testdata(model_url, "paddle_resnet50.tar", "./")
+untar(model_path, "./")
+
+# Load PaddlePaddle model
+model = paddle.jit.load('paddle_resnet50/model')
+
+shape_dict = {'inputs': [1, 3, 224, 224]}
 mod, params = relay.frontend.from_paddle(model, shape_dict=shape_dict)
 ```
 
