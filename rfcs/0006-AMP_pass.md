@@ -41,8 +41,9 @@ This speed increase without significant accuracy loss is highly desirable for ma
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-## Pass Explanation
 The mixed precision pass operates on Relay models and their operations.
+
+We define an operator as in "mixed precision" space if it's inputs are in reduced precision form (e.g. FP16).
 
 Operations are partitioned into category lists denoted "ALLOW", "DENY", and "FOLLOW" which represents the benefit 
 of using a reduced floating point version of the operation. "ALLOW" operations are compute intensive
@@ -52,9 +53,9 @@ no savings in using reduced floating point forms -- at least not enough to justi
 casting values back and forth from FP32. "DENY" operations meanwhile are operations we do not want to 
 use reduced floating point forms on, usually due to numerical precision reasons.
 
-We always want to insert casts into reduced floating point space for inputs to "ALLOW" operations, 
-are fine with transforming "FOLLOW" operations into reduced floating point space if their inputs are already
-in that form, and want to explicitly cast back into full floating point space for "DENY" operations. 
+We always want to move "ALLOW" operations into mixed precision space by casting their inputs, 
+are fine with transforming "FOLLOW" operations into mixed precision space space if their inputs are already
+in reduced form, and want to explicitly cast back into full floating point space for "DENY" operations. 
 Each operation will be placed into one of these lists via a function which take in Relay `CallNodes`
 and returns either "ALLOW", "DENY", or "FOLLOW. For example, we might have a function which colors only 
 a convolution as "ALLOW" if it has a large enough kernel and "FOLLOW" otherwise. 
@@ -69,9 +70,10 @@ accumulate in FP32 but have an output datatype of FP16.
 The interface to control the conversion of an operator for the mixed precision pass is therefore as follows:
    - Write a function in python which given a Relay CallNode, decides whether it should be in the "ALLOW", 
         "FOLLOW", or "DENY" lists of operations. Furthermore, the function should decide the accumulation 
-        and output datatypes of the operation.
+        and output datatypes of the operation, though these are only used if the operator will be in mixed
+        precision space.
   ```python
-  def color_func(call_node: "relay.Call", mixed_precision_dtype: str) -> Tuple[int, str, str]:
+  def mixed_precision_func(call_node: "relay.Call", mixed_precision_dtype: str) -> Tuple[int, str, str]:
     """
     Parameters
     ----------
@@ -86,7 +88,7 @@ The interface to control the conversion of an operator for the mixed precision p
     result : Tuple[int, str, str]
         A tuple where the first element (int) represents a code describing the operation as belonging to "ALLOW", "DENY", or "FOLLOW" lists.
         The second element describes the accumulation datatype of the operation (i.e. usually float32 or mixed_precision_dtype). The third 
-        element describes the output datatype of the operation (i.e. usually mixed_precision_dtype).
+        element describes the output datatype of the operation (i.e. usually mixed_precision_dtype). 
     """
   ```
    - Register the function as an operator attribute with a provided function:
@@ -115,19 +117,33 @@ The interface to control the conversion of an operator for the mixed precision p
           The priority level
       """
   ```
-By default, unregistered operators will always be assumed to be in the "FOLLOW" list of operations and accumulate 
-and output results as the mixed precision dtype. A default registry of functions will also be provided and be based
+   - An example of creating a function which operates on a Conv2D operator and registering it is as follows:
+  ```python
+  import math 
+
+  MIXED_PRECISION_ALWAYS = 0
+  MIXED_PRECISION_FOLLOW = 1
+  MIXED_PRECISION_NEVER = 2
+
+  def conv2d_mixed_precision_func(call_node: "relay.Call", mixed_precision_dtype: str) -> Tuple[int, str, str]:
+    """Note this won't work for dynamic shaped inputs."""
+    accumulation_dtype = "float32"
+    output_dtype = mixed_precision_dtype
+    
+    input_shape_elements = math.prod(call_node.op.data.shape)
+
+    # Always convert to mixed precision if the input is big enough, else move to follow list
+    if input_shape_elements > 100:
+      return (MIXED_PRECISION_ALWAYS, accumulation_dtype, output_dtype)
+    return (MIXED_PRECISION_FOLLOW, accumulation_dtype, output_dtype)
+
+  # Register conversion function for conv2d
+  register_mixed_precision_conversion("nn.conv2d", conv2d_mixed_precision_func)
+  ```
+With this interface, every single Relay operator within a model will belong to "ALLOW", "FOLLOW", or "DENY" lists and is 
+accordingly transformed into a mixed precision form. By default, unregistered operators will always be assumed to be in the 
+"FOLLOW" list of operations and accumulate and output results as the mixed precision dtype. A default registry of functions will also be provided and be based
 on TensorFlow's [similar feature](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h).
-
-<!---
-For the default 
-implementation we will keep things simple however and do something like place all convolutions in the "ALLOW" list, 
-all element-wise operations in  the "FOLLOW" list, and so on. Still, the code will be designed to be easily extensible 
-via overwriting this "coloring" function.
--->
-
-
-
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
