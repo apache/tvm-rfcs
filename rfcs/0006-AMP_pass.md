@@ -158,19 +158,31 @@ Part of the associated RFC issue will also be used dedicated to creating a tutor
 the conversion of ops via the Python interface. Furthermore, some work will be done in benchmarking
 the performance gains from the pass.
 
+## Pass implementation
+
+## Other changes needed in TVM
+
+## Codegen issues 
+
+## Plan for benchmarking 
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
 If this is not useful, we are just adding an additional pass which will do nothing. Furthermore we 
-will have to make sure it works on a wide range of models or people will be very mad at TVM.
+will have to make sure it works well on a wide range of models or people will be very mad at TVM.
+This necessitates good default definitions for automatic mixed precision conversion for operators
+which we will have to maintain. Furthermore, additional work needs to be done in order to ensure 
+good coverage of support for this pass.
 
-This might not be useful if mixed precision training becomes super popular in the future in which 
-case most models might be in a reduced precision floating point form already.
+Furthermore, this pass might not be useful if mixed precision training becomes super popular in the 
+future in which case most models might be in a reduced precision floating point form already.
 
 It also might not be useful if integer quantization becomes super popular, though it may be possible
-to mix integer quantization and mixed floating precision techniques. Floating point does have 
-several advantages still over integer quantization including simplicity and the fact that some 
-operators like `sin` and `erf` are still designed in hardware with floating point in mind.
+to mix integer quantization and mixed floating precision techniques. Despite this, automatic mixed 
+precision has an advantage of having a lesser accuracy loss compared to integer quantization, especially
+when models are not retrained. This makes it very useful as a simple flag that can be turned on for 
+every trained model to essentially get a free speed increases.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
@@ -178,7 +190,8 @@ operators like `sin` and `erf` are still designed in hardware with floating poin
 - Why is this design the best in the space of possible designs?
 
 Other alternatives require a lot more work and changes and could probably considered future goals of TVM.
-This include automatic mixed precision training.
+This include automatic mixed precision training. It also operates on the Relay level which is the right
+place to make these changes and seems to mostly work mostly well out of the box excepting a few issues.
 
 - What other designs have been considered and what is the rationale for not choosing them?
 
@@ -200,21 +213,24 @@ and the initial "ALLOW", "FOLLOW", and "DENY" lists are based [similarly](github
 
 - What parts of the design do you expect to resolve through the RFC process before this gets merged?
 
-We still need to make sure that the current design and knobs exposed provide extensibility to every hardware platform out there.
+Feedback on the user interface in the pass will be appreciated. The creation of default conversion methods for operators
+is another topic discussion.
 
 - What parts of the design do you expect to resolve through the implementation of this feature before stabilization?
 
-Probably a lot of edge cases of operations within TVM.
+There are likely many misc. TVM changes that must be made in order to better support FP16 execution as discussed above.
+We will deal with these issues as we encounter them, though believe that in general these are issues not specific 
+to the pass in general but rather FP16 support throughout all of TVM.
 
 - What related issues do you consider out of scope for this RFC that could be addressed in the future 
   independently of the solution that comes out of this RFC?
 
-Making accumulation datatypes a standard idea for all operations within TVM.
+Making accumulation datatypes a standard idea for all operations within TVM. Furthermore, having good coverage
+for the conversion of existing mixed precision models.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
 Really this can be used for any floating point datatype. A custom FP24 for FPGA? 
-BFloat16? Some other weird floating point type? We have an easy way to convert 
-toward utilizing these weird floating point types with FP32 when appropriate
-under this framework.
+BFloat16? Some other weird dtype? We have an easy way to convert models 
+toward utilizing exotic types with FP32 when appropriate under this framework.
