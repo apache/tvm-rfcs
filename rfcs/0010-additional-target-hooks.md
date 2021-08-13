@@ -1,3 +1,7 @@
+Feature Name: additional-target-hooks
+Start Date: 2021-07-14
+RFC PR: apache/tvm-rfcs#10
+GitHub Issue: apache/tvm#8589
 
 # Summary
 [summary]: #summary
@@ -54,7 +58,7 @@ TVM_REGISTER_TARGET_KIND("ethos-n", kDLCPU)
 With this change, this path splits, depending on whether you wanted to generate a full `Module` or introduce some specific TIR nodes into the code generation flow; the addition of the `relay_to_tir` hook allows you to write trivial external TIR generators such as calling out to a third party library:
 ```python
 @tvm.register_func("target.woofles.lowering")
-def tir_generator(relay_func):
+def tir_generator(ir_module, relay_func):
     """A simple TIR generator for testing"""
     ib = tvm.tir.ir_builder.create()
     A = tvm.tir.decl_buffer(shape=(8,8,), dtype=relay_func.params[0].checked_type.dtype)
@@ -65,15 +69,20 @@ def tir_generator(relay_func):
     )
 
     prim_func = tvm.tir.PrimFunc([A, B, C], ib.get())
-    ir = tvm.lower(prim_func, name=relay_func.attrs["global_symbol"])
+    new_module = tvm.lower(prim_func, name=relay_func.attrs["global_symbol"])
 
-    return ir
+    return new_module, GlobalVar(relay_func.attrs["global_symbol"])
 ```
 This is then registered on a target:
 ```
 TVM_REGISTER_TARGET_KIND("woofles", kDLCPU)
     .set_attr<String>("relay_to_tir", "target.woofles.lowering");
 ```
+The signature for this hook is as follows:
+```
+relay_to_tir(const IRModule& ir_module, const relay::Function& function) -> (IRModule, GlobalVar)
+```
+Which takes a read only `IRModule` and relevant `Function` and returns a new `IRModule` which represents the transformed function, alongside a `GlobalVar` which indicates the top-level operator function within that new `IRModule`.
 
 ## TIR -> Runtime
 Extending from the above, a second hook is introduced to do further transformations from TIR -> Runtime named `tir_to_runtime`, this bypasses the default `target.build.X` and instead uses the registered `tir_to_runtime` build:
@@ -95,7 +104,7 @@ This functionality is an extension of the existing use of `attr::kCompiler` to p
 ## Relay to TIR Hook
 [relay-to-tir-hook]: #relay-to-tir-hook
 
-This can be added into the `compile_engine.cc` by cross referencing the existing `attr::kCompiler` with the `TargetKind` registry:
+This can be added to the TE Compiler by cross referencing the existing `attr::kCompiler` with the `TargetKind` registry:
 ```
 auto code_gen_name = key->source_func->GetAttr<String>(attr::kCompiler).value();
 auto target_kind = tvm::TargetKind::Get(code_gen_name).value();
@@ -108,7 +117,7 @@ if (target_kind.defined()) {
     return CachedFunc(cache_node);
 }
 ```
-By placing this where lowering currently takes place, it means minimal changes to executor code generators as they call into `Lower` in `CompileEngine`.
+By placing this where lowering currently takes place, it means minimal changes to executor code generators as they call into `LowerTE` and thus are agnostic to how it gets lowered.
 
 ## TIR to Runtime Hook
 [tir-to-runtime-hook]: #tir-to-runtime-hook
