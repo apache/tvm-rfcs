@@ -140,6 +140,31 @@ The interface to control the conversion of an operator for the mixed precision p
   # Register conversion function for conv2d
   register_mixed_precision_conversion("nn.conv2d", conv2d_mixed_precision_func)
   ```
+   - After registering the appropriate operators for the model. We then invoke the mixed precision pass. Note we want to rerun some 
+         other graph optimizations afterwards:
+  ```python
+  def convert_to_fp16(mod, params, fast_math=True):
+    mod = tvm.IRModule.from_expr(mod["main"])
+
+    # Run safe operations to simplify graph
+    mod = tvm.relay.transform.EliminateCommonSubexpr()(mod)
+    mod = tvm.relay.transform.FoldConstant()(mod)
+
+    # Run main mixed precision pass
+    mod = InferType()(mod)
+    mod = ToMixedPrecision()(mod)
+
+    # Run more passes to clean up new graph
+    mod = tvm.relay.transform.EliminateCommonSubexpr()(mod)
+    mod = tvm.relay.transform.FoldConstant()(mod)
+    mod = tvm.relay.transform.CombineParallelBatchMatmul()(mod)
+    mod = tvm.relay.transform.FoldConstant()(mod)
+    mod = tvm.relay.transform.FastMath()(mod) if fast_math else mod
+
+    return mod, params
+  ```
+    - We then have a Relay model in mixed precision form!
+
 With this interface, every single Relay operator within a model will belong to "ALLOW", "FOLLOW", or "DENY" lists and is 
 accordingly transformed into a mixed precision form. By default, unregistered operators will always be assumed to be in the 
 "FOLLOW" list of operations and accumulate and output results as the mixed precision dtype. A default registry of functions will also be provided and be based
