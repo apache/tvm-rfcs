@@ -184,6 +184,22 @@ the conversion of ops via the Python interface. Furthermore, some work will be d
 the performance gains from the pass.
 
 ## Pass implementation
+The centerpiece of the Relay pass is it's behavior with CallNodes, which are the actual functions and operations which might be converted into 
+mixed precision space. The key idea is to use the user provided functions above to determine whether the node is part of the "ALLOW", "FOLLOW"
+or "DENY" lists. If the CallNode is calling a non-Relay operator (e.g. it is a function call) then nothing is changed. 
+
+In the case of an operator, we cover the cases where the operator belongs to either of the "ALLOW", "FOLLOW" or "DENY" lists.
+- If an operator is in the "ALLOW" list, then all floating point inputs not the mixed precision type will be cast into the mixed precision type
+- If an operator is in the "FOLLOW" list, then if all floating point inputs are in the mixed precision type, then nothing will be changes and 
+  the operator will operate in mixed precision space. If some floating point inputs are not in the mixed precision space, then all inputs are 
+  case back to FP32.
+- If an operator is in the "DENY" list, then all floating point inputs are cast back into FP32.  
+
+At the end, if the operator is operating in mixed precision space, then we will accumulate in the given accumulation datatype and output a result
+in the output datatype. Some operators specify this information in their attributes, so we must sometimes construct a new operator node with 
+the appropriate attributes to share this information. 
+
+For more information, please refer to the initial implementation of the [mixed precision pass](https://github.com/apache/tvm/pull/8069).
 
 ## Other changes needed in TVM
 
