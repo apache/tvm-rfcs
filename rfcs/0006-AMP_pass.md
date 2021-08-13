@@ -1,4 +1,4 @@
-- Feature Name: Automatic Mixed Precision Pass
+- Feature Name: Automatic Mixed Precision Pass and support
 - Start Date: 2021-06-08 
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/6
 - GitHub Issue: https://github.com/apache/tvm/issues/8296
@@ -9,30 +9,42 @@
 Many pieces of hardware support arithmetic not only on IEEE 32 bit floating point numbers, but also IEEE 16 bit floating point numbers. 
 These 16 bit operations typically have higher theoretical throughput and involve less use of memory bandwidth.
 As a result, we can see significant increases in speed from changing 32 bit floating point operations into 16 bit analogs for many models.
-Surprisingly, this change has little affect on the results of some models, though some care must had when changing a select few
-operations. Some 16 bit floating point operations such as `exp` and `log` for example are considered unsafe to use 16 bit analogs 
+Surprisingly, this change has little effect on the results of some models, even without retraining, though some care must had when changing a select few
+operations. For example, some 16 bit floating point operations such as `exp` and `log` are considered generally unsafe in the 16 bit floating point space
 due to loss of [numerical precision](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf). 
-In general for a function `f`, if `|f(x)| >> |x|` for expected ranges of input we probably do not want to use the 16 bit floating point versions.
+In general for a function `f`, if `|f(x)| >> |x|` for expected ranges of input we probably want to stick to 32 bit floating point versions.
+As a result, within models, 16 bit floating point is often interspersed with 32 bit floating point operations for unsafe operations. The usage of 
+differing precision for floating point in a model is often called "Mixed Precision."
 
-This RFC describes a relay pass which automatically converts a 32 bit floating point model into a reduced bit 
-floating point analog. For the initial work, IEEE's 16 bit floating point will be targeted though future support
-for bfloat16 will be held in mind. Additionally, we discuss some additional work that must be done to support 16 bit floating point 
-on some common targets.
+This RFC describes a plan to support automatic mixed floating point precision models within TVM. Specifically, we focus on the conversion 
+of an existing, trained 32 bit floating point model, into a mixed precision model without retraining. Note, we do not focus on the conversion
+of models already operating in a mixed precision space though much of the work being done will help guarantee support for these models.
+
+In particular we focus discussion on the following areas:
+- Creating a pass to automatically transform a 32 bit floating point Relay model into a 16 bit analog
+- The changes in the intermediate representation of TVM that must be made to ensure wide operator support for FP16
+- Issues in some codegen pathways that must be address to ensure wide support for FP16.
+
+For the initial work, IEEE's 16 bit floating point will be targeted though future support for bfloat16 will be held in mind. 
 
 # Motivation
 [motivation]: #motivation
 
-Many machine learning models can move significant portions of their computational graphs into the FP16 space 
+Many machine learning models can move large portions of their computational graphs into the FP16 space 
 without significant loss of accuracy. For many pieces of hardware this also comes with a boost in speed. For example, 
-Pytorch saw utilizing FP16 in mixed precision training saw significant [increases in convergence speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
+PyTorch utilized FP16 in mixed precision training and saw significant [increases in training speed](https://pytorch.org/blog/accelerating-training-on-nvidia-gpus-with-pytorch-automatic-mixed-precision/). 
 
-We should expect similar increases for inference. This speed increase without significant accuracy loss is highly desirable
-for many users.
+We should expect similar increases in speed for inference. 
+
+This speed increase without significant accuracy loss is highly desirable for many users.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Operations are partitioned into categories denoted "ALLOW", "DENY", and "FOLLOW" which represents the benefit 
+## Pass Explanation
+The mixed precision pass operates on Relay models and their operations.
+
+Operations are partitioned into category lists denoted "ALLOW", "DENY", and "FOLLOW" which represents the benefit 
 of using a reduced floating point version of the operation. "ALLOW" operations are compute intensive
 and almost always see hardware memory and latency savings by utilizing a reduced floating point form.
 Examples of these operations are matrix multiplication and convolutions. "FOLLOW" operations see little to 
@@ -40,27 +52,82 @@ no savings in using reduced floating point forms -- at least not enough to justi
 casting values back and forth from FP32. "DENY" operations meanwhile are operations we do not want to 
 use reduced floating point forms on, usually due to numerical precision reasons.
 
-In general we always want to insert casts into reduced floating point space for "ALLOW" operations, 
+We always want to insert casts into reduced floating point space for inputs to "ALLOW" operations, 
 are fine with transforming "FOLLOW" operations into reduced floating point space if their inputs are already
 in that form, and want to explicitly cast back into full floating point space for "DENY" operations. 
-Each operation will be placed into one of these lists via a "coloring" function which take in Relay `CallNodes`
-and returns a color. For example, we might have a function which colors only a convolution as "ALLOW" if it 
-has a large enough kernel and "FOLLOW" otherwise. For the default implementation we will keep things simple
-however and do something like place all convolutions in the "ALLOW" list, all element-wise operations in 
-the "FOLLOW" list, and so on. Still, the code will be designed to be easily extensible via overwriting 
-this "coloring" function.
+Each operation will be placed into one of these lists via a function which take in Relay `CallNodes`
+and returns either "ALLOW", "DENY", or "FOLLOW. For example, we might have a function which colors only 
+a convolution as "ALLOW" if it has a large enough kernel and "FOLLOW" otherwise. 
 
-The final variable we must keep in mind is the fact that some hardware platforms can operate on reduced
-floating point types. However, while they for example may take two FP16 operands they may accumulate the 
-result in a 32 bit buffer. An example of this are the Tensor Cores in Nvidia's Turing architecture. 
-The final knob we give is a control over how operations accumulate their result. For this, we have 
-a function, which maps operation types like `conv2d` to an accumulation datatype as well as an output 
-datatype. The output datatype is the type other operations down the line will likely ingest from the previous
-calculation while the accumulation datatype describes the size of buffer where the results are initially
-stored. For NVidia's tensor cores for example many operations accumulate in FP32 but have an output datatype
-of FP16. The default implementation will follow this guideline closely and will by default have all 
-operations output FP16 and accumulate in FP32 only if TVM supports mixed datatypes for that particular
-operation.
+The final consideration is using higher bit accumulators. For example, for a global average pool, we might
+have 16 bit floating point inputs, but accumulate the result in a 32 bit floating point buffer in order to 
+maintain numerical information. As a result, we must have a way to communicate whether an operator should 
+accumulate results in a higher bit buffer. An example of hardware with native support for this sort of operation 
+are the Tensor Cores in Nvidia's Turing architecture. For NVidia's Tensor Cores for example have many operations 
+accumulate in FP32 but have an output datatype of FP16. 
+
+The interface to control the conversion of an operator for the mixed precision pass is therefore as follows:
+   - Write a function in python which given a Relay CallNode, decides whether it should be in the "ALLOW", 
+        "FOLLOW", or "DENY" lists of operations. Furthermore, the function should decide the accumulation 
+        and output datatypes of the operation.
+  ```python
+  def color_func(call_node: "relay.Call", mixed_precision_dtype: str) -> Tuple[int, str, str]:
+    """
+    Parameters
+    ----------
+    call_node:
+        A Relay Call node which is currently being examined by the mixed precision pass.
+
+    mixed_precision_dtype:
+        The datatype of the mixed precision pass (i.e. usually float16).
+
+    Returns
+    -------
+    result : Tuple[int, str, str]
+        A tuple where the first element (int) represents a code describing the operation as belonging to "ALLOW", "DENY", or "FOLLOW" lists.
+        The second element describes the accumulation datatype of the operation (i.e. usually float32 or mixed_precision_dtype). The third 
+        element describes the output datatype of the operation (i.e. usually mixed_precision_dtype).
+    """
+  ```
+   - Register the function as an operator attribute with a provided function:
+  ```python
+  def register_mixed_precision_conversion(op_name, func=None, level=10):
+      """Register mixed precision conversion function for an op
+
+      Given an op the function should return information on how the value should be
+      converted. Specifically the function should take a call node and the target
+      mixed precision datatype (e.g. FP16) and return the conversion category
+      (see python/tvm/relay/transform/mixed_precision.py) as well as the accumulation
+      and output datatype of the operation in the mixed precision dtype space.
+
+      Parameters
+      ----------
+      op_name : str
+          The name of the operator
+
+      func: function (call_node: relay.Call, target_dtype: string)
+      -> [conversion category, accumulation dtype, output dtype]: [int, string, string]
+          A function which given a call_node and target_dtype (e.g. FP16) returns the
+          conversion category and associated accumulation/output of the operation
+          when transformed into the mixed precision dtype space.
+
+      level : int
+          The priority level
+      """
+  ```
+By default, unregistered operators will always be assumed to be in the "FOLLOW" list of operations and accumulate 
+and output results as the mixed precision dtype. A default registry of functions will also be provided and be based
+on TensorFlow's [similar feature](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h).
+
+<!---
+For the default 
+implementation we will keep things simple however and do something like place all convolutions in the "ALLOW" list, 
+all element-wise operations in  the "FOLLOW" list, and so on. Still, the code will be designed to be easily extensible 
+via overwriting this "coloring" function.
+-->
+
+
+
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
