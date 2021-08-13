@@ -130,7 +130,7 @@ The interface to control the conversion of an operator for the mixed precision p
     accumulation_dtype = "float32"
     output_dtype = mixed_precision_dtype
     
-    input_shape_elements = math.prod(call_node.op.data.shape)
+    input_shape_elements = math.prod(call_node.args[0].type_annotation.shape)
 
     # Always convert to mixed precision if the input is big enough, else move to follow list
     if input_shape_elements > 100:
