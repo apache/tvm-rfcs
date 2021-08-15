@@ -31,14 +31,18 @@ Meta Schedule is the 3rd generation automatic scheduling system.
 
 ## 2. Motivation
 
-**Scheduling.** In TVM,
-both TensorIR and TE allow direct or indirect IR transformation guided by a
-developer-provided program, for example,
-specifying a particular reordering of loops for better locality,
-or tensorizing a compute region with specific hardware intrinsics.
-The process of invoking such a set of pre-defined transformations is called "**scheduling**",
-and each of such transformations is called a "**schedule primitive**".
-These primitives form a domain-specific language (DSL).
+**Scheduling.**
+In TVM, computation of each operator is described
+by either Tensor Expression (TE, the prior standard) or
+[TensorIR](https://discuss.tvm.apache.org/t/rfc-tensorir-a-schedulable-ir-for-tvm/7872) (TIR).
+Through a process known as **scheduling**,
+TVM allows a pre-defined set of transformations over these IRs,
+either lazily (transforms by manipulating the schedule tree)
+or eagerly (transforms by manipulating TIR),
+so that the end IRs could be lowered to code with potentially better performance.
+Such transformations are guided by a developer-provided program,
+which consist of this pre-defined set of transformations,
+called **schedule primitives**.
 
 **Design space.** The set of all possible schedulings of a TE/TensorIR is called its design space.
 Optimization in TVM is essentially exploring such space to find out a scheduling that transforms the
