@@ -196,16 +196,16 @@ CMSIS-NN APIs provide hand coded kernels. Therefore, code generation skips the a
 
 Before adding other operators from CMSIS-NN, the integration will be enabled only for softmax.
 
-P1: Graph partitioner for CMSIS-NN target for softmax  
-P2: Softmax code generation using existing BYOC  
-P3: tvmc support to generate code for CMSIS-NN  
-P4: Use of CMSIS-NN data structures while supporting depthwise convolution  
-P5: Use target hooks for CMSIS-NN code generation [Addition Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10/files)   
-P6: Support for Convolution  
-P7: Support for Fully connected  
-P8: Support for Max Pooling  
-P9: Support for Avg Pooling  
-P10: Support for MatMul  
+* P1: Graph partitioner for CMSIS-NN target for softmax  
+* P2: Softmax code generation using existing BYOC  
+* P3: tvmc support to generate code for CMSIS-NN  
+* P4: Use of CMSIS-NN data structures while supporting depthwise convolution  
+* P5: Use target hooks for CMSIS-NN code generation [Addition Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10/files)   
+* P6: Support for Convolution  
+* P7: Support for Fully connected  
+* P8: Support for Max Pooling  
+* P9: Support for Avg Pooling  
+* P10: Support for MatMul  
 
 
 # Prior art
