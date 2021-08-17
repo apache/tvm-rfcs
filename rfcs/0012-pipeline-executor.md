@@ -61,50 +61,50 @@ subgraphs and relies on graph_executor for operator storage and execution.
 
 This section introduces the use case for Pipeline Executor.
 
-* 1. Using Automatic Graph Split feature to construct pipeline subgraph and configuration.
+* 1. Manually Split relay module a list relay modules.
 * 2. Use pipeline_executor to build a pipeline module with the subgraphs and configuration.
 * 3. Use pipeline_executor to load the pipeline module to run network in pipeline parallelism mode.
 
-### 3.1. Using Automatic Graph Split feature to construct pipeline subgraph and configuration.
+### 3.1. Manually Split relay module a list relay modules.
 
-This feature not in this RFC scope. the logic as following.
+```python
 
-this solution include 3 steps, 1. Operator Auto tune, 2. Graph dependency tree build and balance, 
-3. Graph Auto Tune. following are more detail.
+mod1, mod2, mod3 = my_manual_partitioner(mod)
+pipe_cfg = PipelineModuleConfig()
 
-#### 3.1.1 Operator Auto Tune :
+# Define pipeline inputs. Here I assume two inputs of mod1 and one input of mod3 are the pipeline inputs.
+pipe_cfg.inputs["data_0"] = (mod1, "data_0")
+pipe_cfg.inputs["data_1"] = (mod1, "data_1")
+pipe_cfg.inputs["data_2"] = (mod3, "data_0")
 
-* a. In operator Auto tune tune section, user would using existing tuning logic to tune the every operator,
-but the tune would separately and serialized happen in all target involved by pipeline executor.
+# Define pipeline outputs to be the first output of mod3.
+pipe_cfg.outputs.append((mod3, 0))
 
-* b. After operator tune done , here can get performance data, for example , con2d_0 best perf in
-GPU is 3ms, in VTA is 2ms etc, this perf data would get used in later Graph dependency tree build
-balance step.
+# Define connections.
+pipe_cfg.connect(mod1, 0, mod2, "data_0") # mod1.output(0) -> mod2.data_0
+pipe_cfg.connect(mod2, 0, mod3, "data_1") # mod2.output(0) -> mod3.data_1
 
-#### 3.1.2. Graph dependency tree build balance
+# Print config for debugging
+print(str(pipe_cfg))
+# Inputs:
+#   |- data_0: mod1.data_0
+#   |- data_1: mod1.data_1
+#   |- data_2: mod3.data_0
+# Outputs:
+#   |- mod3.output(0)
+# Connections:
+#   |- mod1.output(0) -> mod2.data_0
+#   |- mod2.output(0) -> mod3.data_1
 
-* a. Initialize a DAG, the node of the DAG is subgraph, initially for a N node DAG, first [1, N -1] node mapping to
-[1 , N-1] layer(compute density operator and others) of original compute graph, the number N node is
-mapping to [N, M] layer , M here is the original compute layer number.
+# Use the config to build a pipeline executor
+with relay.build_config(opt_level=3):
+    lib = pipeline_executor.build_pipeline(pipe_cfg)
 
-* b. by using the perf data generated in 3.1.1.b , every dependency tree node can get a time consume value,
-the time consume value for difference node not at beginning is not same, then we call this DAG is not balanced in 
-weight of node, by using the way to adjust the node(subgraph) scope(how many operator in this node), we make
-every node of the DAG become same or value closed on weight(same time consume), then such DAG is a graph split
-solution,
-here we use DAG is to record the parent/child relation that child only can run after parent runned, and the scope
-adjustment only can hapen between parent and child.
-
-### 3.1.3 Graph Auto Tune.
-* a. 3.1.2 can generate more than one subgraph split solution DAG, in this step, Graph Auto Tune would try these
-multiple solution to get best configuration.
-
-after 1. 2. 3. , here can get an automatic graph split configuration.
+```
 
 ### 3.2. Use pipeline_executor to build pipeline module with the said subgraph and configuration.
 
-Pipeline executor provide a build function to compile and save the compile output into disk,
-following is a example
+following is a build example
 
 ```python
     with autotvm.get_pipeline_model_best(mod_file) as mod_config: # this is future feature not in this RFC
@@ -135,32 +135,22 @@ following is one example
 ```python
 #...
 
-def get_output(outputs, module):
-  suc = False
-  output = pipeline_module.get_output()
-  if output:
-    curOutputs = [output.asnumpy() for data in output]
-    outputs.append(curOutputs)
-    suc = True
-
-  return suc
-    
-
-pipeline_outputs = []
 datas = []
-for i in range(len(mods) + 1):
-  datas.append(np.full(dshape, 3 + i).astype("float32"))
-pipeline_module = pipeline_executor.create(lib)
+for _ in range(5):
+    # Each data includes 3 tensors (i.e., data_0, data_1, data_2 for the pipeline).
+    datas.append([np.full(shape[i], 0).astype("float32") for i in range(3)])
 
+# Feed all available inputs.
 for data in datas:
-    pipeline_module.set_input("data_0", data)
-    pipeline_module.set_input("data_1", data, mod_idx=2)
+    pipeline_module.set_input("data_0", data[0])
+    pipeline_module.set_input("data_1", data[1])
+    pipeline_module.set_input("data_2", data[2])
     pipeline_module.run()
-    get_output(pipeline_outputs, pipeline_module)
 
-left = len(datas) - len(pipeline_outputs)
-while(left > 0):
-    left = left - 1 if get_output(pipeline_outputs, pipeline_module) else left
+# Get all outputs.
+while pipeline_module.has_next_output():
+  pipeline_outputs.append(pipeline_module.get_output())
+
 ```
 
 ## 4 Reference-level explanation
@@ -210,5 +200,38 @@ Automatically split compute graph
 
 ## 9. Future possibilities
 
+### Using Automatic Graph Split feature to construct pipeline subgraph and configuration.
 
-Use Autotune to get best graph split solution
+This feature not in this RFC scope. the logic as following.
+
+this future solution include 3 steps, 1. Operator Auto tune, 2. Graph dependency tree build and balance, 
+3. Graph Auto Tune. following are more detail.
+
+#### 1 Operator Auto Tune :
+
+* a. In operator Auto tune tune section, user would using existing tuning logic to tune the every operator,
+but the tune would separately and serialized happen in all target involved by pipeline executor.
+
+* b. After operator tune done , here can get performance data, for example , con2d_0 best perf in
+GPU is 3ms, in VTA is 2ms etc, this perf data would get used in later Graph dependency tree build
+balance step.
+
+#### 2. Graph dependency tree build balance
+
+* a. Initialize a DAG, the node of the DAG is subgraph, initially for a N node DAG, first [1, N -1] node mapping to
+[1 , N-1] layer(compute density operator and others) of original compute graph, the number N node is
+mapping to [N, M] layer , M here is the original compute layer number.
+
+* b. by using the perf data generated in 3.1.1.b , every dependency tree node can get a time consume value,
+the time consume value for difference node not at beginning is not same, then we call this DAG is not balanced in 
+weight of node, by using the way to adjust the node(subgraph) scope(how many operator in this node), we make
+every node of the DAG become same or value closed on weight(same time consume), then such DAG is a graph split
+solution,
+here we use DAG is to record the parent/child relation that child only can run after parent runned, and the scope
+adjustment only can hapen between parent and child.
+
+### 3 Graph Auto Tune.
+* a. 2 can generate more than one subgraph split solution DAG, in this step, Graph Auto Tune would try these
+multiple solution to get best configuration.
+
+after 1. 2. 3. , here can get an automatic graph split configuration.
