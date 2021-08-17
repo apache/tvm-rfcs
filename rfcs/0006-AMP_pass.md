@@ -201,11 +201,18 @@ the appropriate attributes to share this information.
 
 For more information, please refer to the initial implementation of the [mixed precision pass](https://github.com/apache/tvm/pull/8069).
 
-## Other changes needed in TVM
+## Code-gen issues 
 
-## Codegen issues 
+There are some issues with generating valid CUDA code for FP16 at the moment. Other backends such as Vulkan also 
+have similar issues. These will need to be fixed to ensure wide coverage of support for this pass and will be 
+tracked in the linked GitHub issue.
 
 ## Plan for benchmarking 
+
+At a later date we will come with a comprehensive plan to benchmark this pass on some common models. This includes 
+documenting speedups from using FP16 on select platforms and determining accuracy loss on some select datasets. For 
+a comprehensive benchmark, the above issues will need to be tackled first. The GitHub issue will be used for tracking
+progress on this.
 
 # Drawbacks
 [drawbacks]: #drawbacks
