@@ -101,7 +101,7 @@ print(str(pipe_cfg))
 
 ### 3.2. Use pipeline_executor to build pipeline module with the said subgraph and configuration.
 
-following is a build example
+The interface is mostly the same as the graph executor but accepts a pipeline configuration instead of a Relay module. Here is an example.
 
 ```python
 
