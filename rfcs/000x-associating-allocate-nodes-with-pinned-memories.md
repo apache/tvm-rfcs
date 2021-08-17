@@ -1,0 +1,158 @@
+
+- Feature Name: TIR Pinned Memory Representation
+- Start Date: 2021-06-01
+- RFC PR: TBD
+- GitHub Issue: TBD
+
+# 1. Summary
+
+This RFC proposes how pinned memories could be associated with tir.allocate nodes (and allocate_const nodes) and used by passes in the lowering process.
+
+# 2. Motivation 
+
+Currently, TVM relies on dynamic (alloc and free style) allocations in runtime to manage the intermediary memory used by operators and the network. This is sometimes not desirable, especially in microTVM.
+
+The current design of [Unified Static Memory Planner (USMP)](https://github.com/apache/tvm-rfcs/pull/9), enables the user option to provide buffers to place workspace and constant tensors.
+
+```
+    tvmc compile my_model.tflite 
+    --executor=aot 
+    --target=accel,c  
+    --with-workspace-buffer= "name=dtcm;target=c;size=1000" # Here the size is more of a hint/guide provided to USMP
+    --with-workspace-buffer= "name=sram;target=c,accel"
+    --with-parameter-buffer= "name=itcm;target=c;size=5000" # Here the size is more of a hint/guide provided to USMP
+    --with-parameter-buffer= "name=flash;target=c,accel"
+```
+
+```
+    // The User Application 
+        extern  const TVMModel my_model;
+        __attribute__((section( "ITCM" )  const uint8_t   my_model_params_1[TVM_MY_MODEL_ITCM_PARAMETER_BUFFER_SIZE] = <param_1_data>;
+        __attribute__((section( "FLASH" ), aligned( 16 )))  const uint8_t my_model_params_2[TVM_MY_MODEL_FLASH_PARAMETER_BUFFER_SIZE] = <param_2_data>;
+        __attribute__((section( "DTCM" )  static uint8_t workspace_buffer_1[TVM_MY_MODEL_DTCM_WORKSPACE_BUFFER_SIZE];
+        __attribute__((section( "SRAM" ), aligned( 16 )))  static uint8_t workspace_buffer_2[TVM_MY_MODEL_SRAM_WORKSPACE_BUFFER_SIZE];
+
+    int main(...) {
+         ...
+         TVMContext context;
+         TVMInputs_my_model_1 inputs = {input};
+         TVMOutputs_my_model_1 outputs = {output};
+         TVMWorkspaces_my_model workspaces = {
+             .sram = &workspace_buffer_1,
+             .dtcm = &workspace_buffer_2,
+         };
+         TVMParameters_my_model parameters = {
+             .flash = &my_model_params_1,
+             .itcm = &my_model_params_2
+         };
+         TVMSetWorkspaces(&context, &workspaces);
+         TVMSetParameters(&context, parameters);
+         TVMExecute(&my_model, &inputs, &outputs, &context);
+    }
+```
+
+Therefore, we'd need a way to represent the association of each of these memories, that the user will pin the buffers to, closer to allocate nodes in TIR.
+
+# 3. Guide-level explanation
+
+This is not particularly a user-facing feature.
+
+However, the intention here is to associate the name of the memory (along with other information) closer to the allocate IR node. Therefore at the end of the compilation, metadata module (+ header) will generate pointer structs to-be passed in the from the application layer. 
+
+ In the case where user does not wish to pass in workspace or constant buffers, metadata module will generate a workspace buffer and a constant buffer, as explained in U1 of [USMP](https://github.com/apache/tvm-rfcs/pull/9).
+
+ # 4. Reference-level explanation
+
+ At the IR, we ll need to associate each allocate node with one (or more) memories that it can end up, because the scheduling might be satisfied with placing buffers in any of the memories in a given set of memories. Therefore, the scheduler might want the memory planners to decide which memory to use based on finding the allocation that fit.
+
+ ## S1. Using AttrStmt to associate additional info :
+
+TIR:
+ ```
+allocate_node_1 = tir.allocate([157323], "int16", "global")
+tir.attr(allocate_node_1, "pinned_memory", "foo_memory,bar_memory")
+ ``` 
+
+##  S2. Directly as an allocate node argument :
+
+ ```
+class AllocateNode : public StmtNode {
+ public:
+  /*! \brief The buffer variable. */
+  Var buffer_var;
+  /*! \brief The type of the buffer. */
+  DataType dtype;
+  /*! \brief The extents of the buffer. */
+  Array<PrimExpr> extents;
+  /*! \brief Only allocate buffer when condition is satisfied. */
+  PrimExpr condition;
+  /*! \brief The body to be executed. */
+  Stmt body;
+  /*! \brief If the allocate is scoped global, this field indicates
+   *  which external memories it could be pinned to as a comma seperated
+   *  string.
+   */
+  String pinned_memory;
+ ```
+TIR:
+ ```
+allocate_node_1 = tir.allocate([157323], "int16", "global",  "foo_memory,bar_memory")
+ ```
+
+ ## S3. Using additional tags in storage_scope
+
+```
+/*! \brief class to represent storage scope */
+struct StorageScope {
+  /*! \brief The rank of the storage */
+  StorageRank rank{StorageRank::kGlobal};
+  /*! \brief tag for special purpose memories. */
+  Array<String> tags;
+```
+
+
+ ```
+  /*!
+   * \brief Create storage scope from string
+   * \param s The string to be parsed.
+   * \return The storage scope.
+   */
+  static StorageScope Create(const std::string& s) {
+    StorageScope r;
+    if (s.empty()) {/
+      r.rank = StorageRank::kGlobal;
+    } else if (s.compare(0, 6, "global") == 0) {
+      r.rank = StorageRank::kGlobal;
+      r.tags = parseTags(s);
+ ```
+
+
+TIR (open to any other suggestion) :
+
+```
+allocate_node_1 = tir.allocate([157323], "int16", "global.(foo_memory,bar_memory)")
+```
+
+
+Out of the options, S1 seems the most non-invasive. However, we will need special handlers to obtain the information.
+
+S2 does not change the storage scope (or the 'tags') and adds an additional field to allocates to note this information.
+
+S3 fold the information into storage_scope and utilizes the 'tag' denote the memory. The change to IR, is just to support more tags.
+
+# 5. Drawbacks
+
+It is a change to the IR (if we are deciding on a non-S1 solution).
+
+# 6. Discussion
+
+We'd like to hear the thoughts of the community to decide on the best way to represent the information and its string format.
+
+
+
+
+
+
+
+
+
