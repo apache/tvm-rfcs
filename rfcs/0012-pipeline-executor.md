@@ -61,11 +61,11 @@ subgraphs and relies on graph_executor for operator storage and execution.
 
 This section introduces the use case for Pipeline Executor.
 
-* 1. Manually Split relay module a list relay modules.
+* 1. Manually Split relay module a list relay modules and generate modules configuration.
 * 2. Use pipeline_executor to build a pipeline module with the subgraphs and configuration.
 * 3. Use pipeline_executor to load the pipeline module to run network in pipeline parallelism mode.
 
-### 3.1. Manually Split relay module a list relay modules.
+### 3.1. Manually Split relay module a list relay modules and generate modules configuration.
 
 ```python
 
@@ -96,9 +96,6 @@ print(str(pipe_cfg))
 #   |- mod1.output(0) -> mod2.data_0
 #   |- mod2.output(0) -> mod3.data_1
 
-# Use the config to build a pipeline executor
-with relay.build_config(opt_level=3):
-    lib = pipeline_executor.build_pipeline(pipe_cfg)
 
 ```
 
@@ -107,9 +104,10 @@ with relay.build_config(opt_level=3):
 following is a build example
 
 ```python
-    with autotvm.get_pipeline_model_best(mod_file) as mod_config: # this is future feature not in this RFC
-      with relay.build_config(opt_level=3):
-        lib = pipeline_executor.build_pipeline(mod_config)
+
+# Use the config to build a pipeline executor
+with relay.build_config(opt_level=3):
+    lib = pipeline_executor.build_pipeline(pipe_cfg)
 
 ```
 
@@ -207,7 +205,7 @@ This feature not in this RFC scope. the logic as following.
 this future solution include 3 steps, 1. Operator Auto tune, 2. Graph dependency tree build and balance, 
 3. Graph Auto Tune. following are more detail.
 
-#### 1 Operator Auto Tune :
+#### 1. Operator Auto Tune :
 
 * a. In operator Auto tune tune section, user would using existing tuning logic to tune the every operator,
 but the tune would separately and serialized happen in all target involved by pipeline executor.
@@ -230,7 +228,7 @@ solution,
 here we use DAG is to record the parent/child relation that child only can run after parent runned, and the scope
 adjustment only can hapen between parent and child.
 
-### 3 Graph Auto Tune.
+#### 3. Graph Auto Tune.
 * a. 2 can generate more than one subgraph split solution DAG, in this step, Graph Auto Tune would try these
 multiple solution to get best configuration.
 
