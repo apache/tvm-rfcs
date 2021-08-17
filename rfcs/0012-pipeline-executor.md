@@ -61,7 +61,7 @@ subgraphs and relies on graph_executor for operator storage and execution.
 
 This section introduces the use case for Pipeline Executor.
 
-* 1. Manually Split relay module a list relay modules and generate modules configuration.
+* 1. Manually split/partition Relay module to a list of Relay modules and generate modules configuration (automatic module splitting is out of scope of this RFC and will be a future work).
 * 2. Use pipeline_executor to build a pipeline module with the subgraphs and configuration.
 * 3. Use pipeline_executor to load the pipeline module to run network in pipeline parallelism mode.
 
