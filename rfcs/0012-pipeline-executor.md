@@ -22,9 +22,9 @@
 ## 1. Summary
 
 
-This proposal introduces Pipeline Executor: A runtime executor that by scheduling
-splitted subgraph of relay graph in pipeline to implement task level parallism to
-improve compute throughput.
+This proposal introduces Pipeline Executor: A runtime executor that schedules
+a list of Relay modules in pipeline to achieve task level parallelism to improve
+computation throughput.
 
 ## 2. Motivation
 
