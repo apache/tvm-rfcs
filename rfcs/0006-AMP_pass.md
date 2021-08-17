@@ -213,6 +213,8 @@ Another issue we must deal with are making sure schedules support accumulation d
 check their TIR for mixed precision due to inadequately placed casts that are needed to operate in one datatype but output in another. We suggest relaxing the TIR type checking constraints by allowing upcasting floating point types. E.g. automatically inserting casts to convert from FP16 to FP32 when appropriate. In addition, other schedules hard code their
 accumulation datatypes which need to be changed.
 
+We might also anticipate other issues popping up that may require further changes to TVM to support mixed precision. 
+
 ## Code-gen issues 
 
 There are some issues with generating valid CUDA code for FP16 at the moment. Other backends such as Vulkan also 
