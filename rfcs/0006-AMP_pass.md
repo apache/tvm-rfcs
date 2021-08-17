@@ -298,3 +298,13 @@ for the conversion of existing mixed precision models.
 Really this can be used for any floating point datatype. A custom FP24 for FPGA? 
 BFloat16? Some other weird dtype? We have an easy way to convert models 
 toward utilizing exotic types with FP32 when appropriate under this framework.
+
+Some hardware we are interested in, usually because they support native FP16 instructions:
+- ARM CPUs, ARMv8.4-A+ (e.g. M1 in Apple Macs)
+- NVidia GPUs, especially those with Tensor Cores
+- AMD GPUs
+- AMD APUs
+- Intel CPUs / Intel Integrated Graphics (Skylake+ has FP16 support)
+
+We might need to further support for some targets like OpenCL, CUDA, and Metal in order to get the most from these hardwares.
+
