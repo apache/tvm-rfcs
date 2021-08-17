@@ -163,7 +163,7 @@ The interface to control the conversion of an operator for the mixed precision p
 
     return mod, params
   ```
-    - We then have a Relay model in mixed precision form!
+  - We then have a Relay model in mixed precision form!
 
 With this interface, every single Relay operator within a model will belong to "ALLOW", "FOLLOW", or "DENY" lists and is 
 accordingly transformed into a mixed precision form. By default, unregistered operators will always be assumed to be in the 
@@ -177,7 +177,7 @@ See [previous discussion thread](https://discuss.tvm.apache.org/t/rfc-relay-fp32
 
 As some have noticed the design can be simplified to a single pass where casting is determined by
 running type inference on mutated nodes. With a post-order traversal we can then check if we need to 
-cast arguments/propagate color.
+cast arguments/propagate casting attributes.
 
 Part of the associated RFC issue will also be used dedicated to creating a tutorial on how to control
 the conversion of ops via the Python interface. Furthermore, some work will be done in benchmarking
@@ -205,15 +205,14 @@ For more information, please refer to the initial implementation of the [mixed p
 
 Other miscellaneous changes must be made to TVM to fully support FP16 operations. For one, many operations and their 
 schedules make assumptions on the input types they can handle. For example, our CPU sorting operations assume 32 bit 
-alignment. We will have to deal with these one off adhoc instances in order to have good support for the pass. 
+alignment. We will have to deal with these adhoc problems in order to have good support for the pass. 
 Thankfully, these are fairly uncommon based on an initial survey and we can probably manage to tackle them one by one
 as they pop up.
 
-Another issue we must deal with are making sure schedules support accumulation datatypes. Some schedules, do not type
-check their TIR for mixed precision due to inadequately placed casts that are needed to operate in one datatype but output in another. We suggest relaxing the TIR type checking constraints by allowing upcasting floating point types. E.g. automatically inserting casts to convert from FP16 to FP32 when appropriate. In addition, other schedules hard code their
+Another issue we must deal with are making sure schedules support accumulation datatypes. Some schedules, do not have their TIR type check for mixed precision due to inadequately placed casts that are needed to operate in one datatype but output in another. We suggest relaxing the TIR type checking constraints by allowing upcasting floating point types. E.g. automatically inserting casts to convert from FP16 to FP32 when appropriate. In addition, other schedules hard code their
 accumulation datatypes which need to be changed.
 
-We might also anticipate other issues popping up that may require further changes to TVM to support mixed precision. 
+We also anticipate other issues popping up that may require further changes to TVM to support mixed precision but believe we can deal with these as they become apparent.
 
 ## Code-gen issues 
 
