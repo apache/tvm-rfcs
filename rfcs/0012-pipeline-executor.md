@@ -138,7 +138,7 @@ following is one example
 def get_output(outputs, module):
   suc = False
   output = pipeline_module.get_output()
-  if len(output):
+  if output:
     curOutputs = [output.asnumpy() for data in output]
     outputs.append(curOutputs)
     suc = True
