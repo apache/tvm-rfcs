@@ -113,22 +113,23 @@ with relay.build_config(opt_level=3):
 
 ### 3.3. Use pipeline_executor to load pipeline module to run network in pipeline parallism mode.
 
-Pipeline executor works asynchronously. Unlike the graph executor that launches a task by calling a blocking
-`run` API, we can kick off a task by calling a non-blocking `set_input` API in pipeline executor:
+Pipeline executor works asynchronously. Unlike the blocking `run` API in graph executor,
+`run` API in pipeline executor is non-blocking. As a result, we could have the following scenario:
 
-set_input: queue the input in the buffer.
-run: run with the input at the front.
-set_input: queue the input in the buffer.
-run: run with the input at the front.
-get_output
-set_input: queue the input in the buffer.
-run: run with the input at the front.
-get_output
-get_output
+1. set_input(): Push the input to the queue.
+2. run(): Launch a task with the first input in the queue.
+3. set_input(): Push the second input to the queue.
+4. set_input(): Push the third input to the queue.
+5. run(): Launch a task with the second input.
+6. get_output(): Get the output of the first input.
+7. run(): Launch a task with the third input. 
+8. get_output(): Get the output of the second input.
+9. get_output(): Get the output of the third input.
 
-`get_output` can be called anytime, and it will return an empty array if no output is ready.
+As can be seen, `get_output()` can be called anytime to get the first available output in the result queue,
+and it will return an empty array if no output is ready.
 
-following is one example
+Following is one example:
 
 ```python
 #...
