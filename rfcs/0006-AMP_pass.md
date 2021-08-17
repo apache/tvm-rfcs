@@ -201,6 +201,18 @@ the appropriate attributes to share this information.
 
 For more information, please refer to the initial implementation of the [mixed precision pass](https://github.com/apache/tvm/pull/8069).
 
+## Other changes to TVM
+
+Other miscellaneous changes must be made to TVM to fully support FP16 operations. For one, many operations and their 
+schedules make assumptions on the input types they can handle. For example, our CPU sorting operations assume 32 bit 
+alignment. We will have to deal with these one off adhoc instances in order to have good support for the pass. 
+Thankfully, these are fairly uncommon based on an initial survey and we can probably manage to tackle them one by one
+as they pop up.
+
+Another issue we must deal with are making sure schedules support accumulation datatypes. Some schedules, do not type
+check their TIR for mixed precision due to inadequately placed casts that are needed to operate in one datatype but output in another. We suggest relaxing the TIR type checking constraints by allowing upcasting floating point types. E.g. automatically inserting casts to convert from FP16 to FP32 when appropriate. In addition, other schedules hard code their
+accumulation datatypes which need to be changed.
+
 ## Code-gen issues 
 
 There are some issues with generating valid CUDA code for FP16 at the moment. Other backends such as Vulkan also 
