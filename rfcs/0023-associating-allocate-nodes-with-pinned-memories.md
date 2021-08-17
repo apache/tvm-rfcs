@@ -1,7 +1,7 @@
 
 - Feature Name: TIR Pinned Memory Representation
 - Start Date: 2021-06-01
-- RFC PR: TBD
+- RFC PR: https://github.com/apache/tvm-rfcs/pull/23
 - GitHub Issue: TBD
 
 # 1. Summary
