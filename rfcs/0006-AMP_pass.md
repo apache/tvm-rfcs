@@ -251,8 +251,11 @@ every trained model to essentially get a free speed increases.
 - Why is this design the best in the space of possible designs?
 
 Other alternatives require a lot more work and changes and could probably considered future goals of TVM.
-This include automatic mixed precision training. It also operates on the Relay level which is the right
-place to make these changes and seems to mostly work mostly well out of the box excepting a few issues.
+This include automatic mixed precision training. Existing frameworks like Tensorflow and PyTorch support 
+this and is based on work by [NVidia](https://developer.nvidia.com/blog/mixed-precision-training-deep-neural-networks/). 
+This involves rewriting the graph in a similar fashion to this pass, with some care with the gradient calculations to 
+ensure stability. Additionally, XLA can be run on top of this to further use model information to optimize kernels, much
+like TVM. As a lot of prior art has a similar design, we can be confident in this approach.
 
 - What other designs have been considered and what is the rationale for not choosing them?
 
