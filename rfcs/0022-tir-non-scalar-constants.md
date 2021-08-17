@@ -1,7 +1,7 @@
 
 - Feature Name: tir_non_scalar_constants
 - Start Date: 2021-06-01
-- RFC PR: TBD
+- RFC PR: https://github.com/apache/tvm-rfcs/pull/22
 - GitHub Issue: TBD
 
 # 1. Summary
