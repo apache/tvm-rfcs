@@ -245,17 +245,21 @@ precision has an advantage of having a lesser accuracy loss compared to integer 
 when models are not retrained. This makes it very useful as a simple flag that can be turned on for 
 every trained model to essentially get a free speed increases.
 
+# Prior art
+[prior-art]: #prior-art
+
+Many of the ideas are taken from Tensorflow's [automatic mixed precision training framework](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf)
+and the initial "ALLOW", "FOLLOW", and "DENY" lists are based [similarly](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h). 
+
+Existing frameworks like Tensorflow and PyTorch support this and is based on work by [NVidia](https://developer.nvidia.com/blog/mixed-precision-training-deep-neural-networks/). This involves rewriting the graph in a similar fashion to this pass, with some care with the gradient calculations to ensure stability. There are differences in implementation between the two
+however. PyTorch's interpreter model of execution poses an issue of where to insert casts when rewriting the graph. The solution PyTorch uses is to have a Tensor cache mechanism similar to the one used in the pass mentioned here for TVM. Both cast FP32 tensors to FP16 when needed for certain operations and then cache this tensor to avoid future extraneous casts from being used. However, where we differ from PyTorch is that for PyTorch this is done (dynamically during execution)[https://github.com/pytorch/pytorch/blob/324673a537fc818527b8375700a9b95a83a00c92/aten/src/ATen/autocast_mode.cpp#L32] of the graph while for TVM, this is simply used to perform analysis when rewritting the Relay graph. In this sense we are more similar to Tensorflow, which can use the XLA compiler and get better graph level optimizations ahead of time. Tensorflow's more compiled approach is more compatible with TVM.
+
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 - Why is this design the best in the space of possible designs?
 
-Other alternatives require a lot more work and changes and could probably considered future goals of TVM.
-This include automatic mixed precision training. Existing frameworks like Tensorflow and PyTorch support 
-this and is based on work by [NVidia](https://developer.nvidia.com/blog/mixed-precision-training-deep-neural-networks/). 
-This involves rewriting the graph in a similar fashion to this pass, with some care with the gradient calculations to 
-ensure stability. Additionally, XLA can be run on top of this to further use model information to optimize kernels, much
-like TVM. As a lot of prior art has a similar design, we can be confident in this approach.
+As discussed in prior art, many frameworks above use a similar process to support automatic mixed precision. Furthermore, we lean closer to Tensorflow's compiled approach to execution than PyTorch's interpreter heavy approach. The compiled approach will play better to TVM's strengths and abilities to do many different optimizations at the graph level and below.
 
 - What other designs have been considered and what is the rationale for not choosing them?
 
@@ -265,12 +269,6 @@ good to have this in the meantime.
 - What is the impact of not doing this?
 
 TVM is not the best tool for making models go fast as we leave a lot of free speedup on the table.
-
-# Prior art
-[prior-art]: #prior-art
-
-Many of the ideas are taken from Tensorflow's [automatic mixed precision training framework](https://on-demand.gputechconf.com/gtcdc/2019/pdf/dc91247-automatic-mixed-precision-in-tensorflow.pdf)
-and the initial "ALLOW", "FOLLOW", and "DENY" lists are based [similarly](github.com/tensorflow/tensorflow/blob/v2.5.0/tensorflow/core/grappler/optimizers/auto_mixed_precision_lists.h). 
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
