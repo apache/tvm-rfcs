@@ -5,7 +5,7 @@
 
 # Motivation
 
-Arm® Ethos™-U is a series of NPUs that will enable low-cost and highly efficient AI solutions for a wide range of embedded devices. This RFC introduces the port of the NPU into the uTVM compilation flow. The process of compilation relies on the multiple levels of abstraction in TVM and a variety of analysis and optimisation passes to produce c output. In the process of compilation, we rely on the many levels of TVM's IR (and the passes) to perform optimizations to create c-sources that can work with current microTVM deployments.
+Arm® Ethos™-U is a series of Neural Processing Units (NPUs) that will enable low-cost and highly efficient AI solutions for a wide range of embedded devices. This RFC introduces the port of the NPU into the microTVM compilation flow. The process of compilation relies on the multiple levels of abstraction in TVM and a variety of analysis and optimisation passes to produce c output. In the process of compilation, we rely on the many levels of TVM's Intermediate Representation (and the passes) to perform optimizations to create c-sources that can work with current microTVM deployments.
 
 ## Scope:
 
@@ -129,7 +129,7 @@ primfn(placeholder_1: handle, placeholder_2: handle, placeholder_3: handle, etho
 
 ### C4. Translating TIR Primfuncs to C-sources that call to the driver APIs to perform the execution.
 
-The hardware is used from the host CPU via invoking a driver API call with a command stream (a hardware specific binary artefact) that describes the hardware operators that need to execute. This component will use the TIR Primfunc to extract the hardware operators and buffer information. Thereafter, we'll be using Arm® Vela (https://pypi.org/project/ethos-u-vela/) compiler's backend python APIs to convert the TIR Primfunc to a command stream. Finally, the generated command stream will be wrapped in a c-source that invokes it using the driver APIs.
+The hardware is used from the host CPU via invoking a driver API call with a command stream (a hardware specific binary artifact) that describes the hardware operators that need to execute. This component will use the TIR Primfunc to extract the hardware operators and buffer information. Thereafter, we'll be using Arm® Vela (https://pypi.org/project/ethos-u-vela/) compiler's backend python APIs to convert the TIR Primfunc to a command stream. Finally, the generated command stream will be wrapped in a c-source that invokes it using the driver APIs.
 
 ```
 #include <stdio.h>
@@ -219,14 +219,7 @@ We are introducing a test_runner application that uses the [AoT executor](https:
 
 # Upstreaming Plan
 
-The scope for the initial upstreaming is adding support for Conv2D offloading to the NPU.
+The scope for the initial upstreaming is adding support for Conv2D offloading to the NPU. Please refer to the [tracking issue](https://github.com/apache/tvm/issues/8482).
 
-* [P1] The ci_cpu Dockerfile changes and install scripts – Arm® Corstone™-300 reference system and Ethos™-U NPU core driver
-* [P2] The Relay passes with unit tests for Conv2D (Partitioning, Preprocessing and Legalization)
-* [P3] The NPU Relay operators, TE compute definitions and TIR Passes for Conv2D and tests (unit / partial integration tests)
-* [P4] TIR to CS translator for Conv2D with unit tests
-* [P5] The C source generator
-* [P6] The overall codegen integration and tests
-* [P7] TVMC changes and tutorial to how to run a network on the Arm® Corstone™-300 reference system.
 
 Once the initial PRs are landed – we are planning to improve operator coverage.
