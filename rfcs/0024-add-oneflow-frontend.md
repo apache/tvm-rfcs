@@ -1,7 +1,7 @@
 - Feature Name: (`add oneflow frontend`)
 - Start Date: (2021-8-20)
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/)
+- RFC PR: [apache/tvm-rfcs#0024](https://github.com/apache/tvm-rfcs/pull/24)
+- GitHub Issue: [apache/tvm#8804](https://github.com/apache/tvm/issues/8804)
 
 # Summary
 [summary]: #summary
