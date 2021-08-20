@@ -1,7 +1,7 @@
-- Feature Name: (add oneflow frontend)
+- Feature Name: (`add oneflow frontend`)
 - Start Date: (2021-8-20)
-- RFC PR: [apache/tvm-rfcs#0024](https://github.com/apache/tvm-rfcs/pull/0024)
-- GitHub Issue: [apache/tvm#8804](https://github.com/apache/tvm/issues/8804)
+- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/)
+- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/)
 
 # Summary
 [summary]: #summary
@@ -38,7 +38,7 @@ class Graph(flow.nn.Graph):
         return out
 
 
-# module: eager model built by OneFlow
+# module: eager model built by OneFlow, align with Pytorch's python api. 
 graph = Graph(module)
 ```
 
@@ -57,7 +57,7 @@ We use a simple API to help users convert oneflow to tvm relay.
 relay.frontend.from_oneflow(graph, model_dir_path, freeze_params=True, user_input=None)
 ```
 
-- graph: flow.nn.Graph, contains information about the nodes of the model
+- graph: flow.nn.Graph, contains information about the nodes and edges of the model
 - model_dir_path: str, path of parameters
 - freeze_params: bool, if this parameter is False, then the user can specify the input of the  graph
 - user_input: dict, information about the specified input of the model
