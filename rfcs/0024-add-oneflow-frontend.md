@@ -122,7 +122,7 @@ It's the first time we have added a OneFlow frontend to an ML compiler.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-We will add new unit test cases that rely on OneFlow framework, and this may increase time-cost of unit tests. If there are any proslems, please let me know.
+We will add new unit test cases that rely on OneFlow framework, and this may increase time-cost of unit tests. If there are any problems, please let me know.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
