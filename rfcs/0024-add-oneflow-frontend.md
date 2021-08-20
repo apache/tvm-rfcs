@@ -129,5 +129,6 @@ We will add new unit test cases that rely on OneFlow framework, and this may inc
 
 For this RFC, we have made an established plan,
 
+- cover `tvmc`, like [this](https://github.com/apache/tvm/blob/e691c7f83892d7242d0992c78cec1e2f8953a9e3/python/tvm/driver/tvmc/frontends.py#L174-L198)
 - Support OneFlow Eager to ONNX
 - Some operators will be supported in this quarter
