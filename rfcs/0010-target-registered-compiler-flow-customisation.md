@@ -1,4 +1,4 @@
-Feature Name: additional-target-hooks
+Feature Name: `Target` registered compiler flow customisation
 Start Date: 2021-07-14
 RFC PR: apache/tvm-rfcs#10
 GitHub Issue: apache/tvm#8589
@@ -6,28 +6,36 @@ GitHub Issue: apache/tvm#8589
 # Summary
 [summary]: #summary
 
-In order to enable flexibility in how individual targets are lowered and built within TVM, this RFC proposes supporting additional hooks on the `Target` and that the target becomes the central place for such hooks, for example:
+In order to enable flexibility in how individual targets are lowered and built within TVM, this RFC proposes additional hooks on the `Target` and that the target becomes the central place for such hooks, for example:
 
 ```
+using FTVMLowering = Pass;
+using FTVMCodegen = runtime::TypedPackedFunc<runtime::Module(IRModule, Target)>;
+
 TVM_REGISTER_TARGET_KIND("cmsisnn", kDLCPU)
-    .set_attr<String>("relay_to_tir", "target.cmsisnn.lower")
-    .set_attr<String>("tir_to_runtime", "target.cmsisnn.build");
+    .set_attr<FTVMLowering>("relay_to_tir", CMSISNNLowering)
+    .set_attr<FTVMCodegen>("tir_to_runtime", CMSISNNCodeGen);
 ```
 
-This defines two new hooks as attributes on the target, referencing functions registered into the central TVM registry. In similar fashion, external generators (currently accessed directly in the compile engine) would be grouped with an appropriate `Target` as well:
+This defines two new hooks as attributes on the target, referencing functions registered into the central TVM registry. In similar fashion, external code generators (registered under the `relay.ext.` namespace currently) would be grouped with an appropriate `Target` as well:
 
 ```
+using FTVMExternalCodegen = runtime::TypedPackedFunc<runtime::Module(const ObjectRef&)>;
+using FTVMConstantUpdater = runtime::TypedPackedFunc<Map<String, runtime::NDArray>(Expr, std::string)>;
+
 TVM_REGISTER_TARGET_KIND("ethos-n", kDLCPU)
-    .set_attr<String>("relay_to_runtime", "relay.ext.ethos-n")
-    .set_attr<String>("constant_updater", "relay.ext.ethos-n.constant_updater");
+    .set_attr<FTVMExternalCodegen>("relay_to_runtime", EthosNCodeGen)
+    .set_attr<FTVMConstantUpdater>("constant_updater", EthosNConstantUpdater);
 ```
 
-Collecting all targets under the `Target` functionality and making it clearer which hooks apply to each target.
+Collecting all targets under the `Target` functionality (as opposed to registering additional `Target`s through the function registry using the namespace `relay.ext.`) and making it clearer which hooks apply to each target.
 
 # Motivation
 [motivation]: #motivation
 
-Currently to introduce an external code generator, the entire compilation pipeline must be recreated; this is necessary for some targets but in the case of simply re-using existing libraries or introducing a function call to use for an operator it can become more than is necessary. It also exists outside of the main `PrimFunc`, meaning it can't be inspected as part of the entire main graph; this limits the effectiveness of techniques such as memory planning. By introducing the hook `relay_to_tir`, which is similar to the default `lower` pass in that it returns TIR, it can be inspected by the memory planner and other analysis passes that only work at the TIR level. If all that is necessary is transforming into a flat `call_extern` (such is the case for the [CMSIS NN Softmax function](https://github.com/ARM-software/CMSIS_5/blob/develop/CMSIS/NN/Source/SoftmaxFunctions/arm_softmax_s8.c#L86)) then this can be left represented as TIR and be collected by the host code generation.
+Currently to introduce an external code generator (otherwise known as [BYOC](https://tvm.apache.org/docs/dev/relay_bring_your_own_codegen.html)), the entire compilation pipeline must be recreated; this is necessary for some targets but in the case of simply re-using existing libraries or introducing a function call to use for an operator it can become more than is necessary; to implement an external code generator requires going directly from Relay to a `runtime::Module` and re-implementing any compiler passes and code generation functionality rather than being able to extend upon the existing compiler infrastructure.
+
+The generated `runtime::Module` also exists outside of the main graph, meaning it can't be inspected in combination with other operators; this limits the effectiveness of techniques such as memory planning. By introducing the hook `relay_to_tir`, which is similar to the default `LowerTEPass` in that it returns TIR, it can be inspected by the memory planner and other analysis passes that only work at the TIR level. If all that is necessary is transforming into a flat `call_extern` (such is the case for the [CMSIS NN Softmax function](https://github.com/ARM-software/CMSIS_5/blob/develop/CMSIS/NN/Source/SoftmaxFunctions/arm_softmax_s8.c#L86)) then the hook may simply return that TIR to be collected by the host code generation.
 
 In the more complex case, we still want to take advantage of memory planning by using `relay_to_tir` and inspecting the liveness within the TIR graph, but instead want to generate out more complex calls (such as using the [CMSIS NN Structures](https://github.com/ARM-software/CMSIS_5/blob/def6f800f95661eb3451d317f7d0dde504f6020d/CMSIS/NN/Include/arm_nn_types.h#L81-L90)); the `tir_to_runtime` hook can be used to build our intermediary TIR into a Runtime module similarly to how the existing external code generation works. This allows writing of external code generators that also get the benefits of any intermediary analysis or transformation that TVM offers. Alongside being able to use the analysis passes, code generators can extend from existing host code generators, customising only the generation which is relevant to them and gaining maximum benefit from the existing optimisations made in TVM.
 
@@ -35,8 +43,8 @@ In the more complex case, we still want to take advantage of memory planning by 
 [guide-level-explanation]: #guide-level-explanation
 
 As a user, you can pick from additional hooks to bypass certain behaviours of the `Target`:
-* `relay_to_tir` - Custom lowering direct to TIR
-* `tir_to_runtime` - Custom code generation into a runtime module from TIR
+* `relay_to_tir` - Customize the lowering flow to TIR
+* `tir_to_runtime` - Customize code generation into a runtime module from TIR
 * `relay_to_runtime` - Full compilation flow from Relay to a runtime module
 
 To illustrate where the hooks are placed, please refer to the following diagram:
@@ -46,12 +54,12 @@ To illustrate where the hooks are placed, please refer to the following diagram:
 These can be registered on targets using `set_attr`:
 ```
 TVM_REGISTER_TARGET_KIND("cmsisnn", kDLCPU)
-    .set_attr<String>("relay_to_tir", "target.cmsisnn.lower")
-    .set_attr<String>("tir_to_runtime", "target.cmsisnn.build");
+    .set_attr<FTVMLowering>("relay_to_tir", CMSISNNLowering)
+    .set_attr<FTVMCodegen>("tir_to_runtime", CMSISNNCodeGen);
 
 TVM_REGISTER_TARGET_KIND("ethos-n", kDLCPU)
-    .set_attr<String>("relay_to_runtime", "relay.ext.ethos-n")
-    .set_attr<String>("constant_updater", "relay.ext.ethos-n.constant_updater");
+    .set_attr<FTVMExternalCodegen>("relay_to_runtime", EthosNCodeGen)
+    .set_attr<FTVMConstantUpdater>("constant_updater", EthosNConstantUpdater);
 ```
 
 ## Relay -> TIR
@@ -76,13 +84,11 @@ def tir_generator(ir_module, relay_func):
 This is then registered on a target:
 ```
 TVM_REGISTER_TARGET_KIND("woofles", kDLCPU)
-    .set_attr<String>("relay_to_tir", "target.woofles.lowering");
+    .set_attr<FTVMLowering>("relay_to_tir", [](IRModule ir_mod) -> IRModule {
+      return (*tvm::runtime::Registry::Get("target.test.tir_lowering"))(ir_mod);
+    });
 ```
-The signature for this hook is as follows:
-```
-relay_to_tir(const IRModule& ir_module, const relay::Function& function) -> (IRModule, GlobalVar)
-```
-Which takes a read only `IRModule` and relevant `Function` and returns a new `IRModule` which represents the transformed function, alongside a `GlobalVar` which indicates the top-level operator function within that new `IRModule`.
+The signature for this hook is as the same as any other `Pass`, which takes an `IRModule` with `Function`s and returns an `IRModule` with transformed `PrimFunc`s.
 
 ## TIR -> Runtime
 Extending from the above, a second hook is introduced to do further transformations from TIR -> Runtime named `tir_to_runtime`, this bypasses the default `target.build.X` and instead uses the registered `tir_to_runtime` build:
@@ -91,9 +97,8 @@ runtime::Module BuildWooflesHost(IRModule mod, Target target) {
 // ... Custom Code generation here
 }
 
-TVM_REGISTER_GLOBAL("target.build.woofles").set_body_typed(BuildWooflesHost);
 TVM_REGISTER_TARGET_KIND("woofles", kDLCPU)
-    .set_attr<String>("tir_to_runtime", "target.build.woofles");
+    .set_attr<FTVMCodegen>("tir_to_runtime", BuildWooflesHost);
 ```
 
 # Reference-level explanation
@@ -104,20 +109,20 @@ This functionality is an extension of the existing use of `attr::kCompiler` to p
 ## Relay to TIR Hook
 [relay-to-tir-hook]: #relay-to-tir-hook
 
-This can be added to the TE Compiler by cross referencing the existing `attr::kCompiler` with the `TargetKind` registry:
+This can be added before the `LowerTEPass` in `build_module.cc`, as a pass which iterates over `Target`s and transforming the relevant functions which will then be skipped by the `Function`-level passes until the `PrimFunc` passes begin:
+
+
 ```
-auto code_gen_name = key->source_func->GetAttr<String>(attr::kCompiler).value();
-auto target_kind = tvm::TargetKind::Get(code_gen_name).value();
-if (target_kind.defined()) {
-    auto map = tvm::TargetKind::GetAttrMap<String>("relay_to_tir");
-    std::string custom_lowering = map[target_kind];
-    auto lowering_function = tvm::runtime::Registry::Get(custom_lowering);
-    cache_node->target = key->target;
-    cache_node->funcs = (*lowering_function)(key->source_func, key->target);
-    return CachedFunc(cache_node);
+for (Target target : targets_) {
+    auto target_kind = target->kind;
+    auto map = tvm::TargetKind::GetAttrMap<FTVMLowering>("relay_to_tir");
+    if (map.count(target_kind)) {
+        ir_mod = map[target_kind](ir_mod, pass_context);
+    }
 }
 ```
-By placing this where lowering currently takes place, it means minimal changes to executor code generators as they call into `LowerTE` and thus are agnostic to how it gets lowered.
+
+By placing this above the `LowerTEPass`, this means any functions which are not processed in this way can be processed by the default lowering without interfering with `LowerTEPass`. To achieve this initially `kCompiler` would be used to carry the relevant target information, but the goal is to ensure all `Target`s are visible in `build_module.cc`.
 
 ## TIR to Runtime Hook
 [tir-to-runtime-hook]: #tir-to-runtime-hook
@@ -139,6 +144,7 @@ This would replace the existing `relay.ext.<target>` lookup in `compile_engine.c
 [drawbacks]: #drawbacks
 
 * Different hooks are currently dealt with in quite disparate parts of the codebase which are being heavily refactored
+* Introducing custom TIR has the potential to add edge cases to the compiler which may uncover new bugs
 
 # Prior art
 [prior-art]: #prior-art
