@@ -19,7 +19,7 @@ To help boost model performance and enhance TVM adoption for machine learning pr
 # Motivation
 [motivation]: #motivation
 
-PyTorch framework is increasingly being adopted for research and production. At the same time, PyTorch lacks an effective inference acceleration toolchain, which is the main concern in the industry. Existing acceleration includes:
+PyTorch enjoys increasing popularity among machine learning research community as well as in industrial production environment. However, it is still a missing piece as a generic, comprehensive and effective toolchain to accelerate real-world models and workloads in PyTorch, which raises primary concern in performance-critical production environments.
 
 * PyTorch → ONNX → TensorRT/TVM
 * PyTorch → torchscript → TensorRT/TVM
