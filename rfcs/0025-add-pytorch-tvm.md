@@ -255,7 +255,7 @@ Our implementation is inspired by this RFC that embeds TVM into TensorFlow: http
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-TODO
+See Section Drawbacks
 
 
 # Future possibilities
