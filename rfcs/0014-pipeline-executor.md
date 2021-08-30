@@ -69,20 +69,20 @@ This section introduces the use case for Pipeline Executor.
 
 ```python
 
-mod1, mod2, mod3 = my_manual_partitioner(mod)
+mod1, mod2, mod3 = my_manual_partitioner()
 pipe_cfg = PipelineModuleConfig()
 
 # Define pipeline inputs. Here I assume two inputs of mod1 and one input of mod3 are the pipeline inputs.
-pipe_cfg.inputs["data_0"] = (mod1, "data_0")
-pipe_cfg.inputs["data_1"] = (mod1, "data_1")
-pipe_cfg.inputs["data_2"] = (mod3, "data_0")
+pipe_config.connect(pipe_config.pipe_input("data_0"), pipe_config[mod1].input("data_0"))
+pipe_config.connect(pipe_config.pipe_input("data_1"), pipe_config[mod1].input("data_1"))
+pipe_config.connect(pipe_config.pipe_input("data_2"), pipe_config[mod3].input("data_1"))
 
 # Define pipeline outputs to be the first output of mod3.
-pipe_cfg.outputs.append((mod3, 0))
+pipe_config.connect(pipe_config[mod3].output(0), pipe_config.pipe_output("0"))
 
 # Define connections.
-pipe_cfg.connect(mod1, 0, mod2, "data_0") # mod1.output(0) -> mod2.data_0
-pipe_cfg.connect(mod2, 0, mod3, "data_1") # mod2.output(0) -> mod3.data_1
+pipe_config.connect(pipe_config[mod1].output(0), pipe_config[mod2].input("data_0")) # mod1.output(0) -> mod2.data_0
+pipe_config.connect(pipe_config[mod2].output(0), pipe_config[mod3].input("data_1")) # mod2.output(0) -> mod3.data_1
 
 # Print config for debugging
 print(str(pipe_cfg))
@@ -91,7 +91,7 @@ print(str(pipe_cfg))
 #   |- data_1: mod1.data_1
 #   |- data_2: mod3.data_0
 # Outputs:
-#   |- mod3.output(0)
+#   |- output(0): mod3.output(0)
 # Connections:
 #   |- mod1.output(0) -> mod2.data_0
 #   |- mod2.output(0) -> mod3.data_1
