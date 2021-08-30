@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-This RFC add a `PyTorchTVM` module to support: compile TorchScript to TVM and use accelerated module in PyTorch.
+This RFC add a `PyTorchTVM` module to support: offload subgraphs of TorchScript to TVM, and then embed those TVM-accelerated subgraphs back to TorchScript for runtime execution.
 
 To increase the TVM accessibility for PyTorch users, we propose `PyTorchTVM` module to support the following workflow:
 1. convert a torchscript module to tvm graph
