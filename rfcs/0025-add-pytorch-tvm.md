@@ -41,7 +41,7 @@ For example, we have an end-to-end resnet classification model, consisting of 3 
 1. Image reader
 2. Image transforms
 3. Resnet model inference
-
+Below is a snippet that illustrates the workflow of this pipeline:
 ```
 class Predictor(nn.Module):
 
