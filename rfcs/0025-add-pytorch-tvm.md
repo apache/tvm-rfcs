@@ -249,7 +249,7 @@ PyTorch is rapidly being adopted because of its user-fiendly API and dynamic cap
 # Prior art
 [prior-art]: #prior-art
 
-Our implementation is inspired by this RFC: https://discuss.tvm.apache.org/t/rfc-add-tensorflow-custom-op-to-embed-tvm-runtime-in-tensorflow-graph-and-session/4601
+Our implementation is inspired by this RFC that embeds TVM into TensorFlow: https://discuss.tvm.apache.org/t/rfc-add-tensorflow-custom-op-to-embed-tvm-runtime-in-tensorflow-graph-and-session/4601
 
 
 # Unresolved questions
