@@ -68,7 +68,7 @@ class Predictor(nn.Module):
             return y_pred.argmax(dim=1)
 ```
 
-We choose to accelerate resnet model with PyTorchTVM
+With PyTorchTVM, we are able to compile the ResNet with TVM and embed it back to PyTorch seamlessly with a few lines of code:
 
 ```
 from tvm.contrib.pt_op import PyTorchTVMModule, compile
