@@ -14,18 +14,20 @@ parameters, or have setup that depends on input parameters.
 
 Some unit tests should be tested along a variety of parameters for
 better coverage.  For example, a unit test that does not depend on
-target-specific features should be tested on all targets that the test
+target-specific features could be tested on all targets that the test
 platform supports.  Alternatively, a unit test may need to pass
 different array sizes to a function, in order to exercise different
 code paths within that function.
 
 The simplest implementation would be to write a test function that
-loops over all parameters, throwing an exception if any parameter
-fails the test.  However, this does not give full information to a
-developer, as a failure from any parameter results in the entire test
-to be marked as failing.  A unit-test that fails for all targets
-requires different debugging than a unit-test that fails on a single
-specific target, and so this information should be exposed.
+internally loops over all parameters and throws an exception when the
+test fails.  However, this does not give full information to a
+developer, because `pytest` does not necessarily include the parameter
+in the test report.  Even when it does, the value will be printed in a
+different location depending on how the internal loop is written.  A
+unit-test that fails for all targets requires different debugging than
+a unit-test that fails on a single specific target, and so this
+information should be exposed.
 
 This RFC adds functionality for implementing parameterized unit tests,
 such that each set of parameters appears as a separate test result in
@@ -36,24 +38,27 @@ the final output.
 
 ## Parameters
 
-To make a new parameter for unit tests to use, define it with the
-`tvm.testing.parameter` function.  For example, the following will
-define a parameter named `array_size` that has three possible values.
-This can appear either at global scope inside a test module to be
-usable by all test functions in that module, or in a directory's
-`conftest.py` to be usable by all tests in that directory.
+Before you can use a parameter in a test case, you need to register it
+with `pytest`.  Do this with the `tvm.testing.parameter` function.
+For example, the following will define a parameter named `array_size`
+that has three possible values.  This can appear either at global
+scope inside a test module to be usable by all test functions in that
+module, or in a directory's `conftest.py` to be usable by all tests in
+that directory.
 
 ```python
 array_size = tvm.testing.parameter(8, 256, 1024)
 ```
 
 To use a parameter, define a test function that accepts the parameter
-as an input.  This test will be run once for each value of the
-parameter.  For example, the `test_function` below would be run three
-times, each time with a different value of `array_size` according to
-the earlier definition.  These would show up in the output report as
-`test_function[8]`, `test_function[256]`, and `test_function[1024]`,
-with the name of the parameter as part of the function.
+as an input, using the same argument name as was used above in the
+parameter registration.  This test will be run once for each value of
+the parameter.  For example, the `test_function` below would be run
+three times, each time with a different value of `array_size`
+according to the earlier definition.  These would show up in the
+output report as `test_function[8]`, `test_function[256]`, and
+`test_function[1024]`, with the name of the parameter as part of the
+function.
 
 ```python
 def test_function(array_size):
@@ -162,7 +167,7 @@ variable `TVM_TEST_DISABLE_CACHE` to a non-zero integer.  This can be
 useful to re-run tests that failed, to check whether the failure is
 due to modification/re-use of a cached value.
 
-A fixture can depend on parameters, or on other fixtures.  This is
+A fixture can also depend on parameters or on other fixtures.  This is
 defined by accepting additional parameters.  For example, consider the
 following test function.  In this example, the calculation of
 `correct_output` depends on the test data, and the `schedule` depends
@@ -207,8 +212,8 @@ def test_function_new(dataset, correct_output, schedule):
 
 ## Target/Device Parametrization
 
-The TVM test configuration contains definitions for `target` and
-`dev`, which can be accepted as input by any test function.  These
+The global TVM test configuration contains definitions for `target`
+and `dev`, which can be accepted as input by any test function.  These
 replace the previous use of `tvm.testing.enabled_targets()`.
 
 ```python
@@ -498,20 +503,17 @@ the values in `@pytest.mark.parametrize`.
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal.
-A few examples of what this can include are:
-
-- Does this feature exist in other ML compilers or languages and discuss the experince their community has had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this? 
-  If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-If there is no prior art, that is fine - your ideas are interesting to us whether they are 
-  brand new or if it is an adaptation from other languages.
-
-Note that while precedent set by other languages is some motivation, it does not on its own motivate an RFC.
-Please also take into consideration that TVM intentionally diverges from other compilers.
+- [`pytest.mark.parametrize`](https://docs.pytest.org/en/6.2.x/parametrize.html)
+  exists to combine several related unit tests into a single function
+  with varying parameters.  However, it must be applied to each
+  individual python function.
+  
+- [`pytest.fixture`](https://docs.pytest.org/en/6.2.x/reference.html#pytest.fixture)
+  Both TVM parameters and fixtures are built on top of the existing
+  pytest functionality for parametrizations.  While pytest's default
+  fixtures can be cached using the `scope` parameter, only a single
+  cached value is retained at any time, which can lead to repetition
+  of expensive fixture setup.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
