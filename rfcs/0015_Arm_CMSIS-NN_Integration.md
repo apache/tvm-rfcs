@@ -4,18 +4,18 @@
 - GitHub Issue: https://github.com/apache/tvm/issues/8646
 
 # Acronyms
-CMSIS: Common Microcontroller Software Interface Standard
-ACL: The Compute Library for the Arm® Architecture
-MLF: Model Library Format
-Cortex-M: Arm® Cortex®-M processor
+* CMSIS: Common Microcontroller Software Interface Standard
+* ACL: The Compute Library for the Arm® Architecture
+* MLF: Model Library Format
+* Cortex-M: Arm® Cortex®-M processor
 
 # Summary
 
 This RFC introduces plan of integration of CMSIS-NN library into TVM. It consists of efficient kernels targeted for Cortex-M architecture.
 
 Please refer to the following pages for more details on CMSIS-NN.
-* [CMSIS-NN user manual] (https://arm-software.github.io/CMSIS_5/NN/html/index.html)
-* [GITHUB CMSIS-NN Source] (https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN)
+* [CMSIS-NN user manual](https://arm-software.github.io/CMSIS_5/NN/html/index.html)
+* [GITHUB CMSIS-NN Source](https://github.com/ARM-software/CMSIS_5/tree/develop/CMSIS/NN)
 
 First PR in the series of PRs to fulfill this integration would be graph partitioner for softmax int8. Detailed plan can found below in this RFC.
 
@@ -39,17 +39,16 @@ tvmc --target=cmsisnn,c --output-format=mlf --executor=aot
 In the absence of tvmc support, following python APIs can be used to generate the C code. But eventually tvmc will be supporting CMSIS-NN as mentioned above.
 
 ```python
-    from tvm.relay.op.contrib import cmsisnn
-        # API to call CMSIS-NN partitioning
-        # Here, module is the relay module
-        cmsisnn_module = cmsisnn.partition_for_cmsisnn(module)
+from tvm.relay.op.contrib import cmsisnn
 
-    # Invoke AOT compiler to get the MLF containing CMSIS-NN APIs
-    with tvm.target.Target("c -runtime=c --link-params -mcpu=cortex-m55 --executor=aot --unpacked-api=1"):
-        factory = tvm.relay.build(cmsisnn_mod)
+# API to call CMSIS-NN partitioning
+# Here, module is the relay module
+cmsisnn_module = cmsisnn.partition_for_cmsisnn(module)
+
+# Invoke AOT compiler to get the MLF containing CMSIS-NN APIs
+with tvm.target.Target("c -runtime=c --link-params -mcpu=cortex-m55 --executor=aot --unpacked-api=1"):
+    factory = tvm.relay.build(cmsisnn_mod)
 ```
-
-
 
 # Reference-level explanation
 
@@ -66,16 +65,16 @@ def @main(%a: Tensor[(1, 16, 16, 3), int8]) -> Tensor[(1, 16, 16, 3), int8] {
 Here is the API to obtain the partitioned function aimed at CMSIS-NN.
 
 ```python
-    # API to call CMSIS-NN partitioning
-    from tvm.relay.op.contrib import cmsisnn
-        # Here, module is the relay module
-        cmsisnn_module = cmsisnn.partition_for_cmsisnn(module)        
+# API to call CMSIS-NN partitioning
+from tvm.relay.op.contrib import cmsisnn
+
+# Here, module is the relay module
+cmsisnn_module = cmsisnn.partition_for_cmsisnn(module)        
 ```
 
 The API for partitioning will work through the pattern matching tables for CMSIS-NN which will look like the below snippet. It will include support for operators: Convolution, Depthwise convolution, Fully Connected, Pooling and MatMul.
 
 ```python
-
 @register_pattern_table("cmsisnn")
 def pattern_table():
     """Get the cmsisnn compiler pattern table."""
@@ -115,10 +114,10 @@ def @tvmgen_default_cmsisnn_0(%cmsisnn_0_i0: Tensor[(1, 16, 16, 3), int8], Inlin
 Above partitioned function is presented to the CMSIS-NN external code generator for TIR generation using the TVM's build() API.
 
 ```python
-    # Invoke AOT compiler to get the MLF containing CMSIS-NN APIs
-    with tvm.target.Target("c -runtime=c --link-params -mcpu=cortex-m55 --executor=aot --unpacked-api=1"):
-        factory = tvm.relay.build(cmsisnn_mod)
+# Invoke AOT compiler to get the MLF containing CMSIS-NN APIs
 
+with tvm.target.Target("c -runtime=c --link-params -mcpu=cortex-m55 --executor=aot --unpacked-api=1"):
+    factory = tvm.relay.build(cmsisnn_mod)
 ```
 
 Resultant TIR looks like this:
@@ -135,9 +134,10 @@ primfn(placeholder_1: handle, out_write_1: handle) -> ()
     }
 }
 ```
-In future, target hooks for `relay_to_tir` implemented as part of [Additional Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10) will be used to obtain the above TIR and it will be returned to the compilation pipeline. These hooks provide us with the flexibility to reuse memory planning and much of the TVM's code generation capabilities.
 
-At last, code generator identifies the TIR extern_call(s) and generates C code for softmax with the CMSIS-NN API for softmax int8. Both TIR and C are generated when function registered through `tvm._ffi.register_func("relay.ext.cmsisnn")` is invoked.
+In future, target hooks for `relay_to_tir` implemented as part of [Additional Target Hooks](https://github.com/apache/tvm-rfcs/pull/10) will be used to obtain the above TIR and it will be returned to the compilation pipeline. These hooks provide us with the flexibility to reuse memory planning and much of the TVM's code generation capabilities.
+
+At last, code generator identifies the TIR extern_call(s) and generates C code for softmax with the CMSIS-NN API for softmax int8. Both TIR and C are generated when function registered through `tvm.register_func("relay.ext.cmsisnn")` is invoked.
 
 ```c++
 #ifdef __cplusplus
@@ -169,7 +169,7 @@ TVM_DLL int32_t tvmgen_default_ethosu_main_0(TVMValue* args, int* type_code, int
 #endif
 ```
 
-Note: CMSIS-NN APIs for each operator are hard coded into the generated C file. The C generator can be excluded from the source by setting USE_CMSISNN to OFF in the config.cmake. In orde to link the C file to the CMSIS-NN library, Ethosu test runner infrastructure is used as has been described here: [Arm Ethos-U Integration] (https://github.com/apache/tvm-rfcs/pull/11).
+Note: CMSIS-NN APIs for each operator are hard coded into the generated C file. The C generator can be excluded from the source by setting USE_CMSISNN to OFF in the config.cmake. In orde to link the C file to the CMSIS-NN library, Ethosu test runner infrastructure is used as has been described here: [Arm Ethos-U Integration](https://github.com/apache/tvm-rfcs/pull/11).
 
 Once the entire infrastructure for CMSIS-NN mapping is in place using softmax API, we will add more complex operations such as depthwise convolution and pooling gradually to both the graph partitioning and code generation infrastructure.
 
@@ -183,7 +183,7 @@ A unit tests will be of two kinds.
 * Match operator patterns used by the graph partitioner.
     * It will be done for each operator and for a combination of operators both.
 * Correctness of the CMSIS-NN operators against the native TVM output.
-    * Actual output can be generated using [Corstone-300 reference system] (https://github.com/apache/tvm-rfcs/pull/11)
+    * Actual output can be generated using [Corstone-300 reference system](https://github.com/apache/tvm-rfcs/pull/11)
     * In case the reference system is unavailable, checks will be added for TIR's correctness.
 
 
@@ -191,29 +191,12 @@ A unit tests will be of two kinds.
 
 CMSIS-NN APIs provide hand coded kernels. Therefore, code generation skips the auto tuning capabilities of TVM. In future, we wish to make use of full power of TVM's auto scheduling.
 
-
-# Upstreaming Plan
-
-Before adding other operators from CMSIS-NN, the integration will be enabled only for softmax.
-
-* P1: Graph partitioner for CMSIS-NN target for softmax  
-* P2: Softmax code generation using existing BYOC  
-* P3: tvmc support to generate code for CMSIS-NN  
-* P4: Use of CMSIS-NN data structures while supporting depthwise convolution  
-* P5: Use target hooks for CMSIS-NN code generation [Addition Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10/files)   
-* P6: Support for Convolution  
-* P7: Support for Fully connected  
-* P8: Support for Max Pooling  
-* P9: Support for Avg Pooling  
-* P10: Support for MatMul  
-
-
 # Prior art
 
 CMSIS-NN integration into TVM builds on top of ACL's integration into TVM. Existing infrastructure of BYOC allows for graph partitioning to detach the operators or chain of operations as a separate subgraph that then can be compiled for Cortex-M.
 
-Reference: [ACL] (https://tvm.apache.org/docs/deploy/arm_compute_lib.html)
+Reference: [ACL](https://tvm.apache.org/docs/deploy/arm_compute_lib.html)
 
 Evenutally, code generation for CMSIS-NN will use the newly introduced target hooks.
 
-Reference: [Additional Target Hooks] (https://github.com/apache/tvm-rfcs/pull/10/files)
+Reference: [Additional Target Hooks](https://github.com/apache/tvm-rfcs/pull/10/files)
