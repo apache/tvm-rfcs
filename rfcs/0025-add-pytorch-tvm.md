@@ -9,7 +9,7 @@
 This RFC add a `PyTorchTVM` module to support: offload subgraphs of TorchScript to TVM, and then embed those TVM-accelerated subgraphs back to TorchScript for runtime execution.
 
 To help boost model performance and enhance TVM adoption for machine learning practitioners who often use PyTorch, `PyTorchTVM` is proposed for seamless integration for TVM in TorchScript, and its workflow is demonstrated as follows:
-1. convert a torchscript module to tvm graph
+1. Convert a TorchScript module (or submodule) to TVM graph (Relay)
 2. Optimize and compile the TVM graph with auto-tuning
 3. Export and embed the optimized TVM module as a PyTorch custom op
 4. torch jit trace the tvm pytorch op with other pytorch modules, then save/load/serve as normal pytorch model
