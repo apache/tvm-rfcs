@@ -62,7 +62,6 @@ class Predictor(nn.Module):
                 images.append(img)
             x = torch.stack(images).cuda().half()
             x = self.transforms(x)
-            print(x.shape)
             y_pred = self.resnet18(x)
             return y_pred.argmax(dim=1)
 ```
