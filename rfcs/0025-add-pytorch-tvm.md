@@ -36,11 +36,10 @@ So we hope to use TVM to accelerate PyTorch model inference.
 [guide-level-explanation]: #guide-level-explanation
 
 
-For example, we have an end-to-end resnet classification model, consisting of 3 parts:
-
-1. Image reader
-2. Image transforms
-3. Resnet model inference
+As an example, an end-to-end ResNet-based image classifier contains 3 major parts in its pipeline:
+1. A data loader that reads and decodes images (in png/jpeg/...）to PyTorch Tensors
+2. A sequence of image transformation that normalizes the input images, including resize, crop, type conversions, etc
+3. Finally, a ResNet that maps a batch of input images to their class labels accordingly
 Below is a snippet that illustrates the workflow of this pipeline:
 ```
 class Predictor(nn.Module):
