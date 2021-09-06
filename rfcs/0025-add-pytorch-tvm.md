@@ -234,7 +234,7 @@ There are some limitations now:
 
     Now we only have `set_input_zero_copy`, but our `set_output` has a memcpy.
 
-3. Default performance of TVM
+3. Performance of TVM without tuning
 
     Without autotuning, the performance of TVM is most likely worse compared with native pytorch. To give users immediate feedback, maybe we can make tvm use cudnn/cublas/cutlass as a default implementation.
 
