@@ -12,7 +12,7 @@ To help boost model performance and enhance TVM adoption for machine learning pr
 1. Convert a TorchScript module (or submodule) to TVM graph (Relay)
 2. Optimize and compile the TVM graph with auto-tuning
 3. Export and embed the optimized TVM module as a PyTorch custom op
-4. torch jit trace the tvm pytorch op with other pytorch modules, then save/load/serve as normal pytorch model
+4. The embedded custom op works smoothly with TorchScript (both `torch.jit.trace` and `torch.jit.script`), without tangible difference with normal PyTorch models, i.e. it can be saved to disk, loaded back and served online with no change in the overall workflow
 
 
 
