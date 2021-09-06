@@ -130,7 +130,7 @@ for i in range(20):
 torch.jit.script(model_tvm).save("model_tvm.pt")
 ```
 
-Finally, we get a TVM accelerated model, which can be loaded and served in production.
+Note that the script above provides a seamless serializable solution that allows TVM acceleration to be embedded into TorchScript and thus served in online production without extra effort.
 
 
 # Reference-level explanation
