@@ -65,6 +65,58 @@ However, the intention here is to associate the name of the memory (along with o
 
  At the IR, we ll need to associate each allocate node with one (or more) memories that it can end up, because the scheduling might be satisfied with placing buffers in any of the memories in a given set of memories. Therefore, the scheduler might want the memory planners to decide which memory to use based on finding the allocation that fit.
 
+ There are broadly two requirements here :
+
+P1 : Indicate candidate memories (a.k.a. Pools) that each allocate be associated with
+
+P2 : Indicate the final memory the allocate will be pinned on
+
+To serve P1, we propose to use :
+
+```
+class AllocateNode : public StmtNode {
+ public:
+  /*! \brief The buffer variable. */
+  Var buffer_var;
+  /*! \brief The type of the buffer. */
+  DataType dtype;
+  /*! \brief The extents of the buffer. */
+  Array<PrimExpr> extents;
+  /*! \brief Only allocate buffer when condition is satisfied. */
+  PrimExpr condition;
+  /*! \brief The body to be executed. */
+  Stmt body;
+  /*! \brief If the allocate is scoped global, this field indicates
+   *  which external memories it could be pinned to as a comma seperated
+   *  string.
+   */
++ Map<String, Objectref> annotations;
+```
+
+Here the addition of the annotations field could serve offer hints/guides to future passes (i.e. Unified Static Memory Planner). We could use "candidate_memory_pools" as the key while the value being Map<String, PoolInfo>.
+
+```
+struct PoolInfoNode : public Object {
+  String  pool_name;
+  Integer size_bytes;
+  Integer alignment;
+  Integer pool_offset;
+  Map<Target,String> target_access; // 'rw' or 'ro'
+}
+```
+
+To serve P2, we propose to use the existing tag of the storage_scope with 'global-<memory_name>'.
+
+```
+struct StorageScope {
+  /*! \brief The rank of the storage */
+  StorageRank rank{StorageRank::kGlobal};
+  /*! \brief tag for special purpose memory. */
+  std::string tag;
+```
+
+# Alternatives
+
  ## S1. Using AttrStmt to associate additional info :
 
 TIR:
@@ -127,7 +179,7 @@ struct StorageScope {
  ```
 
 
-TIR (open to any other suggestion) :
+TIR:
 
 ```
 allocate_node_1 = tir.allocate([157323], "int16", "global.(foo_memory,bar_memory)")
@@ -140,13 +192,12 @@ S2 does not change the storage scope (or the 'tags') and adds an additional fiel
 
 S3 fold the information into storage_scope and utilizes the 'tag' denote the memory. The change to IR, is just to support more tags.
 
+However, in the discussion with community, we felt the need to seperate changes that serves P1 and P2, respectively. In fact, for P2 we could re-use the tag of storage_scope without an IR change. For P1, it seems a good and general change to include annotations for the allocate node.
+
 # 5. Drawbacks
 
-It is a change to the IR (if we are deciding on a non-S1 solution).
+It is not direct because we are using general annotations to indicate this, however it is consistent with rest of the IR and allows future expansions.
 
-# 6. Discussion
-
-We'd like to hear the thoughts of the community to decide on the best way to represent the information and its string format.
 
 
 
