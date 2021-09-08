@@ -291,7 +291,7 @@ For example, microTVM may require a specific set of tutorials and how-tos, but
 these can become mixed in with other TVM specific documents. This will be
 mitigated through two means:
 
-Subdirectories within the How-Tos can target specific topics Landing pages can
+Subdirectories within the How-Tos can target specific topics. Landing pages can
 be created for specific topics that collect links to all of the pages related
 to that topic.  Another drawback is that this format may require a user to dig
 deeper on the first run experience, requiring them to dig into a tutorial or
