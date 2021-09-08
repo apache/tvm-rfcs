@@ -17,7 +17,7 @@ is to create a document architecture that classifies four major documentation ty
 then organizes the documents based on those types. The desired result is
 to make it easier for the entire TVM community to find documentation that
 meet their needs, whether they are new users or experienced users. Another goal
-is to make it easier for the development community to contribute to the TVM
+is to make it easier for the developer community to contribute to the TVM
 documentation. It recognizes that while in most communities there is a distinct
 divide between the user and the developer communities, there can be significant
 overlap given the nature of TVM as an optimizing compiler.
