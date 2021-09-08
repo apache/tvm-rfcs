@@ -120,7 +120,7 @@ differentiations where appropriate. As a result there tutorials and how-tos will
 divided between "User Guides" and "How-to Guides".
 
 The next is that there are special topics within the TVM community that benefit from additional
-attention. These topic include, but are not limited to, Micro TVM and VTA. Special 
+attention. These topics include, but are not limited to, microTVM and VTA. Special 
 "Topic Guides" can be created to index existing material, and provide context on how to naviagate
 that material most effectively.
 
