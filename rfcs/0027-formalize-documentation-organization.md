@@ -7,17 +7,18 @@
 [summary]: #summary
 
 This RFC proposes a refactoring of TVM documentation. The goal of this refactor
-is to create a document architecture that classifies four major documentation types:
+is to create a document architecture that classifies four major documentation
+types:
 
 * Tutorials,
 * How-tos,
 * Deep Dives,
 * and Reference
 
-then organizes the documents based on those types. The desired result is
-to make it easier for the entire TVM community to find documentation that
-meet their needs, whether they are new users or experienced users. Another goal
-is to make it easier for the developer community to contribute to the TVM
+then organizes the documents based on those types. The desired result is to
+make it easier for the entire TVM community to find documentation that meet
+their needs, whether they are new users or experienced users. Another goal is
+to make it easier for the developer community to contribute to the TVM
 documentation. It recognizes that while in most communities there is a distinct
 divide between the user and the developer communities, there can be significant
 overlap given the nature of TVM as an optimizing compiler.
@@ -25,23 +26,27 @@ overlap given the nature of TVM as an optimizing compiler.
 # Motivation
 [motivation]: #motivation
 
-TVM has seen an explosion of growth since it was released as an open source project,
-and formally grauated as an official Apache Software Foundation project. The vision of
-the Apache TVM Project is to host a "diverse community of experts and
-practitioners in machine learning, compilers, and systems architecture to build
-an accessible, extensible, and automated open-source framework that optimizes
-current and emerging machine learning models for any hardware platform."
+TVM has seen an explosion of growth since it was released as an open source
+project, and formally grauated as an official Apache Software Foundation
+project. The vision of the Apache TVM Project is to host a "diverse community
+of experts and practitioners in machine learning, compilers, and systems
+architecture to build an accessible, extensible, and automated open-source
+framework that optimizes current and emerging machine learning models for any
+hardware platform."
 
-The TVM community has done an excellent job in producing a wide range of documents to describe
-how to successfully install, use, and develop for TVM. The documenation project grew with
-the community, to address the immediate needs of the developer community. However, one
-consistent piece of feedback is that the documentation is difficult to navigate, with beginner
-material mixed in with advanced material. As a result, it can be difficult for new users
-to find the exact information they need, and can work against the vision of the project.
+The TVM community has done an excellent job in producing a wide range of
+documents to describe how to successfully install, use, and develop for TVM.
+The documenation project grew with the community, to address the immediate
+needs of the developer community. However, one consistent piece of feedback is
+that the documentation is difficult to navigate, with beginner material mixed
+in with advanced material. As a result, it can be difficult for new users to
+find the exact information they need, and can work against the vision of the
+project.
 
-This RFC aims to refactor the organization of the TVM docs, loosely following the [formal
-documentation style described by Divio](https://documentation.divio.com). This system has been chosen
-because it is a:
+This RFC aims to refactor the organization of the TVM docs, loosely following
+the [formal documentation style described by
+Divio](https://documentation.divio.com). This system has been chosen because it
+is a:
 
 > "simple, comprehensive and nearly universally-applicable scheme. It is proven
 > in practice across a wide variety of fields and applications."
@@ -51,7 +56,6 @@ the content. As such, the implementation of this RFC would move documents, and
 only create new documents as top-level placeholders, indexes, and documentation
 about the system itself.
 
-
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
@@ -59,15 +63,18 @@ about the system itself.
 
 ### Introductory Tutorials
 
-These are step by step guides to introduce new users to a project. A successful
-introductory tutorial successfully get the user engaged with the software
+These are step by step guides to introduce new users to a project. An
+introductory tutorial is designed to get a user engaged with the software
 without necessarily explaining why the software works the way it does. Those
-explanations can be saved for other document types; the introductory tutorial
+explanations can be saved for other document types. An introductory tutorial
 focuses on a successful first experience. These are the most important docs to
 turning newcomers into new users and developers. A fully end-to-end tutorial,
 from installing TVM and supporting ML software, to creating and training a
 model, to compiling to different architectures will give a new user the
-opportunity to use TVM in the most efficient way possible.
+opportunity to use TVM in the most efficient way possible. A tutorial teaches a
+beginner something they need to know. This is in contrast with a how-to, which
+is meant to be an answer to a question that a user with some experience would
+ask.
 
 Tutorials need to be repeatable and reliable, because the lack of success means
 a user will look for other solutions.
@@ -112,66 +119,69 @@ and technical descriptions, and instead focuses on higher level concepts.
 
 ## Special considerations for TVM
 
-The TVM comunity has some special considerations that require deviation from the simple
-docs style outlined by Divio. The first is that there is frequently overlap between the
-user and developer communities. Many projects document the develper and user experience
-with separate systems, but it is appropriate to consider both in this system, with
-differentiations where appropriate. As a result the tutorials and how-tos will be
-divided between "User Guides" and "How-to Guides".
+The TVM comunity has some special considerations that require deviation from
+the simple docs style outlined by Divio. The first is that there is frequently
+overlap between the user and developer communities. Many projects document the
+develper and user experience with separate systems, but it is appropriate to
+consider both in this system, with differentiations where appropriate. As a
+result the tutorials and how-tos will be divided between "User Guides" and
+"How-to Guides".
 
-The next is that there are special topics within the TVM community that benefit from additional
-attention. These topics include, but are not limited to, microTVM and VTA. Special 
-"Topic Guides" can be created to index existing material, and provide context on how to naviagate
-that material most effectively.
+The next is that there are special topics within the TVM community that benefit
+from additional attention. These topics include, but are not limited to,
+microTVM and VTA. Special "Topic Guides" can be created to index existing
+material, and provide context on how to naviagate that material most
+effectively.
 
-To facilitate newcomers, a special "Getting Started" section with installation instructions,
-a overview of why to use TVM, and other first-experience douments will be produced. 
+To facilitate newcomers, a special "Getting Started" section with installation
+instructions, a overview of why to use TVM, and other first-experience douments
+will be produced. 
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
 ## Document Organization
 
-### L3 - Top Level
+### Top Level Organization
 
 * Getting Started
 * User Guide
-* TVM Topic Guide
+* Topic Guide
 * Developer Guide
 * TVM Architecture Guide
 * API Reference (reference)
 * Index
 
-### L3 - Major Sections
-
-* Getting Started
-  * About TVM
-  * Installing TVM
-  * TVM Contributor Guide
-* User Guide
-  * Tutorial
-  * How To
-* TVM Topic Guide
-  * MicroTVM Guide (index to existing docs)
-  * VTA (index to existing docs)
-* Developer Guide
-  * TVM Contributor Tutorial (new, to be written)
-  * How To
-* TVM Architecture Guide
-  * Architecture Overview (new, diagram/map, to be written)
-  * …
-* API Reference (reference)
-  * Generated C++ Docs…
-  * Generated Python Docs…
-* Index
-
-### L3 - Detailed Description
+### Organization with Major Sections
 
 * Getting Started
   * About TVM
   * Installing TVM
   * Contributor Guide
-    * TVM Community Guideline
+* User Guide
+  * Tutorial
+  * How To
+* Topic Guide
+  * MicroTVM Guide (index to existing docs)
+  * VTA (index to existing docs)
+* Developer Guide
+  * Contributor Tutorial (new, to be written)
+  * How To
+* Architecture Guide
+  * Architecture Overview (new, diagram/map, to be written)
+  * ...
+* API Reference (reference)
+  * Generated C++ Docs…
+  * Generated Python Docs…
+* Index
+
+### Organization with Detailed Description
+
+* Getting Started
+  * About TVM
+  * Installing TVM
+  * Contributor Guide
+    * Community Guideline
     * Performing Code Reviews
     * Committer Guide
     * Writing Document and Tutorials
@@ -205,19 +215,19 @@ a overview of why to use TVM, and other first-experience douments will be produc
     * Auto-Tune with Templates and AutoTVM
     * Use AutoScheduler for Template-Free Auto Scheduling
     * Work With microTVM
-* TVM Topic Guide
+* Topic Guide
   * MicroTVM Guide (index to existing docs)
     * -> Work With microTVM
     * ->  microTVM Architecture
   * VTA (index to existing docs)
 * Developer Guide
-  * TVM Contributor Tutorial
-    * …
+  * Contributor Tutorial
+    * ...
   * How To
     * Write an operator
     * Write a backend
-    * …
-* TVM Architecture Guide
+    * ...
+* Architecture Guide
   * Architecture Overview
   * Research Papers
   * Frontend
@@ -291,12 +301,14 @@ For example, microTVM may require a specific set of tutorials and how-tos, but
 these can become mixed in with other TVM specific documents. This will be
 mitigated through two means:
 
-Subdirectories within the How-Tos can target specific topics. Landing pages can
-be created for specific topics that collect links to all of the pages related
-to that topic.  Another drawback is that this format may require a user to dig
-deeper on the first run experience, requiring them to dig into a tutorial or
-how-to to install the software. This can be mitigated by refactoring the
-landing page to include a “Quick Start” guide for installing the TVM software.
+* Subdirectories within the How-Tos can target specific topics.
+* Landing pages can be created for specific topics that collect links to all of
+  the pages related to that topic.
+
+Another drawback is that this format may require a user to dig deeper on the
+first run experience, requiring them to dig into a tutorial or how-to to
+install the software. This can be mitigated by refactoring the landing page to
+include a “Quick Start” guide for installing the TVM software.
 
 Throughout the open source ecosystem, there is often a distinction between
 documentation for users and documentation for developers. The TVM community is
