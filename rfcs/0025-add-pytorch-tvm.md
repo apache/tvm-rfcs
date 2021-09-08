@@ -21,13 +21,15 @@ To help boost model performance and enhance TVM adoption for machine learning pr
 
 PyTorch enjoys increasing popularity among machine learning research community as well as in industrial production environment. However, it is still a missing piece as a generic, comprehensive and effective toolchain to accelerate real-world models and workloads in PyTorch, which raises primary concern in performance-critical production environments.
 
-* PyTorch → ONNX → TensorRT/TVM
-* PyTorch → torchscript → TensorRT/TVM
+Below are the two classic acceleration workflows as the status quo:
+- PyTorch -> ONNX -> TensorRT/TVM
+- PyTorch -> TorchScript -> TensorRT/TVM
 
-From our perspective, there are some limitations for both ONNX and TensorRT:
+However, both workflows introduce one level of indirection, which means flaws of either levels are inherited in the pipeline. For example:
+- ONNX offers no support for models with dynamic control flow, so the first workflow is unable to support models with dynamic control flow
+- The coverage of TensorRT is often limited to a range of standard neural networks, so both of the workflows, if offloaded to TensorRT, are hard to be effective on real-world models.
 
-* Onnx cannot cover all models with dynamic control flow (e.g. for loop)
-* TensorRT can only accelerate some standard networks
+Furthermore, both of the existing workflows don't provide any benefit of an interface that is practical enough for researchers to widely adopt and reuse. For example, it requires deep knowledge of TVM runtime modules to load the exported binary artifacts back to python and use it together with PyTorch.
 
 So we hope to use TVM to accelerate PyTorch model inference.
 
