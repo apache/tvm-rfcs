@@ -116,7 +116,7 @@ The TVM comunity has some special considerations that require deviation from the
 docs style outlined by Divio. The first is that there is frequently overlap between the
 user and developer communities. Many projects document the develper and user experience
 with separate systems, but it is appropriate to consider both in this system, with
-differentiations where appropriate. As a result there tutorials and how-tos will be
+differentiations where appropriate. As a result the tutorials and how-tos will be
 divided between "User Guides" and "How-to Guides".
 
 The next is that there are special topics within the TVM community that benefit from additional
