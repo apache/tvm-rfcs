@@ -72,9 +72,9 @@ Step 7: Got the tunning output on /workspace/tvm/tutorials/autotvm/turning_out/r
 
 This capability will expand the capabilities of previous RPC and web proxy.
 
+- Due to there are no system file apis like PC, Android and IOS on the web frontend, it is hard to push binary files during tunning process like other end. Therefore, we put the intermediate product into a specific directory, which will be pulled and used to measure performance from web front-end.
 - Expand 'python/tvm/autotvm/measure/measure_methods.py' to support emcc building, which 
   uses "emcc.create_tvmjs_wasm" to build wasm binary.
-- Change the tracker default host to '0.0.0.0' to enable remote connect.
 - Mv temp tunning wasm binary to web dist directory, which will be pulled from the web side, then the speed of the wasm binary will can be calculated.
 - Change the tvmjs.RPCServer to pull wasm binary before RPCServer.
 
