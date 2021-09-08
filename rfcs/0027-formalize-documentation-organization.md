@@ -14,7 +14,7 @@ is to create a document architecture that classifies four major documentation ty
 * Deep Dives,
 * and Reference
 
-then organizes the documents them based on those types. The desired result is
+then organizes the documents based on those types. The desired result is
 to make it easier for the entire TVM community to find documentation that
 meet their needs, whether they are new users or experienced users. Another goal
 is to make it easier for the development community to contribute to the TVM
