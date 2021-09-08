@@ -124,7 +124,7 @@ attention. These topics include, but are not limited to, microTVM and VTA. Speci
 "Topic Guides" can be created to index existing material, and provide context on how to naviagate
 that material most effectively.
 
-To facilitate newcomers, a special "Getting Started" section with installatoion instructions,
+To facilitate newcomers, a special "Getting Started" section with installation instructions,
 a overview of why to use TVM, and other first-experience douments will be produced. 
 
 # Reference-level explanation
