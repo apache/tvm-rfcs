@@ -6,44 +6,46 @@
 # Summary
 [summary]: #summary
 
-Add autotvm capability for web assembly, enhancing TVM's compatibility for web model deployment.
+Add AutoTVM support to TVM's WASM backend, enhancing TVM's capability for web model deployment.
 
 # Motivation
 [motivation]: #motivation
 
-Front-end web, as one of the most important scenarios in the Internet ecology, has huge demands for 
-AI deployment capability. Since front-end web has quite a number of deployment scenarios like pc, android, 
-iOS, applets, etc. To reach the best performance, there is a requirement to run an ML network in these scenarios.
-However, currently TVM does not have web autotvm support, and the existing autotvm solution only supports autotvm 
-on x86, arm, android, ios, etc. Therefore, We need a solution of autotvm in front-end web to be more 
-efficient to deploy models for web.
+The front-end web, as one of the most important components in the Internet ecology, has huge demands for 
+AI deployment capability. Since front-end web involves a considerable number of different deployment 
+scenarios such as pc, android, iOS, etc, and ML models has to be optimized for each of these scenes to reach 
+the best performance, there is a pressing need to automatize the optimization process. However, currently TVM's WASM 
+lacks AutoTVM support. A front-end web AutoTVM solution, as a result, is needed to make the 
+optimization and deployment process more efficient.
 
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-This section will demonstrate that how to use TVM to tune autotvm on the web front end, step by step.
+This section demonstrates steps to optimize models on web front-end with AutoTVM.
 
-Step 1: Compile TVM as usual then configure the python path.
+Step 1: Compile TVM as usual, then configure the python path.
+
 Step 2: Ensure that the web environment has been configured according to Web/README.md.
-Step 3: Start Tracker;
+
+Step 3: Start a `Tracker`:
 
 ``` python
   python -m tvm.exec.rpc_tracker --host=0.0.0.0 --port=9190
 ```
-Step 4: Start rpc_proxy
+Step 4: Start a `rpc_proxy`:
 
 ``` python
   python -m tvm.exec.rpc_proxy --example-rpc=1 --tracker=0.0.0.0:9190
 ```
-Step 5: Open 0.0.0.0:8888 ,then server will be auto connected.
+Step 5: Open 0.0.0.0:8888, and server will be connected automatically.
 
-Step 6: Run the tunning script
+Step 6: Run the tuning script:
 ``` python
   python tutorials/autotvm/tune_relay_wasm.py
 ```
 
-then will see:
+The following will appear:
 ```
 Extract tasks...
 Tuning...
@@ -64,41 +66,42 @@ Compile...
 output: /workspace/tvm/tutorials/autotvm/turning_out/resnet-18.wasm
 
 ```
-Step 7: Got the tunning output on /workspace/tvm/tutorials/autotvm/turning_out/resnet-18.wasm
+Step 7: The tuning output will be saved at `/workspace/tvm/tutorials/autotvm/turning_out/resnet-18.wasm`.
 
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-This capability will expand the capabilities of previous RPC and web proxy.
+This rfc enhances the capabilities of previous RPC and web proxy.
 
-- Due to there are no system file apis like PC, Android and IOS on the web frontend, it is hard to push binary files during tunning process like other end. Therefore, we put the intermediate product into a specific directory, which will be pulled and used to measure performance from web front-end.
+- Unlike PC, Android, or iOS, web frontend has no system file apis. Thus, it is hard to push binary files generated during tuning process to web frontend like to other ends. 
+Therefore, the intermediate product is saved in a specific directory, which is pulled by web front end for performance measurement.
 - Expand 'python/tvm/autotvm/measure/measure_methods.py' to support emcc building, which 
   uses "emcc.create_tvmjs_wasm" to build wasm binary.
-- Mv temp tunning wasm binary to web dist directory, which will be pulled from the web side, then the speed of the wasm binary will can be calculated.
-- Change the tvmjs.RPCServer to pull wasm binary before RPCServer.
+- Move temp tuning wasm binary to web dist directory, which is pulled by the web side, then the speed of the wasm binary is measured.
+- Revise the tvmjs.RPCServer, so that wasm binary is pulled before RPCServer.
 
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
 - Auto schedule will be supported in the future.
-- Paralleled AutoTVM need te be support.
+- Paralleled AutoTVM implementation is needed.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-- The AutoTVM support of front-end web is not supported before.
-- The Autotvm capability of the web will align with other ends.
+- The AutoTVM support is added to TVM's WASM backend for the first time.
+- The AutoTVM capability of the WASM will align with that of other ends.
 
 # Prior art
 [prior-art]: #prior-art
-The previous implementation does not support AutoTunning in the web front-end scenario. The purpose of this time is to supplement this ability.
+TVM's WASM has not support AutoTVM yet. The purpose is to make up for the lack of this compatibility.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-Paralleled AutoTVM need te be support before it will be merged.
+Paralleled AutoTVM needs to be implemented.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
