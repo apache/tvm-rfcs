@@ -425,8 +425,7 @@ topics, similar to the TensorFlow style.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-This documentation system only loosely addresses how sub-projects should be handled.
-
+* This documentation system only loosely addresses how sub-projects should be handled.
 * It does not consider specific future documents, or a plan for refactoring
   duplicated content in existing documents.
 * It does not address some style issues, like how to ensure every document in a
@@ -437,6 +436,10 @@ This documentation system only loosely addresses how sub-projects should be hand
 * It does not address Incorporating accepted or completed RFCs into the
   documentation structure.
 * It does not address the role of documentation in the CI/CD pipeline.
+* The style and format of inline reference documentation is out of scope of this
+  proposal. For example,
+  [how to document passes in Relay](https://github.com/apache/tvm/pull/8893).
+
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
