@@ -90,8 +90,9 @@ should tell the user what problem the how-to is solving.
 How are tutorials different from how-tos? A tutorial is oriented towards the
 new developer, and focuses on successfully introducing them to the software and
 community. A how-to, in contrast, focuses on accomplishing a specific task within
-the context of basic understanding. A tutorial helps to onboard; a how-to helps
-to accomplish a task.
+the context of basic understanding. A tutorial helps to on-board and assumes
+no prior knowledge. A how-to assumes minimum knowledge, and is meant to guide
+someone to accomplish a specific task.
 
 ### Reference
 
@@ -106,21 +107,26 @@ be generated automatically as much as possible.
 
 ### Explanations (Deep Dive)
 
-Explanations are background material on a topic. These documents help to illuminate and
-understand the application environment. Why are things the way they are? What
-were the design decisions, what alternatives were considered, what are the RFCs
-describing the existing system. This includes academic papers and links to
-publications relevant to the software. Within these documents you can explore
-contradictory and conflicting position, and help the reader make sense of how
-and why the software was built the way it is. It’s not the place for how-to’s
-and technical descriptions, and instead focuses on higher level concepts.
+Explanations are background material on a topic. These documents help to
+illuminate and understand the application environment. Why are things the way
+they are? What were the design decisions, what alternatives were considered,
+what are the RFCs describing the existing system? This includes academic papers
+and links to publications relevant to the software. Within these documents you
+can explore contradictory and conflicting position, and help the reader make
+sense of how and why the software was built the way it is. It’s not the place
+for how-to’s and descriptions on how to accomplish tasks. They instead focus
+on higher level concepts that help with the understanding of the project.
+Generally these are written by the architects and developers of the project,
+but can useful to help both users and developers to have a deeper understanding
+of why the software works the way it does, and how to contribute to it in ways
+that are consistent with the underlying design principles.
 
 ## Special considerations for TVM
 
-The TVM comunity has some special considerations that require deviation from
+The TVM community has some special considerations that require deviation from
 the simple docs style outlined by Divio. The first is that there is frequently
 overlap between the user and developer communities. Many projects document the
-develper and user experience with separate systems, but it is appropriate to
+developer and user experience with separate systems, but it is appropriate to
 consider both in this system, with differentiations where appropriate. As a
 result the tutorials and how-tos will be divided between "User Guides" and
 "How-to Guides".
@@ -128,11 +134,11 @@ result the tutorials and how-tos will be divided between "User Guides" and
 The next is that there are special topics within the TVM community that benefit
 from additional attention. These topics include, but are not limited to,
 microTVM and VTA. Special "Topic Guides" can be created to index existing
-material, and provide context on how to naviagate that material most
+material, and provide context on how to navigate that material most
 effectively.
 
 To facilitate newcomers, a special "Getting Started" section with installation
-instructions, a overview of why to use TVM, and other first-experience douments
+instructions, a overview of why to use TVM, and other first-experience documents
 will be produced. 
 
 # Reference-level explanation
@@ -146,8 +152,8 @@ will be produced.
 * User Guide
 * Topic Guide
 * Developer Guide
-* TVM Architecture Guide
-* API Reference (reference)
+* Architecture Guide
+* Reference
 * Index
 
 ### Organization with Major Sections
@@ -168,9 +174,9 @@ will be produced.
 * Architecture Guide
   * Architecture Overview (new, diagram/map, to be written)
   * ...
-* API Reference (reference)
-  * Generated C++ Docs…
-  * Generated Python Docs…
+* Reference
+  * Language Reference
+  * API Reference
 * Index
 
 ### Organization with Detailed Description
@@ -228,7 +234,7 @@ will be produced.
 * Architecture Guide
   * Architecture Overview
   * Research Papers
-  * Frontend
+  * Front-end
   * Relay: Graph-level design: IR, pass, lowering
   * TensorIR: Operator-level design: IR, schedule, pass, lowering
   * TOPI: Pre-defined operators operator coverage
@@ -238,8 +244,10 @@ will be produced.
   * RPC system
   * Target system
 * API Reference (reference)
-  * Generated C++ Docs…
-  * Generated Python Docs…
+  * Language Reference
+  * API Reference
+    * Generated C++ Docs…
+    * Generated Python Docs…
 * Index
 
 ## Document Code Organization
@@ -294,7 +302,7 @@ following steps:
 # Drawbacks
 [drawbacks]: #drawbacks
 
-One consistent drawback of this approach is how major subprojects are handled.
+One consistent drawback of this approach is how major sub-projects are handled.
 For example, microTVM may require a specific set of tutorials and how-tos, but
 these can become mixed in with other TVM specific documents. This will be
 mitigated through two means:
@@ -324,19 +332,23 @@ to characterize documents within the system (“Should this be a developer or
 user doc?” “Is this a tutorial or a how-to?”), working within the constraints
 of a formalized system brings many benefits:
 
-It helps prevent documentation sprawl. Rather than create new top-level
-headings to capture new ideas, new ideas are logically documented at different
-levels of detail within the for existing types.  It creates a consistent user
-experience. Users know exactly where to look depending on their needs. New
-users will find a path to success through tutorials, while existing users who
-need to solve common tasks can look to the how-tos for guidance.  It encourages
-new documentation. Developers have a framework for what docs should look like,
-and where they should go.  It takes advantage of current content. A
-proof-of-concept implementation of this method consisted largely of moving new
-documents.  It creates a framework to improve existing content. Many how-tos
-duplicate steps repeatedly. This will allow us to identify the duplications and
-refactor the documents into more targeted forms.  In researching documentation
-systems, there aren’t many formalized systems that have been published.
+* Preventing documentation sprawl: Rather than create new top-level
+  headings to capture new ideas, new ideas are logically documented at
+  different levels of detail within the for existing types.
+* Creating a consistent user experience: Users know exactly where to look
+  depending on their needs. New users will find a path to success through
+  tutorials, while existing users who need to solve common tasks can look to
+  the how-tos for guidance.
+* Encouraging new documentation: Developers have a framework for what docs
+  should look like, and where they should go.
+* Reusing current content: A proof-of-concept implementation of
+  this method consisted largely of moving new documents.
+* Creating a framework to improve existing content: Many how-tos duplicate
+  steps repeatedly. This will allow us to identify the duplications and
+  refactor the documents into more targeted forms.
+
+In researching documentation systems, there aren’t many formalized systems that
+have been published.
 
 # Prior art
 [prior-art]: #prior-art
@@ -394,7 +406,7 @@ likely be resource intensive.
 ### TensorFlow
 
 TensorFlow follows a style that’s closer to working from beginner to advanced.
-One standout feature is a graphical representation of the ecosystem, with links
+One stand out feature is a graphical representation of the ecosystem, with links
 to docs that fall into a particular categorization. When building out the
 developer documents, it may be worthwhile to consider a similar structure.
 
@@ -412,7 +424,7 @@ topics, similar to the TensorFlow style.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-This documentation system only loosely addresses how subprojects should be handled.
+This documentation system only loosely addresses how sub-projects should be handled.
 
 * It does not consider specific future documents, or a plan for refactoring
   duplicated content in existing documents.
@@ -428,7 +440,7 @@ This documentation system only loosely addresses how subprojects should be handl
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-Future work should include graphical navigation of the projct, similar to the
+Future work should include graphical navigation of the project, similar to the
 TensorFlow ecosystem map, and possibly based on the TVM architecture diagram
 described in the [pre-RFC discuss
 post](https://discuss.tvm.apache.org/t/updated-docs-pre-rfc/10833)
