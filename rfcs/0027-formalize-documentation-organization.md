@@ -1,7 +1,7 @@
 - Feature Name: `Formalize TVM Documentation Organization`
 - Start Date: 2021-09-01
 - RFC PR: [apache/tvm-rfcs#0027](https://github.com/apache/tvm-rfcs/pull/0027)
-- GitHub Issue: [apache/tvm#00xx](https://github.com/apache/tvm/issues/0000)
+- GitHub Issue: [apache/tvm#8987](https://github.com/apache/tvm/issues/8987)
 
 # Summary
 [summary]: #summary
