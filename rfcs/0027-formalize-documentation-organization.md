@@ -19,15 +19,13 @@ then organizes the documents based on those types. The desired result is to
 make it easier for the entire TVM community to find documentation that meet
 their needs, whether they are new users or experienced users. Another goal is
 to make it easier for the developer community to contribute to the TVM
-documentation. It recognizes that while in most communities there is a distinct
-divide between the user and the developer communities, there can be significant
-overlap given the nature of TVM as an optimizing compiler.
+documentation. While most communities have a distinct divide between the user and the developer, TVM's community has a significant overlap due to TVM's use as an optimizing compiler.
 
 # Motivation
 [motivation]: #motivation
 
 TVM has seen an explosion of growth since it was released as an open source
-project, and formally grauated as an official Apache Software Foundation
+project, and formally graduated into an official Apache Software Foundation
 project. The vision of the Apache TVM Project is to host a "diverse community
 of experts and practitioners in machine learning, compilers, and systems
 architecture to build an accessible, extensible, and automated open-source
@@ -36,8 +34,8 @@ hardware platform."
 
 The TVM community has done an excellent job in producing a wide range of
 documents to describe how to successfully install, use, and develop for TVM.
-The documenation project grew with the community, to address the immediate
-needs of the developer community. However, one consistent piece of feedback is
+The documentation project grew with the community to address the immediate
+needs of the developer. However, one consistent piece of feedback is
 that the documentation is difficult to navigate, with beginner material mixed
 in with advanced material. As a result, it can be difficult for new users to
 find the exact information they need, and can work against the vision of the
@@ -68,9 +66,9 @@ introductory tutorial is designed to get a user engaged with the software
 without necessarily explaining why the software works the way it does. Those
 explanations can be saved for other document types. An introductory tutorial
 focuses on a successful first experience. These are the most important docs to
-turning newcomers into new users and developers. A fully end-to-end tutorial,
+turning newcomers into new users and developers. A fully end-to-end tutorial&mdash;
 from installing TVM and supporting ML software, to creating and training a
-model, to compiling to different architectures will give a new user the
+model, to compiling to different architectures&mdash;will give a new user the
 opportunity to use TVM in the most efficient way possible. A tutorial teaches a
 beginner something they need to know. This is in contrast with a how-to, which
 is meant to be an answer to a question that a user with some experience would
@@ -91,8 +89,8 @@ should tell the user what problem the how-to is solving.
 
 How are tutorials different from how-tos? A tutorial is oriented towards the
 new developer, and focuses on successfully introducing them to the software and
-community. A how-to in contrast focuses on accomplishing a specific task within
-the context of basic understanding. A tutorial helps to onboard, a how-to helps
+community. A how-to, in contrast, focuses on accomplishing a specific task within
+the context of basic understanding. A tutorial helps to onboard; a how-to helps
 to accomplish a task.
 
 ### Reference
@@ -104,11 +102,11 @@ interfaces and programs. They are information oriented, focused on lists and
 descriptions. You can assume that the audience has a grasp on how the software
 works and is looking for specific answers to specific questions. Ideally, the
 reference documentation should have the same structure as the code base and
-generated automatically as much as possible.
+be generated automatically as much as possible.
 
 ### Explanations (Deep Dive)
 
-Background material on a topic. These documents help to illuminate and
+Explanations are background material on a topic. These documents help to illuminate and
 understand the application environment. Why are things the way they are? What
 were the design decisions, what alternatives were considered, what are the RFCs
 describing the existing system. This includes academic papers and links to
