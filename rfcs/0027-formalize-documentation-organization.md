@@ -124,19 +124,19 @@ that are consistent with the underlying design principles.
 ## Special considerations for TVM
 
 The TVM community has some special considerations that require deviation from
-the simple docs style outlined by Divio. The first is that there is frequently
-overlap between the user and developer communities. Many projects document the
-developer and user experience with separate systems, but it is appropriate to
-consider both in this system, with differentiations where appropriate. As a
-result the tutorials and how-tos will be divided between "User Guides" that
-focus on the user experience, and "Developer Guides" that focus on the
-developer experience.
+the simple docs style outlined by Divio. The first consideration is that there
+is frequently overlap between the user and developer communities. Many projects
+document the developer and user experience with separate systems, but it is
+appropriate to consider both in this system, with differentiations where
+appropriate. As a result the tutorials and how-tos will be divided between
+"User Guides" that focus on the user experience, and "Developer Guides" that
+focus on the developer experience.
 
-The next is that there are special topics within the TVM community that benefit
-from additional attention. These topics include, but are not limited to,
-microTVM and VTA. Special "Topic Guides" can be created to index existing
-material, and provide context on how to navigate that material most
-effectively.
+The next consideration is that there are special topics within the TVM
+community that benefit from additional attention. These topics include, but are
+not limited to, microTVM and VTA. Special "Topic Guides" can be created to
+index existing material, and provide context on how to navigate that material
+most effectively.
 
 To facilitate newcomers, a special "Getting Started" section with installation
 instructions, a overview of why to use TVM, and other first-experience documents
