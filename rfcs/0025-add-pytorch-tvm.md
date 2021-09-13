@@ -230,7 +230,7 @@ There are some limitations now:
 
 1. Dynamic shape support
 
-    Currelty we support multiple input_shapes with a bucket policy, which is hacky. A more formal implementation will be in our future work.
+    Currently we support multiple input_shapes with a bucket policy, which is hacky. A more formal implementation will be in our future work.
 
 2. Zero overhead output
 
