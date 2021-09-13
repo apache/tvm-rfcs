@@ -207,7 +207,7 @@ static auto __tvm_class_graph_runtime_registry =
 
 And we wrap the custom class in Python:
 
-```
+``` python
 class GraphModule(torch.nn.Module):
     def __init__(self, num_inputs, num_outputs, device=None):
         ...
