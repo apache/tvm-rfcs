@@ -142,7 +142,7 @@ We have opened an initial PR: https://github.com/apache/tvm/pull/8777
 
 The essential cpp code is as follows:
 
-```
+``` c++
 // This is just a wrapper class of tvm graph runtime module
 class TvmGraphModulePack {
  ...
