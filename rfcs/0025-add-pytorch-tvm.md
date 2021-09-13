@@ -70,7 +70,7 @@ class Predictor(nn.Module):
 
 With PyTorchTVM, we are able to compile the ResNet with TVM and embed it back to PyTorch seamlessly with a few lines of code:
 
-```
+``` python
 from tvm.contrib.pt_op import PyTorchTVMModule, compile
 
 print("compile...")
