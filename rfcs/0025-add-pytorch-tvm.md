@@ -91,7 +91,7 @@ resnet_tvm = compile(resnet_jit, option)
 
 The TVM-accelerated `resnet_tvm` module can be used directly in PyTorch, or integrated into TorchScript with `torch.jit.script` along with all other PyTorch-native operations.
 
-```
+``` python
 resnet_tvm = torch.jit.script(resnet_tvm)
 print(resnet_tvm.graph)
 
