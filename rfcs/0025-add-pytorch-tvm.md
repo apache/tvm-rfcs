@@ -43,7 +43,7 @@ As an example, an end-to-end ResNet-based image classifier contains 3 major part
 2. A sequence of image transformation that normalizes the input images, including resize, crop, type conversions, etc
 3. Finally, a ResNet that maps a batch of input images to their class labels accordingly
 Below is a snippet that illustrates the workflow of this pipeline:
-```
+``` python
 class Predictor(nn.Module):
 
     def __init__(self, tvm_module=None):
