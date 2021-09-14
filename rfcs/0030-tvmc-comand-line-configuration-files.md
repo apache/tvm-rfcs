@@ -115,3 +115,5 @@ Such configuration files already exist in a number of platforms and tools to red
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
+
+By starting to map arguments between a configuration file as well as command line arguments they should start to align with standard rule sets. These rule sets can be used to then augment the CLI args and configuration files with a further option of environment variables - for an example of this see [Terraform](https://www.terraform.io/docs/language/values/variables.html#environment-variables).
