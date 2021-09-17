@@ -16,7 +16,51 @@ Currently, when a user uses `tvmc`, they present a target string:
 tvmc --target="woofles -mcpu=woof, c -mattr=+mwoof"
 ```
 
-Using a target string here means that the entire `--target` argument is used as an opaque pass-through to the internal `Target` string parser. It'd be great for a user to be able to compose these options and get meaningful help when building them up in `tvmc`.
+Using a target string here means that the entire `--target` argument is used as an opaque pass-through to the internal `Target` string parser. Users coming to TVM should be able to compose these options and get meaningful help when doing that composition with `tvmc`. As an example, using the default `argparse` behaviour, the arguments can be registered as follows:
+```python
+import argparse
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--target', type=str, help='comma separated target list or target string')
+
+target_c = parser.add_argument_group('target c')
+target_c.add_argument('--target-c-mcpu', type=str, help='target c mcpu string')
+target_c.add_argument('--target-c-mattr', type=str, help='target c mattr string')
+
+target_llvm = parser.add_argument_group('target llvm')
+target_llvm.add_argument('--target-llvm-mcpu', type=str, help='target llvm mcpu string')
+target_llvm.add_argument('--target-llvm-mattr', type=str, help='target lvm mattr string')
+
+args = parser.parse_args()
+print(args)
+```
+
+The user can get help for all available target options:
+```
+usage: test.py [-h] [--target TARGET] [--target-c-mcpu TARGET_C_MCPU] [--target-c-mattr TARGET_C_MATTR] [--target-llvm-mcpu TARGET_LLVM_MCPU] [--target-llvm-mattr TARGET_LLVM_MATTR]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --target TARGET       comma separated target list or target string (default: None)
+
+target c:
+  --target-c-mcpu TARGET_C_MCPU
+                        target c mcpu string (default: None)
+  --target-c-mattr TARGET_C_MATTR
+                        target c mattr string (default: None)
+
+target llvm:
+  --target-llvm-mcpu TARGET_LLVM_MCPU
+                        target llvm mcpu string (default: None)
+  --target-llvm-mattr TARGET_LLVM_MATTR
+                        target lvm mattr string (default: None)
+```
+
+These are arranged in per-`Target` groups to allow the user to easily follow which are applicable and which aren't. The use can now replace their existing `Target` string, by using the documented `Target` options, with:
+```
+tvmc --target=woofles,c \
+    --target-woofles-mcpu=woof \
+    --target-c-mattr=+mwoof
+```
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -97,6 +141,7 @@ gcc -fsanitize=address -fsanitize-address-use-after-scope
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
+## Pattern Re-use
 By creating the infrastructure to allow this composition and providing a standard pattern, we can allow `tvmc` users to compose other aspects of TVM in a similar way, such as `executor`:
 
 ```
