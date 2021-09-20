@@ -1,14 +1,14 @@
 
-- Feature Name: TIR Pinned Memory Representation
+- Feature Name: Adding annotatation field to tir.allocate nodes
 - Start Date: 2021-06-01
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/23
 - GitHub Issue: TBD
 
 # 1. Summary
 
-This RFC proposes how pinned memories could be associated with tir.allocate nodes (and allocate_const nodes) and used by passes in the lowering process.
+This RFC proposes to annotation field tir.allocate nodes. These annotations can be used as auxiliary hint to future transformations.
 
-# 2. Motivation 
+# 2. Motivational usecase : pinned memory 
 
 Currently, TVM relies on dynamic (alloc and free style) allocations in runtime to manage the intermediary memory used by operators and the network. This is sometimes not desirable, especially in microTVM.
 
@@ -53,23 +53,34 @@ The current design of [Unified Static Memory Planner (USMP)](https://github.com/
 
 Therefore, we'd need a way to represent the association of each of these memories, that the user will pin the buffers to, closer to allocate nodes in TIR.
 
-# 3. Guide-level explanation
-
-This is not particularly a user-facing feature.
-
-However, the intention here is to associate the name of the memory (along with other information) closer to the allocate IR node. Therefore at the end of the compilation, metadata module (+ header) will generate pointer structs to-be passed in the from the application layer. 
-
- In the case where user does not wish to pass in workspace or constant buffers, metadata module will generate a workspace buffer and a constant buffer, as explained in U1 of [USMP](https://github.com/apache/tvm-rfcs/pull/9).
-
- # 4. Reference-level explanation
-
- At the IR, we ll need to associate each allocate node with one (or more) memories that it can end up, because the scheduling might be satisfied with placing buffers in any of the memories in a given set of memories. Therefore, the scheduler might want the memory planners to decide which memory to use based on finding the allocation that fit.
+At the IR, we ll need to associate each allocate node with one (or more) memories that it can end up, because the scheduling might be satisfied with placing buffers in any of the memories in a given set of memories. Therefore, the scheduler might want the memory planners to decide which memory to use based on finding the allocation that fit.
 
  There are broadly two requirements here :
 
 P1 : Indicate candidate memories (a.k.a. Pools) that each allocate be associated with
 
 P2 : Indicate the final memory the allocate will be pinned on
+
+
+To serve P2, we propose to use the existing tag of the storage_scope with 'global-<memory_name>'.
+
+```
+struct StorageScope {
+  /*! \brief The rank of the storage */
+  StorageRank rank{StorageRank::kGlobal};
+  /*! \brief tag for special purpose memory. */
+  std::string tag;
+```
+
+To serve P1, this RFC introduces the addition of the annotations field
+
+# 3. Guide-level explanation
+
+This is not particularly a user-facing feature.
+
+
+ # 4. Reference-level explanation
+
 
 To serve P1, we propose to use :
 
@@ -93,27 +104,8 @@ class AllocateNode : public StmtNode {
 + Map<String, Objectref> annotations;
 ```
 
-Here the addition of the annotations field could serve offer hints/guides to future passes (i.e. Unified Static Memory Planner). We could use "candidate_memory_pools" as the key while the value being Map<String, PoolInfo>.
+Here the addition of the annotations field could serve offer hints/guides to future passes (i.e. In Unified Static Memory Planner, we could use "candidate_memory_pools" as the key while the value being Map<String, PoolInfo>.)
 
-```
-struct PoolInfoNode : public Object {
-  String  pool_name;
-  Integer size_bytes;
-  Integer alignment;
-  Integer pool_offset;
-  Map<Target,String> target_access; // 'rw' or 'ro'
-}
-```
-
-To serve P2, we propose to use the existing tag of the storage_scope with 'global-<memory_name>'.
-
-```
-struct StorageScope {
-  /*! \brief The rank of the storage */
-  StorageRank rank{StorageRank::kGlobal};
-  /*! \brief tag for special purpose memory. */
-  std::string tag;
-```
 
 # Alternatives
 
@@ -196,7 +188,7 @@ However, in the discussion with community, we felt the need to seperate changes 
 
 # 5. Drawbacks
 
-It is not direct because we are using general annotations to indicate this, however it is consistent with rest of the IR and allows future expansions.
+None. Its consistent with rest of the IR design and allows other features to use to pass hints for future transformation in the compiler.
 
 
 
