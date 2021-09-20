@@ -30,7 +30,7 @@ available for a platform.
 
 This RFC proposes to extend the existing metadata with four new members in
 `ProjectOption` (`required`, `optional`, `type`, and `default`) to address
-issues **1.**`, **2.**, and **3.** and ease the integration of Project API with
+issues **1.**, **2.**, and **3.** and ease the integration of Project API with
 CLI tools.
 
 # Guide-level explanation
