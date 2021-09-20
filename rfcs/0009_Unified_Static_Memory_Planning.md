@@ -76,6 +76,8 @@ Ideally, the user would expect to provide these buffers in the granularity of th
 
 # Guide-level explanation
 
+NOTE : the embedded runtime interface used in the example are for demonstration purposes and the actual runtime API is defined and discussed [here.](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951)
+
 ## U1: Most simple use case
 
 ### TVMC
@@ -348,12 +350,27 @@ tvmc compile my_model.tflite --executor=aot --output-format=mlf --target=c
 
 This should be a IRModule (TIR) → IRModule (TIR) pass.
 
-Inputs : 
-* AoT TIR PrimFunc ( the control function describing the call graph to operators)
-* All Operator Functions
-* the maximum size for each pool We could use "pinned_memory" (see below) to tag buffers with suggested priority order determined by the scheduler.
+Inputs :
+* IRModule containing 
+    * AoT TIR PrimFunc (the control function describing the call graph to operators)
+    * All Operator Functions
+    * Each tir.allocate in the IRModule annotated with candidate pools ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md))
 
-The idea is USMP will try to pool them using the preferred "pinned_memory" and fallback whenever the size is exceeding the user provided max size for each pool (if any)
+
+```
+struct PoolInfoNode : public Object {
+  String  pool_name;
+  Integer size_bytes;
+  Integer alignment;
+  Integer pool_offset;
+  Map<Target,String> target_access; // 'rw' or 'ro'
+}
+```
+
+
+We could use "candidate_memory_pools" ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md)) to tag buffers with suggested priority order determined by the scheduler.
+
+The idea is USMP will try to pool them using the preferred "candidate_memory_pools" and fallback whenever the size is exceeding the user provided max size for each pool (if any). The fallback only happens if the user provide more than one candidate memory pool. If the fallback is not desired by the user, the user need not to provide multiple candidate_memory_pools with size constraints or the scheduling. If the fallback is not desired by the scheduler, the scheduling passes could remove the memory pools from the candidate_memory_pools.
 
 Outputs : 
 * AoT TIR PrimFunc accepting pool buffers from the user.
@@ -370,21 +387,27 @@ The current proposal for the interface of the memory planning algorithm is as fo
         Integer size_bytes;
         Integer alignment;
         Array<BufferInfo> conflicts; //the conflicting bufferinfo objs
-        Array<Integer> pool_candidates;`
-        String pool_name;`
-        Integer pool_offset;`
+        Array<PoolInfo> pool_candidates;
     }
 ```
+
 ```
-Array<BufferInfo> (*foo)(Array<BufferInfo> buffers, Map<String, Integer> pool_sizes)
+    struct PoolAllocation {
+        PoolInfo pool;
+        Integer offset;
+    }
 ```
-The memory planning algorithm is expected to populate pool_name and pool_offset and return the updated array of BufferInfo objects. Additionally, the second argument provides size constraints for each pool (if any).
+
+
+```
+Map<BufferInfo, PoolAllocation> (*foo)(Array<BufferInfo> buffers, Map<String, Integer> pool_sizes)
+```
+The memory planning algorithm is expected to return a Map of BufferInfo to PoolAllocation with the planned offsets into respective pool.
 ### Special Considerations :
 
 * tir.constants : TIR does not have the ability to represent constants – which is limiting and often leads to having side-channels to carry constants between TIR compiler passes including this one.
-Therefore, in this work as a pre-requisite we should aim to fix this by supporting tir.constants (similiar to relay.constants).
-  * Why do we need constants expressed in TIR ?
-    * If not, it should be represented as inputs to TIR main function (logic : anything that is not expressible in TIR will become inputs). In which case, we would need to associate that Var with a special tag to indicate its constant and its metadata (e.g., desired pools, alignment requirements, etc.)
+Therefore, in this work as a pre-requisite we should aim to fix this by supporting tir.constants (similiar to relay.constants). Please refer to the [TIR non-scalar constants RFC](https://github.com/apache/tvm-rfcs/pull/22).
+
 * Currently "with" or "let" scopes are tree structured and carry transitive property. E.g, if tensor A is live with tensor B && tensor B is live with tensor C → tensor A is live with tensor C – which may not be true always.
 Thus current "let" or "with" scopes are unable to express liveness information. Therefore, we'd need a side-channel to express this information.
 
@@ -396,38 +419,42 @@ After Step 1 (introducing tir.constants to hold constant data) : the TIR code sh
 # This snippet shows the format of pre-USMP pseudo TIR code.
 
     def main(input1: ty.handle, output1: ty.handle):
-       my_model_fused_op1 = tir.allocate(..., pinned_memory=["dtcm", "sram"])
-       my_model_fused_op2 = tir.allocate(..., pinned_memory=["sram])
+       my_model_fused_op1 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"]
+       my_model_fused_op2 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"]
        tir.call("my_model_fused_op1", input1, my_model_fused_op1, fused_op1_weights, fused_op1_biases)
        tir.call( "my_model_fused_op2" , my_model_fused_op1, my_model_fused_op2, fused_op2_weights, fused_op2_biases)
 
     def my_model_fused_op1(input : ty.handle, output : ty.handle):
        tir.func_attr({"global_symbol":"my_model_fused_op1","tir.noalias": True})
-       intermediate_tensor_1 = tir.allocate(..., pinned_memory=["dtcm", "sram"]) # By  default they will have all possible memories
-       intermediate_tensor_2 = tir.allocate(..., pinned_memory=["dtcm", "sram"]) # unless scheduler removes them
-       weights = tir.allocate_const(..., pinned_memory=["itcm", "flash"])
-       biases = tir.allocate_const(..., pinned_memory=["itcm", "flash"])
+       intermediate_tensor_1 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"] 
+       intermediate_tensor_2 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"] 
+       weights = tir.allocate_const(...) # attrs.candidate_memory_pools = ["itcm", "flash"]
+       biases = tir.allocate_const(...) # attrs.candidate_memory_pools = ["itcm", "flash"]
        ...
        <compute>
        ...
 
     def my_model_fused_op2(input : ty.handle, output : ty.handle):
        tir.func_attr({"global_symbol":"my_model_fused_op2", "tir.noalias": True})
-       intermediate_tensor_1 = tir.allocate(..., pinned_memory=[1, 2])
-       intermediate_tensor_2 = tir.allocate(..., pinned_memory=[1, 2])
-       weights = tir.allocate_const(..., pinned_memory=["itcm", "flash"])
-       biases = tir.allocate_const(..., pinned_memory=["itcm", "flash"])
+       intermediate_tensor_1 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"]
+       intermediate_tensor_2 = tir.allocate(...) # attrs.candidate_memory_pools = ["dtcm", "sram"]
+       weights = tir.allocate_const(...) # attrs.candidate_memory_pools = ["itcm", "flash"]
+       biases = tir.allocate_const(...) # attrs.candidate_memory_pools = ["itcm", "flash"]
        ...
        <compute>
        ...
 ```
-##### Step 2 : Run an analysis pass to populate a Map<tir::Var, BufferInfo> that contains buffer information as defined above (See the struct BufferInfo).
+##### Step 2 : Run an analysis pass to populate a Map<BufferInfo, tir.StmtNode> that contains buffer information as defined above (See the struct BufferInfo).
 
-##### Step 3 : Use the updated Map<tir::Var, BufferInfo> to generate Array<BufferInfo>, Map<String, Integer> pool_sizes
+Note : here tir.StmtNode is treated as a Union[tir.AllocateNode, tir.AllocateConstNode]
 
-##### Step 4 : Call the provided/default algorithm (void (*foo)(Array<ByfferInfo> buffers, Map<String, Integer> pool_sizes) to populate pool_id and pool_offset.
+This actual pass would traverse full TIR program and construct BufferInfo objects that captures liveness conflicts between allocates that are live together.
 
-##### Step 5 : Use the updated Map<tir::Var, BufferInfo> (with pool_id and pool_offset) mutate the IR that would result as following :
+##### Step 3 : Use the updated Map<BufferInfo, tir.StmtNode> to generate Array\<BufferInfo>
+
+##### Step 4 : Call the provided/default algorithm (void (*foo)(Array<BufferInfo> buffers) to generate Map<BufferInfo, PoolAllocation>
+
+##### Step 5 : Use the updated Map<BufferInfo, PoolAllocation> and Map<BufferInfo, tir.StmtNode> to mutate the IR that would result as following :
 ```
 # This snippet shows the format of post-USMP pseudo TIR code.
 
