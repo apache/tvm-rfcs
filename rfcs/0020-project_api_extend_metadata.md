@@ -1,15 +1,14 @@
-- Feature Name: project_api_extend_metadata
+- Feature Name: extend_metadata_in_projectoption
 - Start Date: 2021-09-09
 - RFC PR: [apache/tvm-rfcs#0020](https://github.com/apache/tvm-rfcs/pull/0000)
 - GitHub Issue: [apache/tvm#0020](https://github.com/apache/tvm/issues/0000)
 
-[RFC][Project API] Extend metadata in ProjectOption
-
 # Summary
 [summary]: #summary
 
-Extend metadata associated with project options provided by the Project API.
-
+This RFC proposes to extend the current metadata associated with project options
+provided by the Project API to allow a better integration with command line
+interface tools, like TVMC.
 
 # Motivation
 [motivation]: #motivation
@@ -19,37 +18,39 @@ is insufficent to allow building easily and automatically command line parsers
 used by CLI tool like TVMC.
 
 The metadata available for the project options, stored in instances of the
-ProjectOption class, A) do not provide a list of the API methods which support
-the options, B) do not allow to determine if the options are required or
-optional, C) and do not provide a default value if one is used by the Project
-API server. As a consequence it complicates the integration with command line
-interfaces that need to create command line arguments based on the project
-options available for a platform.
+ProjectOption class are limited as they do not:
+
+1. Provide a list of the API methods which support the options;
+2. Allow determination if the options are required or optional;
+3. Provide a default value if one is used by the Project API server.
+
+As a consequence it complicates the integration with command line interfaces
+that need to create command line arguments based on the project options
+available for a platform.
 
 This RFC proposes to extend the existing metadata with four new members in
-ProjecOption ('required', 'optional', 'type', and 'default') to address issues
-A, B, and C and ease the integration of Project API with CLI tools.
-
+`ProjectOption` (`required`, `optional`, `type`, and `default`) to address
+issues **1.**`, **2.**, and **3.** and ease the integration of Project API with
+CLI tools.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
 Below it is explained in detail the need and properties of the four new members
-('required', 'optional', 'type', and 'default') proposed to be added to the
-ProjectOption class to extend the project option metadata returned by Project
-API 'server_info_query' method. 'required', 'optional', and 'type' are proposed
-as required fields, whilst 'default' is proposed as an optional field.
+(`required`, `optional`, `type`, and `default`) proposed to be added to the
+`ProjectOption` class to extend the project option metadata returned by Project
+API `server_info_query` method. `required`, `optional`, and `type` are proposed
+as **required fields**, whilst `default` is proposed as an **optional field**.
 
 Modals like "must", "may" and similar ones are interpreted in this RFC
 accordingly to the semantics defined by the IETF RFC-2119, 1997.
 
-
 ## On "required" and "optional" metadata
 
 Currently even though all options available for a given project can be
-discovered via the Project API 'server_info_query' interface there is no way to
-known which options belong (or apply) to which API method (like the
-generate_project, build, flash, and open_transport methods).
+discovered via the Project API `server_info_query` interface there is no way to
+know which options belong (or apply) to which API method (like the
+`generate_project`, `build`, `flash`, and `open_transport` methods).
 
 This is fine when the user knowns beforehand which method accepts a set of
 options, so it's possible to manually select which options will be passed to a
@@ -69,48 +70,47 @@ the static table every time an option is added, removed, or modified in the
 Project API server.
 
 Hence to ease the automatic detection of the options available on each Project
-API method the following two new metadata are proposed: 'required' and 'optional'.
+API method the following two new metadata are proposed: `required` and
+`optional`.
 
 Both will contain a list of method names for which the option is available,
-either as a required option (if in 'required' list), or as an optional option
-(if in 'optional' list). At least one API method must be listed in 'required' or
-in the 'optional list. A method name must be listed only in the 'required' or in
-the 'optional' list, i.e. an option can't be require and optional at the same
-time for given API method. An option can be required for a method and optional
-for another method.
+either as a required option (if in `required` list), or as an optional option
+(if in `optional` list). At least one API method must be listed in `required` or
+in the `optional` list. A method name must be listed only in the `required` or
+in the `optional` list, i.e. an option can't be required and optional at the
+same time for given API method. An option can be required for a method and
+optional for another method.
 
-The elements in the lists 'required' and 'optional' must be in the set of method
+The elements in the lists `required` and `optional` must be in the set of method
 names implemented by the ProjectAPIClient class and that have the parameter
-'options' defined. These methods are dispatched to the server, which implements
+`options` defined. These methods are dispatched to the server, which implements
 the server counterparts to properly handle the client dispatches and
 ultimately defines the options available for each API method. The current method
-name that satisfy these criteria are 'generate_project', 'build', 'flash', and
-'open_transport'.
+name that satisfy these criteria are `generate_project`, `build`, `flash`, and
+`open_transport`.
 
-'required' metadatum or 'optional' metadatum (or both) must be provided for
+`required` metadatum or `optional` metadatum (or both) must be provided for
 every option.
-
 
 ## On "type" metadatum
 
 The option type can sometimes be determined implicitly by what's return
-in metadatum 'choices', but this not ideal. For example, for option 'verbose' it
+in metadatum `choices`, but this not ideal. For example, for option `verbose` it
 would be possible to infer it is a boolean option and therefore it can be
-converted to a command line flag if metadatum 'choices' is a couple of True and
+converted to a command line flag if metadatum `choices` is a couple of True and
 False. Nonetheless that would lead to cumbersome logic at API user side (e.g.
 TVMC) to infer the option type, like iterating over the tuple elements to search
 for True or False. This can be solved directly if the option type is returned
 explicitly with the option.
 
-Thus adding a 'type' metadatum allows a much simpler way for the API users to
+Thus adding a `type` metadatum allows a much simpler way for the API users to
 determine the type of an option when that is necessary for various reasons, like
 when building a command line parser based on the available project options.
 
-The following types, passed as strings, are proposed for the 'type' metadatum:
-"bool", "str", "int", and "float".
+The following types, passed as strings, are proposed for the `type` metadatum:
+`"bool"`, `"str"`, `"int"`, and `"float"`.
 
-'type' metadatum must be provided for every option.
-
+`type` metadatum must be provided for every option.
 
 ## On "default" metadatum
 
@@ -124,20 +124,21 @@ provide a different value.
 The default values for the options on a project could be defined at the user
 side (e.g. TVMC) but that's not ideal.
 
-Hence having an additional field 'default' in the metadata that the API can use
+Hence having an additional field `default` in the metadata that the API can use
 to inform the user if the option has any default value is quite useful. It also
 avoids one to keep that information at the client / user side.
 
-'default' may be provided for an option, if applicable.
-
+`default` may be provided for an option, if applicable.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-All that's necessary to complish the proposal is to 1) extend ProjectOption
-class by adding the new fields discussed above and 2) adjust the existing
-platform options to comply with the required fields. An example follows
-considering the Zephyr platform:
+All that's necessary to complish the proposal is:
+
+1. Extend `ProjectOption` class by adding the new fields discussed above;
+2. Adjust the existing platform options to comply with the required fields.
+
+An example follows considering the Zephyr platform:
 
 ```
 diff --git a/python/tvm/micro/project_api/server.py b/python/tvm/micro/project_api/server.py
@@ -149,7 +150,7 @@ index 07d328597..323bf418a 100644
          """Override __new__ to force all options except name to be specified as kwargs."""
          assert "name" not in kw
 -        assert "type" in kw, "'type' parameter must be specified"
-+        assert "required" or "optional" in kw, "'required' or 'optional' must be specified"
++        assert "required" in kw or "optional" in kw, "'required' or 'optional' must be specified"
 +        assert "type" in kw, "'type' field must be specified"
 
          kw["name"] = name
@@ -230,23 +231,22 @@ index 4e62739d5..8d0b1722c 100644
 [drawbacks]: #drawbacks
 
 The impact on existing code is low and the current project options will only
-need to be adjusted to define the new mandatory fields, i.e. 'required',
-'optional', and 'type', all are straightforward to be provided for the existing
+need to be adjusted to define the new mandatory fields, i.e. `required`,
+`optional`, and `type`, all are straightforward to be provided for the existing
 options on the current supported platforms.
 
-Adding the four new mumbers to ProjectOption will increase the size of
-ProjectOption class and consequently the amount of data return by
-'server_info_query', however since Project API client and serve run on the same
+Adding the four new mumbers to `ProjectOption` will increase the size of
+`ProjectOption` class and consequently the amount of data returned by
+`server_info_query`, however since Project API client and server run on the same
 host that is negligible.
-
 
 # Rationale and alternatives
 
 An alternative would be to implement the data proposed here as metadata at the
 user side instead, however it would complicate the use of Project API by CLI
-like TVMC, since ah hoc tables would need to be create for each platform and for
-each project option available on the platform, allow one to map options data for
-their required or optional methods, default value, etc. Hence that alternative
-is impractical or hard maintain at best for syncing up with Project API updates
-(updating the tables to match Project API) would be necessary every a new option
-is added to a project.
+like TVMC, since ah hoc tables would need to be created for each platform and
+for each project option available on the platform, allow one to map options data
+for their required or optional methods, default value, etc. Hence that
+alternative is impractical or hard maintain at best for syncing up with Project
+API updates (updating the tables to match Project API) would be necessary every
+a new option is added to a project.
