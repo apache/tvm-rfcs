@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-Collecting common configurations for users of TVM and exposing them gracefully in `tvmc` using a `--config` option.
+Collecting common configurations for users of TVM and exposing them gracefully in `tvmc` using a `--config` option. The scope of this RFC is to introducing the configuration files, the placement of them and demonstrating usage.
 
 # Motivation
 [motivation]: #motivation
@@ -81,19 +81,61 @@ tvmc \
   --executor-aot-unpacked-api=0
 ```
 
-Which allows experimentation with different parameters that can then be added to a custom JSON.
+Which allows experimentation with different parameters that can then be added to a custom JSON. Complex configurations which aren't easily represented well in CLI arguments may exist and can continue to be represented only in JSON.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
+
+To get the `--config` flag, `argparse` can be used as an early pass over the arguments to collect the single configuration file to specify. It's important to note that only one configuration would be 
 
 This will change the behaviour of how `tvmc` utilises `argparse`, it will first translate arguments from `argparse` into an internal dictionary of attributes and then apply those over the top of any specified configuration files. This means the default options for `argparse` are essentially nulled as they won't be aware of configuration files until after the arguments are parsed. The hierarchy is therefore:
 1. Arguments parsed by `argparse`
 2. Configuration file specified (defaults to `default`)
 3. Internal defaults for arguments in `tvmc`
 
-Because these results are additive the underlying defaults remain in `tvmc` rather than in `default.json` to ensure the user doesn't create a resulting configuration which additively makes no sense being based on an `llvm` target or other defaults.
+## Example: merging with new config
+Because these results are merged, the underlying defaults remain in `tvmc` rather than in `default.json` to ensure the user doesn't create a resulting configuration which additively makes no sense (for example, being based on an `llvm` target or other defaults). For example, the default in `tvmc` would be:
+```json
+{ "autotuning_runs": 10 }
+```
+Which would then be extended with `--config=default` (`{ "targets": [{ "kind": "llvm" }], "executor": { "kind": "graph", "system-lib": true } }`):
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "llvm" }], "executor": { "kind": "graph", "system-lib": true } }
+```
+**Or** be extended by `--config=corstone300` (`{ "targets": [{ "kind": "c", "mcpu": "cortex-m55" }, { "kind": "ethosu" }] }`):
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "c", "mcpu": "cortex-m55" }, { "kind": "ethosu" }] }
+```
+This can then be further overrided by the CLI `--config=corstone300 --target=llvm --target-llvm-mattr=+fp`:
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "llvm", "mattr": "+fp" }] }
+```
+**Or** overriding specific `Target` options (`--config=corstone300 --target-c-mcpu=cortex-m4`):
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "c", "mcpu": "cortex-m4" }, { "kind": "ethosu" }] }
+```
 
-The configuration files will be loaded using [json5](https://pypi.org/project/json5/) to enable us to add comments and further details to the JSON files.
+## Example: merging on top of default.json
+The undesirable behaviour would be something such as, this default in `tvmc`:
+```json
+{ "autotuning_runs": 10 }
+```
+Which would then be extended with `--config=default` (`{ "targets": [{ "kind": "llvm" }], "executor": { "kind": "aot", "system-lib": true } }`):
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "llvm" }], "executor": { "kind": "aot", "system-lib": true } }
+```
+And further extended on top of `default.json` with `--config=woofles` (`{ "targets": [{ "kind": "llvm" }], "executor": { "kind": "aot", "unpacked-api": true } }`):
+```json
+{ "autotuning_runs": 10, "targets": [{ "kind": "llvm" }], "executor": { "kind": "aot", "unpacked-api": true, "system-lib": true } }
+```
+We've now acquired undesirable arguments (`"system-lib": true`) which we would not want passed to the AOT executor for this platform.
+
+
+## Configuration format
+The configuration files will be loaded using [json5](https://pypi.org/project/json5/) to enable us to add comments and further details to the JSON files. JSON5 extends upon JSON to provide for comments and other documentation features for users.
+
+## Configuration schema
+Configuration file schema will be maintained in `configs/schema.json` in [JSON Schema format](https://pypi.org/project/jsonschema/).
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -105,10 +147,14 @@ The convention of `--config` being read first then all other arguments is less i
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
+Other configuration formats were considered but JSON5 was selected as a reasonably structured and easy to understand format which is widely used for configuration. Specifically YAML was considered but has looser structure than JSON which leaves more space for user error and JSON is already prevalent in TVM.
+
 # Prior art
 [prior-art]: #prior-art
 
 Such configuration files already exist in a number of platforms and tools to reduce the overhead on the user to define them, such as the [Zepyhr DeviceTree](https://github.com/zephyrproject-rtos/zephyr/tree/main/boards) or [gcc configurations for specific targets](https://github.com/gcc-mirror/gcc/blob/16e2427f50c208dfe07d07f18009969502c25dc8/gcc/config/arm/arm-cpus.in).
+
+The configuration files in JSON format lends itself to following the structure similar to that proposed in [TVM Target Specification](https://discuss.tvm.apache.org/t/rfc-tvm-target-specification/6844).
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
