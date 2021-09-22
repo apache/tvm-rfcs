@@ -41,7 +41,7 @@ In this example, you can see the diversity of RTOS implementations for drivers a
 [guide-level-explanation]: #guide-level-explanation
 
 ## User App
-`tvm_device_<device>_t`s are implemented for each RTOS or platform required, these are included by the user who chooses as appropriate for their application. Notably, to avoid dynamic allocation, the user must provide the `tvm_device_<device>_t` struct and initialise it rather than it being created and setup for them in the API. This is augmented by named functions for each device, examples in the case of the "woofles" accelerator:
+TVM presumes that the RTOS, platform, or user application defines a struct type `tvm_device_<device>_t`, these are included by the user who chooses an implementation as appropriate for their application. Notably, to avoid dynamic allocation, the user must provide the `tvm_device_<device>_t` struct and initialise it rather than it being created and setup for them in the API. TVM then expects an implementation of the named functions for each device, examples in the case of the "woofles" accelerator:
 
 ```c
 typedef void* tvm_device_woofles_t; // Called by User App
@@ -75,7 +75,7 @@ TVMDeviceDestroy(&accelerator);
 ```
 
 ## Platform Structures
-Users can take a implementations from `src/runtime/crt/device` and headers from `include/runtime/crt/device` which maps to their platform device implementation. In the case of a bare metal environment, this would default to a void pointer as there's no information available.
+Users can take a implementations from `src/runtime/crt/device` and headers from `include/runtime/crt/device` which maps to their platform device implementation. The simplest definition of `tvm_device_<device>_t` is `void*` as no information is provided to TVM.
 
 ```c
 typedef tvm_device_woofles_t void*;
@@ -91,7 +91,7 @@ typedef struct {
 } tvm_device_woofles_t;
 ```
 
-This enables the OS maximum control over the resources required and provides the opportunity to craft code in whichever way is most idiomatic for that platform, such as if an additional locking mechanism is required:
+This enables the OS maximum control over the resources required, allows the user application to consolidate the memory used by the device control structures, and provides the opportunity to craft code in whichever way is most idiomatic for that platform, such as if an additional locking mechanism is required:
 
 ```c
 #include <device.h>
@@ -127,7 +127,7 @@ This simple wrapper enables type checking of these functions and defining a clea
 [reference-level-explanation]: #reference-level-explanation
 
 ## Entrypoint
-The entrypoint API defined in [Embedded C Runtime Interface](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951) is augmented with the `devices` structure which contains implemented `tvm_device_t` `struct`s for each device used by the network:
+The entrypoint API defined in [Embedded C Runtime Interface](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951) is augmented with the `tvm_mynetwork_devices` structure which contains implemented `tvm_device_t` `struct`s for each device used by the network:
 ```
 typedef struct {
     struct tvm_device_woofles_t* woofles
@@ -169,6 +169,8 @@ int32_t tvmgen_mynetwork_run_model(..., device0, device1) {
     TVMDeviceWooflesDeactivate(device1); // Turn off the device
 }
 ```
+
+It's important to note that memory copies can happen at any point within the executor function, there's no limitation within this RFC as to where those take place.
 
 This is a simple and likely sufficient set of hooks which can be used to manage these device transactions.
 
@@ -248,30 +250,15 @@ int32_t TVMDeviceWooflesInvoke(tvm_device_woofles_t* tvm_dev) {
 }
 ```
 
-## PrimFunc Resource Handle
-A `tir::Var` is added to `PrimFunc` in `include/tvm/tir/function.h` which enables a `PrimFunc` to track and use the `resource_handle` parameter. This will be used by both unpacked and packed APIs to pass the resource down without packing into `TVMValue`, instead as a `void *`. 
-
-When this is packed in the lowering phase, the `resource_handle` will be assumed to exist as the last argument after being provided by the executor code generation. The eventual `Call` returned in `lower_tvm_builtin.c` contains the `resource_handle` by removing this final argument:
-
-```cpp
-auto arg_count = op->args.size() - 1;
-resource_handle = op->args[arg_count];
-
-// ... packing using arg_count reduced by one
-
-return Call(
-    op->dtype,
-    call_cpacked_lowered(), 
-    {
-        op->args[0],
-        scope.stack_value,
-        scope.stack_tcode,
-        ConstInt32(arg_stack_begin),
-        ConstInt32(arg_stack_begin + op->args.size() - 1),
-        resource_handle
-    }
-);
+These operators would have previously been configured to use the device_api using a `Target` attribute:
 ```
+TVM_REGISTER_TARGET_KIND("ethos-u", kDLCPU)
+  .set_attr<Bool>("device_api", true);
+```
+This attribute in conjuction with the C runtime would enable the function calls listed in this RFC to be emitted. In the case of the C++ runtime, these devices would need to register appropriate C++ Device APIs.
+
+## PrimFunc Resource Handle
+This would leverage the exposure of `resource_handle` in [Wiring up the PrimFunc resource_handle](https://github.com/apache/tvm-rfcs/pull/34/files). The executor function would then take the appropriate device argument and pass that to the correct operator based on `kTarget` or `kCompiler` attributes.
 
 ## Device Discovery
 Initially, devices will be defined by Target name or external compiler name. This means if you mark an operator as needing an external `woofles` compiler it would result in a devices struct such as:
@@ -305,6 +292,8 @@ Another route to take is to treat RTOSes as entirely separate from TVM, requirin
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
+
+Is coupling `Target`s with this Device API to the C Runtime acceptable? From the authors point of view this seems an acceptable trade off given the devices won't function correctly without the flow control.
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
