@@ -52,32 +52,55 @@ TVM_REGISTER_RUNTIME_KIND("c")
   .add_attr_option<String>("runtime");
 ```
 
-And then those attributes can be added as attributes on the `IRModule` before the entering `relay.build`:
+And then those attributes can be added as attributes on the `IRModule` within `relay.build`, changing the signature of `relay.build` from:
 ```py
-func = ... # some function
-ir_mod = tvm.IRModule.from_expr(func)
-ir_mod.set_attr("Runtime", Runtime({
-  "kind": "c",
-  "link-params": False
-})
-ir_mod.set_attr("Executor", Executor({
-  "kind": "aot",
-  "unpacked-api": False
-})
-relay.build(ir_mod)
+def build(ir_mod, target=None, target_host=None, params=None, mod_name="default")
+```
+To this signature:
+```py
+def build(ir_mod, target=None, target_host=None, executor=None, runtime=None, params=None, mod_name="default")
+```
+
+Which would produce a user facing call similar to:
+```py
+tvm.relay.build(
+    ir_module,
+    target,
+    target_host=target,
+    executor=Executor({
+      "kind": "aot",
+      "unpacked-api": False
+    }),
+    runtime=Runtime({
+      "kind": "c",
+      "link-params": False
+    }),
+    params=params,
+    mod_name="the_ultimate_cat_spotter",
+)
+```
+
+`relay.build` would internally annotate the `IRModule` attributes, this hides the implementation detail of the annotation:
+```py
+def build(ir_mod, target=None, target_host=None, executor=None, runtime=None, params=None, mod_name="default"):
+  # ... more things ...
+  ir_mod.set_attr("Runtime", runtime)
+  ir_mod.set_attr("Executor", executor)
+  # ... more things ...
 ```
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-Most of the work involved here is creating independent registries for each type and the related wiring of Python objects to expose them publically - for example, creating `Executor` objects and `ExecutorRegistry` from `AttrRegistry`. Alongside this, the `IRModule` in Python needs to expose the `set_attr` method to enable composing this before entry into `relay.build`.
+Most of the work involved here is creating independent registries for each type and the related wiring of Python objects to expose them publically - for example, creating `Executor` objects and `ExecutorRegistry` from `AttrRegistry`. Alongside this, `relay.build` needs to be augmented to perform the annotation and provide sensible defaults for when the configurations are not provided.
 
 `tvmc` would be ammended to parse the relevant arguments based on the command line composition mechanism defined and construct an `IRModule` for TVM to use.
 
 # Drawbacks
 [drawbacks]: #drawbacks
 
-This is a paradigm breaking change which results in `IRModule`s entering `relay.build` having to have prepared the attributes ahead of time.
+* This is a breaking change which results in arguments being moved from there current location on `Target`
+* Introducing many arguments for the `relay.build` factory function could pose challenging to maintain longer term
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
