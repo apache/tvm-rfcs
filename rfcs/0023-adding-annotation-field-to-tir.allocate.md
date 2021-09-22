@@ -51,32 +51,26 @@ The current design of [Unified Static Memory Planner (USMP)](https://github.com/
     }
 ```
 
-Therefore, we'd need a way to represent the association of each of these memories, that the user will pin the buffers to, closer to allocate nodes in TIR.
+Therefore, we'd need a way to represent the association of each of these memories, that the user will pin the buffers (e.g. workspace_buffer_2 to SRAM) to. That infomation should flow closer to allocate nodes in TIR in the compilation passes.
 
-At the IR, we ll need to associate each allocate node with one (or more) memories that it can end up, because the scheduling might be satisfied with placing buffers in any of the memories in a given set of memories. Therefore, the scheduler might want the memory planners to decide which memory to use based on finding the allocation that fit.
+At the IR, we ll need to associate each allocate node with one (or more) memory pools that it can end up, because the scheduling might be satisfied with placing buffers in any of the memory pools in a given set of memory pools. Therefore, the scheduler might want the memory planners to decide which memory pool to use based on finding the allocation that fit.
 
  There are broadly two requirements here :
 
-P1 : Indicate candidate memories (a.k.a. Pools) that each allocate be associated with
+P1 : Indicate candidate memory pools (a.k.a. PoolInfo Objects -- for further details see [USMP RFC](https://github.com/apache/tvm-rfcs/pull/9)) that each allocate be associated with
 
-P2 : Indicate the final memory the allocate will be pinned on
+P2 : Indicate the final memory pool the allocate will be pinned on
 
 
-To serve P2, we propose to use the existing tag of the storage_scope with 'global-<memory_name>'.
-
-```
-struct StorageScope {
-  /*! \brief The rank of the storage */
-  StorageRank rank{StorageRank::kGlobal};
-  /*! \brief tag for special purpose memory. */
-  std::string tag;
-```
+To serve P2, we are proposing to use the existing tag of the storage_scope with 'global.<pool_name>' in the [USMP RFC](https://github.com/apache/tvm-rfcs/pull/9).
 
 To serve P1, this RFC introduces the addition of the annotations field
 
 # 3. Guide-level explanation
 
 This is not particularly a user-facing feature.
+
+The proposal in this RFC is to add an annotation field to tir.allocate node to be used by compilation passes.
 
 
  # 4. Reference-level explanation
