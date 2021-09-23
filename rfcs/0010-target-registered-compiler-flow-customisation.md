@@ -28,12 +28,14 @@ TVM_REGISTER_TARGET_KIND("ethos-n", kDLCPU)
     .set_attr<FTVMConstantUpdater>("UpdateConstants", EthosNConstantUpdater);
 ```
 
-Collecting all targets under the `Target` functionality (as opposed to registering additional `Target`s through the function registry using the namespace `relay.ext.`) and making it clearer which hooks apply to each target.
+Collecting all targets under the `Target` functionality (as opposed to registering additional `Target`s through the function registry using the namespace `relay.ext.`) and makes it clearer which hooks apply to each target.
 
 # Motivation
 [motivation]: #motivation
 
-Currently to introduce an external code generator (otherwise known as [BYOC](https://tvm.apache.org/docs/dev/relay_bring_your_own_codegen.html)), the entire compilation pipeline must be recreated; this is necessary for some targets but in the case of simply re-using existing libraries or introducing a function call to use for an operator it can become more than is necessary; to implement an external code generator requires going directly from Relay to a `runtime::Module` and re-implementing any compiler passes and code generation functionality rather than being able to extend upon the existing compiler infrastructure.
+We want to make external code generation (otherwise known as [BYOC](https://tvm.apache.org/docs/dev/relay_bring_your_own_codegen.html)) more modular; instead of going from a Relay `IRModule` to `runtime::Module` in one big step, you can break it into phases and make use of existing transformations between phases.
+
+Currently to introduce an external code generator, the entire compilation pipeline must be recreated; this is necessary for some targets but in the case of simply re-using existing libraries or introducing a function call to use for an operator it can become more than is necessary; to implement an external code generator requires going directly from Relay to a `runtime::Module` and re-implementing any compiler passes and code generation functionality rather than being able to extend upon the existing compiler infrastructure.
 
 The generated `runtime::Module` also exists outside of the main graph, meaning it can't be inspected in combination with other operators; this limits the effectiveness of techniques such as memory planning. By introducing the hook `RelayToTIR`, which is similar to the default `LowerTEPass` in that it returns TIR, it can be inspected by the memory planner and other analysis passes that only work at the TIR level. If all that is necessary is transforming into a flat `call_extern` (such is the case for the [CMSIS NN Softmax function](https://github.com/ARM-software/CMSIS_5/blob/develop/CMSIS/NN/Source/SoftmaxFunctions/arm_softmax_s8.c#L86)) then the hook may simply return that TIR to be collected by the host code generation.
 
@@ -52,7 +54,8 @@ To illustrate where the hooks are placed, please refer to the following diagram:
 ![Diagram showing the splitting point of RelayToRuntime, RelayToTIR and TIRToRuntime](./assets/000x/bypass.png)
 
 These can be registered on targets using `set_attr`:
-```
+
+```c++
 TVM_REGISTER_TARGET_KIND("cmsisnn", kDLCPU)
     .set_attr<FTVMRelayToTIR>("RelayToTIR", CMSISNNLowering)
     .set_attr<FTVMTIRToRuntime>("TIRToRuntime", CMSISNNCodeGen);
@@ -63,7 +66,8 @@ TVM_REGISTER_TARGET_KIND("ethos-n", kDLCPU)
 ```
 
 ## Relay -> TIR
-With this change, this path splits, depending on whether you wanted to generate a full `Module` or introduce some specific TIR nodes into the code generation flow; the addition of the `RelayToTIR` hook allows you to write trivial external TIR generators such as calling out to a third party library:
+With this change, this path splits, depending on whether you wanted to generate a full `Module` or introduce some specific TIR nodes into the code generation flow. The `RelayToTIR` hook is a full `IRModule` `Pass` which expects that `Function`s will either be annotated with `kTarget` or `kCompiler` as part of a previous `Pass`, and the resultant `IRModule` is also expected to have any created `PrimFunc`s annotated. The addition of the `RelayToTIR` hook allows you to write trivial external TIR generators such as calling out to a third party library:
+
 ```c++
 void CallExternalLibraryInTIR(const GlobalVar& new_global_var, const Function& func) {
     tir::Buffer x_buffer = tir::decl_buffer({8}, DataType::Float(32), "x");
@@ -83,15 +87,19 @@ void CallExternalLibraryInTIR(const GlobalVar& new_global_var, const Function& f
     ir_module_->Add(new_global_var, replacement_func);
 }
 ```
+
 This is then registered on a target:
+
 ```c++
 TVM_REGISTER_TARGET_KIND("woofles", kDLCPU)
     .set_attr<FTVMRelayToTIR>("RelayToTIR", relay::contrib::woofles::RelayToTIR());
 ```
-The signature for this hook is as the same as any other `Pass`, which takes an `IRModule` with `Function`s and returns an `IRModule` with transformed `PrimFunc`s.
+
+The signature for this hook is as the same as any other `Pass`, which takes an `IRModule` with `Function`s and returns an `IRModule` with transformed `PrimFunc`s. The registered `RelayToTIR` `Pass` is responsible for both establishing the `PrimFunc` definitions (with any caching) and rewriting Relay calls to those functions. At this time we feel it's not worth worrying about code sharing between different custom passes.
 
 ## TIR -> Runtime
 Extending from the above, a second hook is introduced to do further transformations from TIR -> Runtime named `TIRToRuntime`, this bypasses the default `target.build.X` and instead uses the registered `TIRToRuntime` build:
+
 ```c++
 runtime::Module BuildWooflesHost(IRModule mod, Target target) {
 // ... Custom Code generation here
@@ -100,6 +108,8 @@ runtime::Module BuildWooflesHost(IRModule mod, Target target) {
 TVM_REGISTER_TARGET_KIND("woofles", kDLCPU)
     .set_attr<FTVMTIRToRuntime>("TIRToRuntime", BuildWooflesHost);
 ```
+
+Notably the generation hook is passed the unified `IRModule` and is responsible for plucking the `Target` relevant functions into the eventual `runtime::Module`.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
