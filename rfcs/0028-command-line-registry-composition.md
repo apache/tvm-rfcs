@@ -6,37 +6,23 @@
 # Summary
 [summary]: #summary
 
-Introducing a standardised form for `tvmc` arguments to be populated from internal registries in TVM.
+Introducing a standardised form for `tvmc` arguments to be populated from internal registries in TVM. This is currently limited to just the `Target` registry but with future work, such as [Migrating Target Attributes to IRModule](https://github.com/apache/tvm-rfcs/pull/29) there will be further options that require a standard CLI mechanism to interact with. The scope of this RFC is to define the pattern for translating between these internal registries and the CLI in a standard way which can be understood by typical CLI users.
 
 # Motivation
 [motivation]: #motivation
 
-Currently, when a user uses `tvmc`, they present a target string:
+In order to motivate this, the `Target` will be used, as mentioned above this is a singular example of a general pattern - a core tenet of good UX is a series of well understood patterns that the user can re-apply through-out the use of a product.
+
+Coming to `tvmc` as a user 6-7 months ago, the `--target` is essentially magic compared to other CLI arguments which clearly detail the options available. Using a target string means that the entire `--target` argument is used as an opaque pass-through to the internal `Target` string parser, this obfuscates the options available to a `Target` and creates a non-standard sub-syntax for CLI users:
 ```
 tvmc --target="woofles -mcpu=woof, c -mattr=+mwoof"
 ```
 
-Using a target string here means that the entire `--target` argument is used as an opaque pass-through to the internal `Target` string parser. Users coming to TVM should be able to compose these options and get meaningful help when doing that composition with `tvmc`. As an example, using the default `argparse` behaviour, the arguments can be registered as follows:
-```python
-import argparse
-parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--target', type=str, help='comma separated target list or target string')
+Users coming to TVM should be able to compose the available `Target` options and get meaningful help when doing that composition with `tvmc`, Such as:
 
-target_c = parser.add_argument_group('target c')
-target_c.add_argument('--target-c-mcpu', type=str, help='target c mcpu string')
-target_c.add_argument('--target-c-mattr', type=str, help='target c mattr string')
-
-target_llvm = parser.add_argument_group('target llvm')
-target_llvm.add_argument('--target-llvm-mcpu', type=str, help='target llvm mcpu string')
-target_llvm.add_argument('--target-llvm-mattr', type=str, help='target lvm mattr string')
-
-args = parser.parse_args()
-print(args)
-```
-
-The user can get help for all available target options:
-```
-usage: test.py [-h] [--target TARGET] [--target-c-mcpu TARGET_C_MCPU] [--target-c-mattr TARGET_C_MATTR] [--target-llvm-mcpu TARGET_LLVM_MCPU] [--target-llvm-mattr TARGET_LLVM_MATTR]
+```bash
+$ tvmc --help
+usage: tvmc [-h] [--target TARGET] [--target-c-mcpu TARGET_C_MCPU] [--target-c-mattr TARGET_C_MATTR] [--target-llvm-mcpu TARGET_LLVM_MCPU] [--target-llvm-mattr TARGET_LLVM_MATTR]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -55,8 +41,8 @@ target llvm:
                         target lvm mattr string (default: None)
 ```
 
-These are arranged in per-`Target` groups to allow the user to easily follow which are applicable and which aren't. The use can now replace their existing `Target` string, by using the documented `Target` options, with:
-```
+The options are arranged in per-`Target` groups to allow the user to easily follow which are applicable and which aren't. The user can now replace their existing `Target` string, by using the documented `Target` options, with:
+```bash
 tvmc --target=woofles,c \
     --target-woofles-mcpu=woof \
     --target-c-mattr=+mwoof
@@ -72,10 +58,40 @@ TVM_REGISTER_TARGET_KIND("c", kDLCPU)
     .add_attr_option<String>("mcpu")
 ```
 
-This would be translated at the `tvmc` level to:
-```bash
-tvmc --target=c \
-    --target-c-mcpu=cortex-m3
+This would be translated at the `tvmc` level to `argparse` parameters. As an example, using the default `argparse` behaviour, the arguments can be registered as follows:
+```python
+import argparse
+parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--target', type=str, help='comma separated target list or target string')
+
+target_c = parser.add_argument_group('target c')
+target_c.add_argument('--target-c-mcpu', type=str, help='target c mcpu string')
+target_c.add_argument('--target-c-mattr', type=str, help='target c mattr string')
+
+target_cmsisnn = parser.add_argument_group('target cmsisnn')
+target_cmsisnn.add_argument('--target-cmsisnn-mattr', type=str, help='target cmsisnn mattr string')
+
+args = parser.parse_args()
+print(args)
+```
+
+The user can get help for all available target options:
+```
+usage: tvmc [-h] [--target TARGET] [--target-c-mcpu TARGET_C_MCPU] [--target-c-mattr TARGET_C_MATTR] [--target-cmsisnn-mcpu TARGET_CMSISNN_MCPU] [--target-cmsisnn-mattr TARGET_CMSISNN_MATTR]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --target TARGET       comma separated target list or target string (default: None)
+
+target c:
+  --target-c-mcpu TARGET_C_MCPU
+                        target c mcpu string (default: None)
+  --target-c-mattr TARGET_C_MATTR
+                        target c mattr string (default: None)
+
+target cmsisnn:
+  --target-cmsisnn-mattr TARGET_CMSISNN_MATTR
+                        target lvm mattr string (default: None)
 ```
 
 Which would then allow the user to compose together these options, such as:
@@ -84,6 +100,15 @@ Which would then allow the user to compose together these options, such as:
 tvmc --target=cmsisnn,c \ # Specifying multiple targets to enable in priority order
     --target-cmsisnn-mattr=+dsp \
     --target-c-mcpu=cortex-m3
+```
+
+If a user tries to use an attribute of an unspecified `Target`, it is expected that it would error and provide feedback to the user, for example:
+
+```bash
+$ tvmc --target=cmsisnn,c \ 
+    --target-cmsisnn-mattr=+dsp \
+    --target-llvm-mcpu=cortex-m3 # Oh no, we asked for C but tried to configure LLVM
+Error: target llvm mcpu passed but target llvm not specified
 ```
 
 # Reference-level explanation
@@ -111,7 +136,7 @@ Map<String, Map<String, String>> ListConfigs() {
 ```
 
 This can be replicated to provide the same information for `TargetKind` or any other registry and provide this information to generate arguments in `tvmc` using `argparse`:
-```
+```python
 parser.add_argument(f"--target-{kind}-{attr}", ...)
 ```
 
@@ -129,7 +154,7 @@ There's a number of alternative methods for injecting this information which hav
 [prior-art]: #prior-art
 
 This is not dissimilar to how `gcc` or `clang` provide options, [for example in gcc](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html):
-```
+```shell
 gcc -fsanitize=address -fsanitize-address-use-after-scope
 ```
 
