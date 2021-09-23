@@ -1,6 +1,6 @@
 - Feature Name: TVM Script Namespace
 - Start Date: 2021-09-23
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0036](https://github.com/apache/tvm-rfcs/pull/36)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 
 # Summary
