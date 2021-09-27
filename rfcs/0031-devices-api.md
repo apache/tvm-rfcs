@@ -41,7 +41,7 @@ In this example, you can see the diversity of RTOS implementations for drivers a
 [guide-level-explanation]: #guide-level-explanation
 
 ## User App
-TVM presumes that the RTOS, platform, or user application defines a struct type `tvm_device_<device>_t`, these are included by the user who chooses an implementation as appropriate for their application. Notably, to avoid dynamic allocation, the user must provide the `tvm_device_<device>_t` struct and initialise it rather than it being created and setup for them in the API. TVM then expects an implementation of the named functions for each device, examples in the case of the "woofles" accelerator:
+For each `Target` or external compiler (`kCompiler` `Function` attribute) which is registered as requiring the C Device API, TVM presumes that the RTOS, platform, or user application defines a struct type `tvm_device_<device>_t`, where `<device>` is either the `Target` kind or the external compiler name. The user defined `tvm_device_<device>_t` struct is included by the user who chooses an implementation as appropriate to their application. Notably, to avoid dynamic allocation, the user must provide the `tvm_device_<device>_t` struct and initialise it rather than it being created and setup for them in the API. TVM then expects an implementation of the named functions for each device, examples in the case of the "woofles" accelerator:
 
 ```c
 typedef void* tvm_device_woofles_t; // Called by User App
