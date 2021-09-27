@@ -357,20 +357,23 @@ Inputs :
     * Each tir.allocate in the IRModule annotated with candidate pools ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md))
 
 
-```
-struct PoolInfoNode : public Object {
-  String  pool_name;
-  Integer size_bytes;
-  Integer alignment;
-  Integer pool_offset;
-  Map<Target,String> target_access; // 'rw' or 'ro'
-}
-```
+        ```
+        struct PoolInfoNode : public Object {
+        String  pool_name;
+        Integer size_bytes;
+        Integer alignment;
+        Integer pool_offset;
+        Map<Target,String> target_access; // 'rw' or 'ro'
+        }
+        ```
+        The input IRModule is expected to have "candidate_memory_pools" annotation populated with a orderered list of PoolInfo objects. The ordering will indicate to the planner the order of preference each allocate will be pinned to each Pool. The core compiler will run a pass to assign each tir.allocate with candidate_memory_pools based on the target each PrimFunc is executed, prior to invoking the USMP.
 
 
-We could use "candidate_memory_pools" ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md)) to tag buffers with suggested priority order determined by the scheduler.
+The idea is USMP will try to pool them using the preferred "candidate_memory_pools" and fallback whenever the size is exceeding the user provided max size for each pool (if any). The fallback only happens if the tir.allocate is annotated with more than one candidate memory pool. Initially, it will take the ordering provided to the TVMC interface.
 
-The idea is USMP will try to pool them using the preferred "candidate_memory_pools" and fallback whenever the size is exceeding the user provided max size for each pool (if any). The fallback only happens if the user provide more than one candidate memory pool. If the fallback is not desired by the user, the user need not to provide multiple candidate_memory_pools with size constraints or the scheduling. If the fallback is not desired by the scheduler, the scheduling passes could remove the memory pools from the candidate_memory_pools.
+If the fallback is not desired, the user need not to provide multiple candidate_memory_pools with size constraints to TVMC interface.
+
+If the fallback is not desired by the scheduler, the scheduling passes could remove the memory pools from the candidate_memory_pools.
 
 Outputs : 
 * AoT TIR PrimFunc accepting pool buffers from the user.
