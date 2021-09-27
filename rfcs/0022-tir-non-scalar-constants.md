@@ -53,6 +53,13 @@ For A1, this should only be done if the target support codegeneration of the con
 
 For A2, the lowering for targets that support constant as part of the operators, there can be new (differently sized) constants could be created due to optimizations such as weight compression as required by the target.
 
+### Storage of constants
+
+Due to concerns of future expansions of centralized storage of constants and adding alternate methods to parse in constants (other than parsing TVMScript), we have decided to store the constants as an IRModule attribute.
+
+This will go as a "Constants" key in the DictAttrs where the value is a Array\<NDArray>. The tir.allocate_const(...) will refer to the constant directly by index in the array at the time of the creation. Therefore, they are only meant to be accessed via tir.allocate_const(...) nodes in TIR.
+
+
 # 5. Drawbacks
 
 Not all targets need/benefit from handling codegeneration differently for constants.
