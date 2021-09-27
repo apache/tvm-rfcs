@@ -86,7 +86,7 @@ Which allows experimentation with different parameters that can then be added to
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-To get the `--config` flag, `argparse` can be used as an early pass over the arguments to collect the single configuration file to specify. It's important to note that only one configuration would be 
+To get the `--config` flag, `argparse` can be used as an early pass over the arguments to collect the single configuration file to specify. It's important to note that only one configuration file would be supported per command line and the default `argparse` behaviour of taking the last `--config` flag would take effect.
 
 This will change the behaviour of how `tvmc` utilises `argparse`, it will first translate arguments from `argparse` into an internal dictionary of attributes and then apply those over the top of any specified configuration files. This means the default options for `argparse` are essentially nulled as they won't be aware of configuration files until after the arguments are parsed. The hierarchy is therefore:
 1. Arguments parsed by `argparse`
