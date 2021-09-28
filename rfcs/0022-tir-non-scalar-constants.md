@@ -94,9 +94,11 @@ This will go as a "Constants" key in the DictAttrs where the value is a Array\<N
 
 # 5. Drawbacks
 
-Not all targets need/benefit from handling codegeneration differently for constants.
+* Not all targets need/benefit from handling codegeneration differently for constants.
 
-If we have to 'link' constants to TIR all the time, there might need a subsequent pass to pull them out. However, its clearer if we just 'link' constants where the target supports and benefits of having them expressed in TIR.
+    If we have to 'link' constants to TIR all the time, there might need a subsequent pass to pull them out. However, its clearer if we just 'link' constants where the target supports and benefits of having them expressed in TIR.
+
+* The IRModule::Add(...) for TIR PrimFuncs need to traverse the statements to add the constants to IRModule if they are not originally referencing the constants present in the IRModule "Constants" attribute.
 
 # 6. Alternatives and Discussion
 
