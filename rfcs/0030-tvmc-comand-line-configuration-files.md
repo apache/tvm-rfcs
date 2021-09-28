@@ -17,7 +17,9 @@ When a user first approaches TVM, choosing an appropriate configuration can be d
 [guide-level-explanation]: #guide-level-explanation
 
 ## TVM Hosted Configurations
-Configurations will be stored as [JSON5](https://json5.org/) at `configs/<TYPE>/<NAME>.json`, this top level directory will enable other tooling to load configurations just as easily a `tvmc` and provide easy sign posting for users looking for configurations.
+Configurations will be stored as [JSON5](https://json5.org/) at `configs/<TYPE>/<NAME>.json`, this top level directory will enable other tooling to load configurations just as easily a `tvmc` and provide easy sign posting for users looking for configurations. This folder structure includes two levels to allow contributors of configurations to choose appropriate values for:
+* `<TYPE>` - A suitable collective under which configurations can live, in this document the example used is `boards` but this could equally be `instances` for a cloud provider and is unbounded to allow contributors to group in the most effective way.
+* `<NAME>` - The name of the configuration, such as a board name or other composite structure of configurations.
 
 A user coming to `tvmc` will begin with a default configuration which sets sensible defaults, such that `tvmc compile my_model.tflite` works out of the box. This is enabled by a `configs/host/default.json` which is likely to specify:
 
@@ -94,6 +96,8 @@ This will change the behaviour of how `tvmc` utilises `argparse`, it will first 
 3. Internal defaults for arguments in `tvmc`
 
 ## Example: merging with new config
+This example is using the changes illustrated in [Migrating Target Attributes to IRModule](https://github.com/apache/tvm-rfcs/pull/29) to provide a clearer example of how extension occurs. If [Migrating Target Attributes to IRModule](https://github.com/apache/tvm-rfcs/pull/29) is eventually rejected, this example serves to demonstrate the logic with which merging occurs and could be applied to a variety of configuration combinations. 
+
 Because these results are merged, the underlying defaults remain in `tvmc` rather than in `default.json` to ensure the user doesn't create a resulting configuration which additively makes no sense (for example, being based on an `llvm` target or other defaults). For example, the default in `tvmc` would be:
 ```json
 { "autotuning_runs": 10 }
@@ -115,6 +119,14 @@ This can then be further overrided by the CLI `--config=corstone300 --target=llv
 { "autotuning_runs": 10, "targets": [{ "kind": "c", "mcpu": "cortex-m4" }, { "kind": "ethosu" }] }
 ```
 
+It can be seen that this merging follows a simple algorithm:
+1. If the config file specifies `targets` key, all `targets` from the default config are deleted/overridden.
+2. If the command-line supplies `--target=`, all `targets` from the config file are deleted/overridden.
+3. If the command-line only supplies e.g. `--target-llvm-mcpu`, then it modifies the llvm target from config/defaults.
+4. If the command-line or a config file specifies a `target` sub-key, it always overrides it in full (e.g. there is no appending to mattr from the command line).
+
+Notably this algorithm will apply across all registries uniformly once [Command Line Composition from Internal Registry](https://github.com/apache/tvm-rfcs/pull/28) lands.
+
 ## Example: merging on top of default.json
 The undesirable behaviour would be something such as, this default in `tvmc`:
 ```json
@@ -128,8 +140,9 @@ And further extended on top of `default.json` with `--config=woofles` (`{ "targe
 ```json
 { "autotuning_runs": 10, "targets": [{ "kind": "llvm" }], "executor": { "kind": "aot", "unpacked-api": true, "system-lib": true } }
 ```
-We've now acquired undesirable arguments (`"system-lib": true`) which we would not want passed to the AOT executor for this platform.
-
+We've now acquired undesirable arguments (`"system-lib": true`) which we would not want passed to the AOT executor for this platform, this is due to:
+1. The `default.json` config file specifies the `executor` key, this sets up a default excecutor
+2. The `woofles.json` config file specifies the `system-lib` key on the `executor`, which adds the property on top of existing properties
 
 ## Configuration format
 The configuration files will be loaded using [json5](https://pypi.org/project/json5/) to enable us to add comments and further details to the JSON files. JSON5 extends upon JSON to provide for comments and other documentation features for users.
