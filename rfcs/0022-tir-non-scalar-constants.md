@@ -53,11 +53,43 @@ For A1, this should only be done if the target support codegeneration of the con
 
 For A2, the lowering for targets that support constant as part of the operators, there can be new (differently sized) constants could be created due to optimizations such as weight compression as required by the target.
 
+
+### IRNode Definition
+
+```
+class AllocateConstNode : public StmtNode {
+ public:
+  /*! \brief The buffer variable. */
+  Var buffer_var;
+  /*! \brief The data associated to the constant. */
+  NDArray data;
+  /*! \brief If the PrimFunc containing the Stmt is added to IRModule,
+       this is an optional index to indicate the index within
+       "Constants" attribute, that is a Array<NDArray> of IRModule.
+   */
+  Optional<Integer> irmod_storage_idx;
+  /*! \brief The type of the buffer. */
+  DataType dtype;
+  /*! \brief The extents of the buffer. */
+  Array<PrimExpr> extents;
+  /*! \brief The body to be executed. */
+  Stmt body;
+}
+```
+
+
 ### Storage of constants
 
-Due to concerns of future expansions of centralized storage of constants and adding alternate methods to parse in constants (other than parsing TVMScript), we have decided to store the constants as an IRModule attribute.
+Due to concerns of future expansions of centralized storage of constants and adding alternate methods to parse in constants (other than parsing TVMScript), we have decided to store the constants as an IRModule attribute, *when the PrimFunc is added to the IRModule*. 
 
-This will go as a "Constants" key in the DictAttrs where the value is a Array\<NDArray>. The tir.allocate_const(...) will refer to the constant directly by index in the array at the time of the creation. Therefore, they are only meant to be accessed via tir.allocate_const(...) nodes in TIR.
+This will go as a "Constants" key in the DictAttrs where the value is a Array\<NDArray>. However, they are only meant to be accessed via tir.allocate_const(...) nodes in TIR.
+
+
+* If the constants are created in within passes, the IRModule::Add(...) for a PrimFunc needs to traverse the Stmts to pick the NDArray, add it "Constants" IRModule attribute (Array\<NDArray>) and populate *irmod_storage_idx*.
+
+* If the constants are present in IRModule prior to the PrimFunc is created, then the ObjectRef (for NDArray) and the index of constants in "Constants" IRModule attribute (Array\<NDArray>) has to be populated.
+
+
 
 
 # 5. Drawbacks
