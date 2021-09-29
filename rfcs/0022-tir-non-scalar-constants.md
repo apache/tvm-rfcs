@@ -61,8 +61,10 @@ class AllocateConstNode : public StmtNode {
  public:
   /*! \brief The buffer variable. */
   Var buffer_var;
-  /*! \brief The data associated to the constant. */
-  NDArray data;
+  /*! \brief The optional data associated to the constant.
+      This is mutually exclusive to irmod_storage_idx.
+   */
+  Optional<NDArray> data;
   /*! \brief If the PrimFunc containing the Stmt is added to IRModule,
        this is an optional index to indicate the index within
        "Constants" attribute, that is a Array<NDArray> of IRModule.
@@ -74,7 +76,18 @@ class AllocateConstNode : public StmtNode {
   Array<PrimExpr> extents;
   /*! \brief The body to be executed. */
   Stmt body;
+  /*! \brief The constructor with data. */
 }
+
+// The constructor to create a IRNode with constant data
+// depending on the type of ObjectRef, it will either
+// create AllocateConstNode with irmod_storage_idx or data
+AllocateConst(Var buffer_var,
+              DataType dtype,
+              Array<PrimExpr> extents,
+              ObjectRef data_or_idx,
+              Stmt body,
+              Span span);
 ```
 
 
