@@ -41,51 +41,17 @@ Deciding on exactly which operators should be cascaded and with what striping pa
 
 They key piece of information to calculate in order to characterize a cascade is how the stripe size changes throughout. This is a function of the data dependency between an operator's inputs and outputs. For many operators that we're interested in, an affine transform matrix can be used to represent this dependency if we represent the input and output stripe sizes as vectors. Affine transforms typically consider 'augmented' matrices and vectors (https://en.wikipedia.org/wiki/Affine_transformation#Augmented_matrix) which allow for the representation of constant changes. Concretely, we define the transform matrix M as being the matrix for which the following holds:
 
-$$stripe_{in} = {M} \cdot {stripe_{out}}$$
+![meta-schedule-workflow](../resources/cascading-formula-1.png)
 
 Let's briefly consider how to derive such a transform matrix for a 3x3 unstrided, undilated and unpadded NHWC convolution. Immediately, the '3x3' kernel tells us something important: a single element in the output depends on 3x3 elements in the height/width of the input. If we were instead to consider a 2x2 region of the output in the height/width dimensions, we'd then need a 4x4 region in the input. So in general, the rule is that we need 2 more elements in height and width when calculating the dependencies of an output stripe. It can be shown that more generally this number is the kernel_size-1 in each axis. Now to consider the channels, in a convolution no matter how many output elements you are computing you'll always need every input channel. This is because the input channel axis is a reduction axis in a convolution, in a sense it isn't 'reflected' in the output. Combining these two observations, we arrive at the following transform matrix:
 
-$$
-M =
-\begin{bmatrix}
-1 & 0 & 0 & 0 & 0\\
-0 & 1 & 0 & 0 & 2\\
-0 & 0 & 1 & 0 & 2\\
-0 & 0 & 0 & 0 & 8\\
-0 & 0 & 0 & 0 & 1
-\end{bmatrix}
-$$
+![meta-schedule-workflow](../resources/cascading-formula-2.png)
 
 The first row is simply an identity for the batch axis. The second and third rows are more interesting, corresponding the the data dependencies in the height and width axes. Here we see that the matrix is taking the output size and adding a fixed value of 2, as we described above. The fourth row is the channels axis, and as we expect this is constant and always 8 - the number of channels of the input tensor. The final row is simply the augmentation row and can be ignored.
 
 We can use this matrix on the example in the diagram using output stripe of size (1, 3, 3, 4). Note this becomes (1, 3, 3, 4, 1) due to the augmentation, but the extra '1' can be dropped once the multiplication is complete.
 
-$$
-\begin{alignat*}{3.5}
-stripe_{in} & = & {M} \cdot {stripe_{out}} & = &
-\begin{bmatrix}
-1 & 0 & 0 & 0 & 0\\
-0 & 1 & 0 & 0 & 2\\
-0 & 0 & 1 & 0 & 2\\
-0 & 0 & 0 & 0 & 8\\
-0 & 0 & 0 & 0 & 1
-\end{bmatrix}
-\begin{bmatrix}
-1\\
-3\\
-3\\
-4\\
-1
-\end{bmatrix} & = &
-\begin{bmatrix}
-1\\
-5\\
-5\\
-8\\
-1
-\end{bmatrix}
-\end{alignat*}
-$$
+![meta-schedule-workflow](../resources/cascading-formula-3.png)
 
 The result of a (1, 3, 3, 4) output stripe requiring a (1, 5, 5, 8) input stripe is exactly what's observed in the diagram. By chaining these transforms together for multiple operations we can analyse an arbitrary cascade using fast and simple matrix arithmetic. This mathematical system underpins all the logic in the Planner and is essential to being able to rapidly explore a very large search space.
 
