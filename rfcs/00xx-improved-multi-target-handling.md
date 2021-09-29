@@ -27,13 +27,14 @@ This approach has 5 problems:
    Thus currently we cannot use 'device id' to distinguish, eg, two CPUs in the same system.
 3. The codebase still uses an older `target` and `target_host` convention for distinguishing the main `Target` for
    primitive operators from the `Target` for residual tensor computation, shape computation, and (for AOT) the
-   overall Relay control-flow.
+   overall Relay control-flow. There's a fair bit of 'target normalization' scattered throughout the codebase to
+   deal with these different conventions.
 4. `Target`s are often manufactured on-the-fly (eg to represent the default 'CPU' target on which shape computations
    should be hosted). However there's no guarantee those default `Target`s will match up with the user-supplied
    `Target`s, thus it's possible to end up with `"llvm"` and `"llvm -m ..."` `Targets` coexisting. Now that
    `IRModule` uses `Target` objects themselves to distinguish which `PrimFunc`s are intended for which targets,
    it is particularly important to ensure there's a single source of truth for available `Target`s.
-5. TVM also supports a 'BYOC' extension mechanism. This allows "target.<target name>" annotations to be placed on
+5. TVM also supports a 'BYOC' extension mechanism. This allows `"target.<target name>"` annotations to be placed on
    primitive operations to indicate they should possibly be compiled with the matching BYOC toolchain. A target
    annotation pass uses those annotations to decide on a target name for every Relay sub-expression. A partition graph
    pass then inserts function call boundaries whenever execution needs to cross target boundaries. However this
