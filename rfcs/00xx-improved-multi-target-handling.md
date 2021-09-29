@@ -6,87 +6,78 @@
 # Summary
 [summary]: #summary
 
-Traditionally TVM managed two execution environments:
-1. A device, such as a GPU, which would execute the 'inner' parts of fused primitive tensor operators.
-2. A host, such as a CPU, which would a) execute any residual 'outer' parts of primitive tensor operators, and
-   b) coordinate the control and data flow between those operators. The later is managed by an executor (graph,
-   interpreter or VM) compiled directly into the TVM runtime.
+TVM supports 'hetrogeneous' execution, whereby primitive operators may be (sequentially) evaluated on more than
+one device (GPU, CPU, accelerator, etc). For the non-BYOC flow this works as follows:
+1. Relay programs may contain "on_device" annotations which specify that a sub-expressions's result should
+   reside on a device with a given `DLDeviceType` (kDLCPU, kDLCUDA, etc).
+2. The device planning pass uses those annotations to decide on the unique device for every Relay sub-expression,
+   including every primitive operator call. Sub-expressions which are unconstrained are assigned to the 'default'
+   device. The pass then inserts "device_copy" operators whenever tensors need to cross device boundaries.
+3. The user/driver must also supply a list of `Target` objects. The compiler uses that list to build a `TargetMap`
+   from `DLDeviceType` to `Target` for all of those objects.
+4. Each call to a primitive operator for a particular `DLDeviceType` signals we need to compile ('lower') that
+   primitive for that device. The `Target` to use for that compilation is found from the `TargetMap`.
 
-The compilation options for host and device are grouped into a pair of `Target` objects, typically called `target` and
-`target_host`, which hold all the compiler flags and settings needed to influence code-generation. For example
-`cuda` or `llvm -mcpu=skylaxe-avx512`. Device and host may be the same target.
+This approach has 5 problems:
+1. TVM is being targeted to environments with multiple CPUs (eg Arm 'Big.LITTLE') and multiple tensor-friendly
+   devices (eg a GPU as well as an accelerator such as Arm 'Ethos-U'). This means a `DLDeviceType` no longer
+   uniquely determines a `Target`.
+2. Though TVM's `Device` abstraction (an alias for `dlpack`'s `DLDevice`) is a pair of a `DLDeviceType` and an
+   arbitrary 'device id', TVM does not consistently plumb the device id through annotations, passes and operators.
+   Thus currently we cannot use 'device id' to distinguish, eg, two CPUs in the same system.
+3. The codebase still uses an older `target` and `target_host` convention for distinguishing the main `Target` for
+   primitive operators from the `Target` for residual tensor computation, shape computation, and (for AOT) the
+   overall Relay control-flow.
+4. `Target`s are often manufactured on-the-fly (eg to represent the default 'CPU' target on which shape computations
+   should be hosted). However there's no guarantee those default `Target`s will match up with the user-supplied
+   `Target`s, thus it's possible to end up with `"llvm"` and `"llvm -m ..."` `Targets` coexisting. Now that
+   `IRModule` uses `Target` objects themselves to distinguish which `PrimFunc`s are intended for which targets,
+   it is particularly important to ensure there's a single source of truth for available `Target`s.
+5. TVM also supports a 'BYOC' extension mechanism. This allows "target.<target name>" annotations to be placed on
+   primitive operations to indicate they should possibly be compiled with the matching BYOC toolchain. A target
+   annotation pass uses those annotations to decide on a target name for every Relay sub-expression. A partition graph
+   pass then inserts function call boundaries whenever execution needs to cross target boundaries. However this
+   machinery is separate from and incompatible with the "on_device" mechanism, and 'target names' are a separate
+   concept from `Target` objects.
 
-At runtime, tensors are managed by the `dlpack` library which provides a `Device` abstraction. That is a pair
-of a `DLDeviceType` enum (eg `kDLCPU`, `kDLCUDA`, etc) and an opaque integer representing a 'device
-identifier'. (However since TVM mostly ignores or defaults the device identifier to zero in effect TVM uses
-`DLDeviceType` alone to identify devices.) Thus at runtime we also need a pair of `Device` objects
-corresponding to our two `Target` objects.
+In this RFC we tackle problems 1-4. We won't directly take on 5 since it involves more moving parts, but our hope
+is for this RFC to clear the way to taking on 5 in the future.
 
-(Note that the codebase still refers to 'device' as 'context' in a few places.)
-
-Two more recent generalizations to TVM complicate this story:
-
-- TVM now supports 'hetrogenous' execution, in which each primitive operator call may be executed and
-  stored on a different device. The desired device is indicated by an `on_device` 'annotation', which is just
-  a call to a built-in operator with an additional `device_type` attribute. A 'device planning' analysis/pass
-  associates a device with every primitive operator call consistent with those annotations.
-
-  Each call to a primitive operator for a particular `Device` signals we need to compile ('lower') that
-  primitive for the device, which requires a matching `Target`. This is currently handled by:
-   - Building a `TargetMap` from `DLDeviceType` to `Target`, based on a list of provided targets passed into
-     the build API(s).
-   - Consulting that table for each call in `LowerTEPass`, using the `DLDeviceType` associated to the call by
-     device planning.
-   - Using an entry for the invalid 'zero' device type to indicate the 'default' device.
-
-  However TVM is being targetted to architectures with multiple CPUs (eg Arm 'Big.LITTLE') and
-  multiple devices (eg a GPU as well as an accelerator such as Arm 'Ethos-U'). So we can no longer
-  assume a `DLDeviceType` uniquely identifies a device and it's appropriate `Target`. The `TargetMap`
-  convention also interacts poorly with the `target` and `target_host` convention, and the codebase
-  has gotten messy at those points.
-
-- TVM also now supports Ahead-of-time (AOT) compilation for the entire model rather than just the primitive
-  operators. This means we need to be explicit about the `Target` responsible for executing every Relay
-  sub-expression. Generally this is assumed to be the host target, however support for AOT has also required
-  support for Bring-your-own-compiler (BYOC) for 'embedded' targets. This has resulted in a compilation
-  flow very similar to device planning whereby `Target` annotations are used to decide which 'compiler' is
-  to be used for each Relay sub-expression.
-
-  However this machinely works independently of the above device planning, and it's not clear how they
-  would ever interact. The gap between `Target` and `Device` make reconciliation difficult.
-
-In this RFC we propose:
-1. Use a combination of `Target` and `Device` as the unit of planning in 'device planning':
+Our proposal is:
+1. Extend `Target` to have a `DLDeviceType` attribute.
+2. Allow `Target` objects to be registered under a globally unique target label. Registration may be 'static' (ie
+   built into the TVM compiler via another REGISTER macro) and 'dynamic' (ie injected for a particular run of the
+   compiler, eg as part of `tvmc` command line processing). (This machinery should be reconciled with the existing
+   CUDA-specific target registration map.)
+3. Change the "on_device" call attributes to use a string instead of an integers (ie `DLDeviceType`). The string
+   can be of the form `<target label>` or `<target label>:<device id>`. The former simply implies a device id of 0.
+4. Rework device planning to use a pair of `Target` and 'device id' instead of `DLDeviceType`:
    ```
    class TargetDevice {
     public:
      Target target;
-     Device device;
+     int device_id;
    }
    ```
-   (Eventually this would be extended to include a memory scope.)
-2. Allow `TargetDevice` objects to be registered under a globally unique `TargetDeviceLabel` (ie a
-   string). Registration may be 'static' (ie built into the TVM compiler) or 'dynamic' (ie injected for a
-   particular run of the compiler, eg on the `tvmc` command line).
-3. We change the "on_device" and "device_copy" call attributes to use `TargetDeviceLabel`s instead
-   of integers (ie device types).
-4. We allow primitive operators to include (sets of) `TargetDeviceLabel`s, for example to specify they are
-   available only on specific devices/targets.
-5. We remove all uses of target maps. For example, in `LowerTEPass` we
-   recover the `TargetDeviceLabel` for each primitive operator call and use the global `TargetDevice` registry
-   to recover the `Target` necessary to complete compilation of the primitive, and the `Device`s needed to effect
-   any tensor copies.
-6. We gather the various `Target` and `Device` defaults into a single `CompileOptions` class:
-     - The default `TargetDeviceLabel` for primitive operators.
-     - The default `TargetDeviceLabel` for non primitive operators, such as
-       Relay control flow and shape computation.
-7. We remove the various copies of target/target_host reconciliation, TargetMap
-   construction and 'default/fallback' device calculation from the codebase in favor
-   of the centralized `CompileOptions` class.
-8. We attach the `CompileOptions` class to an `IRModule` attribute.
+   (We could also use a `Device` and accept the redundant `DLDeviceType` specification.) It is trivial
+   to go from an "on_device" label to a `TargetDevice` and back using the global `Target` registry.
+5. Remove all uses of `TargetMap`. For example, in `LowerTEPass` we simply use the `TargetDevice` associated with
+   every primitive operator call already found by device planning.
+6. Bind two `TargetDevice`s as attributes on every `IRModule`:
+    - The default for primitive operators not otherwise constrained by "on_device" annotations.
+    - The default for non primitive operators, such as Relay control flow and shape computation.
+7. We remove the various copies of target/target_host reconciliation, `TargetMap`
+   construction and 'default/fallback' device calculation from the codebase.
 
-We stop short of actually changing the current BYOC TargetAnnotation machinery. But our intent is to
-at least remove as many accidental differences to make the next step clear.
+This proposal tackles the original problems:
+1. There's now no ambiguity about `Targets` since we propagate them from the global registry directly.
+2. We support device ids.
+3. We always know the `Target` for every sub-expression and don't need to pass around the `target` and
+   `target host` separately.
+4. `Targets` are never created on the fly, they are first registered then propagated.
+5. The global registration implied by the existing BYOC target names is now more similar to how the mainline
+   `Target`s are handled.
+
 
 -------- rest still in template form --------
 
