@@ -95,9 +95,7 @@ class AllocateNode : public StmtNode {
    * \brief Additional annotations about the loop.
    *
    *  These annotations can be used as auxiliary hint
-   *  to future transformations. An annotation should
-   *  not change the control flow semantics of the loop
-   *  and can be ignored in most passes.
+   *  to future transformations.
    */
 + Map<String, Objectref> annotations;
 ```
