@@ -91,9 +91,13 @@ class AllocateNode : public StmtNode {
   PrimExpr condition;
   /*! \brief The body to be executed. */
   Stmt body;
-  /*! \brief If the allocate is scoped global, this field indicates
-   *  which external memories it could be pinned to as a comma seperated
-   *  string.
+  /*!
+   * \brief Additional annotations about the loop.
+   *
+   *  These annotations can be used as auxiliary hint
+   *  to future transformations. An annotation should
+   *  not change the control flow semantics of the loop
+   *  and can be ignored in most passes.
    */
 + Map<String, Objectref> annotations;
 ```
