@@ -7,10 +7,10 @@
 
 Currently, given a ML model primarily TVM will generate two main artifacts :
 
-* A1 : executor configuration : the description of the sequential execution of operators
-  1. If the "executor" is "graph", this would be a JSON
-  2. if the "executor" is "aot", this would be a main function describing call graph of operators
-  3. if the "executor" is "vm", this would be a series of VM bytecode instructions
+* A1 : A compilation artifact that describes a sequence of calls to the operators
+  1. If building for graph executor, this would be a JSON
+  2. If building for AoT executor, this would be a main function describing call graph of operators
+  3. If building for VM executor, this would be a series of VM bytecode instructions
 * A2 : library of operators (in the form of runtime.Module)
 * A3 : compiled parameters of the model
 
@@ -26,7 +26,7 @@ For A2, the operators are lowered to TIR PrimFuncs. There exist a pass called St
 
 # Motivation
 
-For embedded use-cases, its widely accepted that aggressive memory optimizations are vital. Intially we are looking at enable memory planning for embedded use-cases using the AoT executor.
+For embedded use-cases, its widely accepted that aggressive memory optimizations are vital. Intially we are looking at enabling memory planning for embedded use-cases using the AoT executor.
 
 Therefore, there exist two main shortcomings of the current approach :
 
@@ -56,7 +56,7 @@ Example TIR :
 
 The above TIR snippet shows that two intra operator buffers PaddedInput, DepthwiseConv2d are not visible for optimization by the Relay-level GraphPlanMemory approach.
 
-* Assumption of local optimization : performing sharing inside the operator first and sub-subsequently sharing that workspace with inter-operator tensors, would be sub-optimal.
+* Assumption of local optimization : performing sharing inside the operator first and subsequently sharing that workspace with inter-operator tensors, would be sub-optimal.
 
 Thus, for the embedded use-cases, we'd need a unified static memory planner that performs memory planning of all tensors holistically to achieve best memory utilization.
 
@@ -72,7 +72,8 @@ There are a variety of memory planning algorithms in discussion with different t
 
 G3. Multiple pool support (including constants)
 
-Ideally, the user would expect to provide these buffers in the granularity of the memories they'd want to pin them to. E.g., if there are two RW memories : DRAM and SRAM, the buffers need to be identified and pooled by the compiler. Similiarly, for constant data, we need to have a mechanism to allow user to pin them to appropriate memories and addresses in the IR would simply be offsets into the constant buffer(s) provided by the user
+Ideally, the user would expect to provide these buffers in the granularity of the memories they'd want to pin them to. E.g., if there are two RW memories : DRAM and SRAM, the buffers need to be identified and pooled by the compiler. Similiarly for constant data, we need to have a mechanism to allow users to pin them to appropriate memories and addresses. In the IR, they would simply be offsets into the constant buffer(s) provided by the user
+
 
 # Guide-level explanation
 
@@ -144,14 +145,16 @@ tvmc compile my_model.tflite --executor=aot --output-format=mlf --target=c
     tvmc compile my_model_1.tflite
     --executor=aot 
     --output-format=mlf
-    --target=accel,c  
-    --with-workspace-buffer= "name=sram;target=c,accel"
+    --target=accel,c
+    --usmp-workspace-pools=sram
+    --usmp-workspace-pool-sram= "target=c:rw,accel:rw"
 
     tvmc compile my_model_2.tflite 
     --executor=aot
     --output-format=mlf 
     --target=accel,c
-    --with-workspace-buffer= "name=sram;target=c,accel"
+    --usmp-workspace-pools=sram
+    --usmp-workspace-pool-sram= "target=c:rw,accel:rw"
 ```
 ### Codegen'd Artifacts
 ```
@@ -264,11 +267,13 @@ tvmc compile my_model.tflite --executor=aot --output-format=mlf --target=c
 ```
     tvmc compile my_model.tflite 
     --executor=aot 
-    --target=accel,c  
-    --with-workspace-buffer= "name=dtcm;target=c;size=1000" # Here the size is more of a hint/guide provided to USMP
-    --with-workspace-buffer= "name=sram;target=c,accel"
-    --with-parameter-buffer= "name=itcm;target=c;size=5000" # Here the size is more of a hint/guide provided to USMP
-    --with-parameter-buffer= "name=flash;target=c,accel"
+    --target=accel,c
+    --usmp-workspace-pools=dtcm,sram
+    --usmp-parameter-pools=itcm,flash
+    --usmp-workspace-pool-dtcm= "target=c;size=1000" # Here the size is more of a hint/guide provided to USMP
+    --usmp-workspace-pool-sram= "target=c,accel"
+    --usmp-parameter-pool-itcm= "target=c;size=5000" # Here the size is more of a hint/guide provided to USMP
+    --usmp-parameter-pool-flash= "target=c,accel"
 ```
 ### Codegen'd Artifacts
 ```
@@ -374,6 +379,13 @@ The idea is USMP will try to pool them using the preferred "candidate_memory_poo
 If the fallback is not desired, the user need not to provide multiple candidate_memory_pools with size constraints to TVMC interface.
 
 If the fallback is not desired by the scheduler, the scheduling passes could remove the memory pools from the candidate_memory_pools.
+
+* How is the fallback pool decided ?
+
+Currently, the pool ordering the user provides to TVMC interface will be used as a priority order for determining pools for tir.allocate/tir.allocate_const nodes (i.e. USMP will try to use highest priority pool for each allocate). Each pool specifies the information on whether it could be acessed by a given set of targets. Therefore, the ordered list of pools will be further filtered by for each allocate node that belongs to different targets.
+
+It is important to note that scheduling stage could remove pools from candidate pools for performance reasons.
+
 
 Outputs : 
 * AoT TIR PrimFunc accepting pool buffers from the user.
