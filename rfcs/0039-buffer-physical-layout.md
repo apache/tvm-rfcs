@@ -251,7 +251,7 @@ with BufferRealize(x):
 x = Var(name="x")
 with Allocate(x, shape=[3*2]):
     val = Load(x, index=[15*2 + 10])
-    Store(x, 7, index=[23*2 + 10])
+    Store(x, 7, index=[23*2 + 20])
 ```
 
 The next example shows a remapping from NHWC logical layout to NCHWc
