@@ -1,6 +1,6 @@
 - Feature Name: Buffer Physical Layout
 - Start Date: 2021-10-05
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 - GitHub Issue: TODO
 
 # Summary
