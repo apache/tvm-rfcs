@@ -107,7 +107,8 @@ Thus adding a `type` metadatum allows a much simpler way for the API users to
 determine the type of an option when that is necessary for various reasons, like
 when building a command line parser based on the available project options.
 
-The following types, passed as strings, are proposed for the `type` metadatum:
+The types must be only non-complex JSON-serializable primitive types, passed as
+strings. Hence the following types are proposed for the `type` metadatum:
 `"bool"`, `"str"`, `"int"`, and `"float"`.
 
 `type` metadatum must be provided for every option.
@@ -226,6 +227,20 @@ index 4e62739d5..8d0b1722c 100644
 -    server.ProjectOption("zephyr_board", help="Name of the Zephyr board to build for.", type="str"),
  ]
 ```
+
+It's important to note that every project option must be at least associated to
+one API method (at least one method is listed in the option's `'required'` or
+`'optional'` list).
+
+It's possible to enforce that an option will never be passed to an API method
+call if it's not a valid option for that method (i.e. the method is listed
+neither in the option's `required` list nor in its `optional` list).
+
+That ideally must be enforced at the server side (`server.py`) of the Project
+API. The enforcement can consist in having the server removing an invalid option
+for a method before the method is called effectively on consulting ProjectOption
+for the option being passed and not finding the method in either the
+`'required'` or `'optional`' list.
 
 # Drawbacks
 [drawbacks]: #drawbacks
