@@ -123,6 +123,9 @@ and may be interacted with using `BufferLoadNode` and
 the StorageFlatten pass for TE-based schedules, and at the
 FlattenBuffer pass for TensorIR-based schedules.
 
+Many of the utilities needed for this transformation already exist in
+`iter_affine_map.h`, and are used in this implementation.
+
 A graph may only interact with a buffer in a single type of layout.
 That is, a buffer that is allocated with BufferRealize (logical
 layout) may not be accessed with Load (physical layout), and must
