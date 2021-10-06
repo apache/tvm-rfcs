@@ -1,6 +1,6 @@
 - Feature Name: AllocateNode, 1-d extent
 - Start Date: 2021-10-06
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0040](https://github.com/apache/tvm-rfcs/pull/0040)
 - GitHub PR: [apache/tvm#9194](https://github.com/apache/tvm/pull/9194)
 - Related RFCs: [apache/tvm-rfcs#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 
