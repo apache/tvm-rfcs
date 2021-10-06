@@ -52,7 +52,7 @@ discovered via the Project API `server_info_query` interface there is no way to
 know which options belong (or apply) to which API method (like the
 `generate_project`, `build`, `flash`, and `open_transport` methods).
 
-This is fine when the user knowns beforehand which method accepts a set of
+This is fine when the user knows beforehand which method accepts a set of
 options, so it's possible to manually select which options will be passed to a
 given API method, like when using the API in a Python script.
 
@@ -86,7 +86,7 @@ names implemented by the ProjectAPIClient class and that have the parameter
 `options` defined. These methods are dispatched to the server, which implements
 the server counterparts to properly handle the client dispatches and
 ultimately defines the options available for each API method. The current method
-name that satisfy these criteria are `generate_project`, `build`, `flash`, and
+names that satisfy these criteria are `generate_project`, `build`, `flash`, and
 `open_transport`.
 
 `required` metadatum or `optional` metadatum (or both) must be provided for
@@ -94,7 +94,7 @@ every option.
 
 ## On "type" metadatum
 
-The option type can sometimes be determined implicitly by what's return
+The option type can sometimes be determined implicitly by what is returned
 in metadatum `choices`, but this not ideal. For example, for option `verbose` it
 would be possible to infer it is a boolean option and therefore it can be
 converted to a command line flag if metadatum `choices` is a couple of True and
@@ -116,7 +116,7 @@ strings. Hence the following types are proposed for the `type` metadatum:
 ## On "default" metadatum
 
 Sometimes Project API uses a default value if an option is not specified, but
-currently there is no way to determine it using the option metadata.
+currently there is no way to determine it by using the option metadata.
 
 However it's important for CLI tools to inform users what's the default value
 for a given option, if applicable, so the user can decide if it's necessary to
@@ -250,7 +250,7 @@ need to be adjusted to define the new mandatory fields, i.e. `required`,
 `optional`, and `type`, all are straightforward to be provided for the existing
 options on the current supported platforms.
 
-Adding the four new mumbers to `ProjectOption` will increase the size of
+Adding the four new members to `ProjectOption` will increase the size of
 `ProjectOption` class and consequently the amount of data returned by
 `server_info_query`, however since Project API client and server run on the same
 host that is negligible.
@@ -262,6 +262,6 @@ user side instead, however it would complicate the use of Project API by CLI
 like TVMC, since ah hoc tables would need to be created for each platform and
 for each project option available on the platform, allow one to map options data
 for their required or optional methods, default value, etc. Hence that
-alternative is impractical or hard maintain at best for syncing up with Project
-API updates (updating the tables to match Project API) would be necessary every
-a new option is added to a project.
+alternative is impractical or hard to maintain at best for syncing up with
+Project API updates (updating the tables to match Project API) would be
+necessary every time a new option is added to a project.
