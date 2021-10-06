@@ -1,7 +1,7 @@
 - Feature Name: Buffer Physical Layout
 - Start Date: 2021-10-05
 - RFC PR: [apache/tvm-rfcs#0039](https://github.com/apache/tvm-rfcs/pull/0039)
-- GitHub Issue: TODO
+- GitHub Issue: Not Yet Written
 
 # Summary
 [summary]: #summary
@@ -183,6 +183,9 @@ they refer to different buffers.
       logical layout should be moved prior to the
       StorageFlatten/FlattenBuffer pass and updated to act on the
       logical layout.
+
+      This step is described in the more detail in the related
+      [RFC#0040](https://github.com/apache/tvm-rfcs/pull/0040).
       
     - Step 2: Replace 1-d `PrimExpr extent` N-d `Array<PrimExpr>
       shape`.  Any access that assumes flat memory should verify that
