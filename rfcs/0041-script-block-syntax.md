@@ -71,10 +71,10 @@ Based on those two pain points, we design a new block syntax for TensorIR, which
 ```Python
 for i, j, k in T.grid(512, 512, 512):
     with T.block("name"):
-        vi = T.axis.spacial((0, 512), i)
+        vi = T.axis.spatial((0, 512), i)
         # (0, 512) for the block var iter_dom, can be write as 512 if starts from 0
-        vj = T.axis.spacial(512, j)
-        # vj = T.axis.S(512, j)   <- we can use `S` for spacial.
+        vj = T.axis.spatial(512, j)
+        # vj = T.axis.S(512, j)   <- we can use `S` for spatial.
         vk = T.axis.reduce(512, k)
         # vk = T.axis.R(512, k)   <- we can use `R` for reduce.
         T.reads(...)            # <- access region still can be detected.
@@ -87,7 +87,7 @@ for i, j, k in T.grid(512, 512, 512):
 ```Python
 for i, j, k in T.grid(512, 512, 512):
     with T.block("name"):
-        # SSR means [spacial, spacial, reduce] for three vars
+        # SSR means [spatial, spatial, reduce] for three vars
         # Only trivial bindings are allowed here since we need to detect iter_dom from the loops
         vi, vj, vk = T.axis.remap("SSR", [i, j, k])
         ...
