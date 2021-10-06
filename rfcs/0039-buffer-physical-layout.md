@@ -58,13 +58,11 @@ memory, a 2-d physical layout may be used to represent access into a
 
 To define the physical layout in a TE schedule, use the
 `set_physical_layout` method of a schedule, as shown below.  The
-arguments to `set_physical_layout` are either tuples of
-`(logical_axis, factor)`, to indicate that the logical axis should be
-split by the factor given, or as `logical_axis` to indicate that the
-logical axis should be used with no additional splitting.  The order
-of arguments defines any reordering that may occur when generating the
-physical layout.  If `set_physical_layout` isn't called, then no
-splits or reorderings are applied.
+arguments to `set_physical_layout` is a function that accepts a list
+of `tvm.tir.Var` representing a logical index, and outputs a list of
+`tvm.tir.PrimExpr` giving a corresponding physical index.  If
+`set_physical_layout` isn't called, then no splits or reorderings are
+applied.
 
 For example, below defines the reordering from NHWC logical layout to
 NCHWc physical layout.
@@ -74,12 +72,11 @@ NCHWc physical layout.
 B = te.compute(A.shape, lambda n,h,w,c: A[n,h,w,c])
 s = te.create_schedule(B.op)
 
-# Option 1: Numeric axes
-s[B].set_physical_layout(0, 3, 1, 2, (3,4))
+def nhwc_to_nchwc(logical_axes):
+    n,h,w,c = logical_axes
+    return [n, c//4, h, w, c%4]
 
-# Option 2: Equivalent, named axes
-n,h,w,c = B.op.axis
-s[B].set_physical_layout(n, c, h, w, (c,4))
+s[B].set_physical_layout(nhwc_to_nchwc)
 
 # Compute definition that would produce an equivalent physical layout
 B_equivalent = te.compute(
@@ -92,9 +89,9 @@ By default, after the splits and reorders are applied, all axes are
 flattened to a single physical axis by following a row-major
 traversal.  This produces a 1-d physical layout, which corresponds to
 flat memory.  To add additional dimensions in the physical layout,
-insert `te.PHYSICAL_AXIS_SEPARATOR` into the axis list in
-`set_physical_layout`.  These define groups of axes, where each group
-is combined into a single physical axis.
+insert `te.PHYSICAL_AXIS_SEPARATOR` into the axis list return by the
+physical layout function.  These define groups of axes, where each
+group is combined into a single physical axis.
 
 ```python
 B = te.compute(shape=(M,N,P,Q), ...)
@@ -102,16 +99,16 @@ m, n, p, q = B.op.axis
 s = te.create_schedule(B.op)
 
 # Default, produces a 1-d allocation with shape (M*N*P*Q,)
-s[B].set_physical_layout(m, n, p, q)
+s[B].set_physical_layout(lambda i: i)
 
 # One separator, produces a 2-d allocation with shape (M*N, P*Q).
-s[B].set_physical_layout(m, n, te.PHYSICAL_AXIS_SEPARATOR, p, q)
+s[B].set_physical_layout(lambda i: [i[0], i[1], te.PHYSICAL_AXIS_SEPARATOR, i[2], i[3]])
 
 # Two separators, produces a 3-d allocation with shape (M, N*P, Q).
-s[B].set_physical_layout(m, te.PHYSICAL_AXIS_SEPARATOR, n, p, te.PHYSICAL_AXIS_SEPARATOR, q)
+s[B].set_physical_layout(lambda i: [i[0], te.PHYSICAL_AXIS_SEPARATOR, i[1], i[2], te.PHYSICAL_AXIS_SEPARATOR, i[3]])
 
 # Can be used along with reorders and splits.
-s[B].set_physical_layout(m, q, n, te.PHYSICAL_AXIS_SEPARATOR, p, (q, 4))
+s[B].set_physical_layout(lambda i: [i[0], i[3]//4, i[1], te.PHYSICAL_AXIS_SEPARATOR, i[2], i[3]%4])
 ```
 
 
@@ -140,11 +137,11 @@ they refer to different buffers.
   
   - Change: Add an `reorder_split` member variable, to describe
     reorderings and axis splits that generate the physical layout from
-    the logical layout.  These will default to a physical layout that
-    assigns the first logical index to the slowest-changing dimension,
-    and the last logical index to the fastest-changing dimension, with
-    no reordering.  This default behavior reproduces the previous
-    behavior.
+    the logical layout.  This defaults to the identity function,
+    generating a physical layout that assigns the first logical index
+    to the slowest-changing dimension, and the last logical index to
+    the fastest-changing dimension, with no reordering.  This default
+    behavior reproduces the previous behavior.
     
   - Change: Define which axes are to be merged by specifying
     `axis_separators`.  Groups of logical axes, where each group
@@ -239,7 +236,7 @@ first index in the logical layout.
 
 ```python
 # Initial graph, in logical layout
-x = Buffer(name="x", shape=[2,3], reorder_splits=[1,0], axis_separators=[])
+x = Buffer(name="x", shape=[2,3], reorder_splits=(lambda i,j: j,i), axis_separators=[])
 with BufferRealize(x):
     val = BufferLoad(x, [10, 15])
     BufferStore(x, 7, [20, 23])
@@ -263,8 +260,16 @@ during the SplitReorderIndices pass, then flattened into 1 physical
 axis during StorageFlatten/FlattenBuffer.
 
 ```python
+nhwc_to_nchwc = [
+    lambda i: i[0],
+    lambda i: i[3]//4,
+    lambda i: i[1],
+    lambda i: i[2],
+    lambda i: i[3]%4,
+]
+
 # Initial graph, in logical layout
-x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=[0,3,1,2,(3,4)], axis_separators=[])
+x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=nhwc_to_nchwc, axis_separators=[])
 with BufferRealize(x):
     val = BufferLoad(x, [11, 37, 23, 101])
 
@@ -289,8 +294,16 @@ physical index.  The interpretation of this 2-d index depends on the
 target-specific codegen.
 
 ```python
+nhwc_to_nchwc = [
+    lambda i: i[0],
+    lambda i: i[3]//4,
+    lambda i: i[1],
+    lambda i: i[2],
+    lambda i: i[3]%4,
+]
+
 # Initial graph, in logical layout
-x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=[0,3,1,2,(3,4)], axis_separators=[3])
+x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=nhwc_to_nchwc, axis_separators=[3])
 with BufferRealize(x):
     val = BufferLoad(x, [11, 37, 23, 101])
 
@@ -313,9 +326,9 @@ This change may make it more difficult to reason about the memory
 layout when writing the `te.compute` definition.  When the physical
 layout differs from the logical layout, it isn't guaranteed that
 `A[i]` and `A[i+1]` will be adjacent.  For example, a tensor with
-`NHWC` logical layout and a `NCHWc` physical layout defined by
-`set_physical_layout(n,c,h,w,(c,4))`, logical indices `(0,0,0,3)` and
-`(0,0,0,4)` will not be adjacent.
+`NHWC` logical layout and a `NCHWc` physical layout defined by `[n,
+c//4, h, w, c%4]`, logical indices `(0,0,0,3)` and `(0,0,0,4)` will
+not be adjacent.
 
 
 # Rationale and alternatives
@@ -346,6 +359,25 @@ additional memory allocation, and cannot be used for input tensors.
   
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
+
+- Representation of `reorder_split`
+
+    - Option: A string, used to look up a function during lowering.
+
+      This would work, but would make the TIR graph less
+      self-contained, making debugging more difficult.
+
+    - Option: `Array<Var> dummy_index` and `Array<PrimExpr> physical_layout`
+
+      The `physical_layout` expressions would be written in terms of
+      the variables in `dummy_index`.  The physical index for a
+      load/store would be generated by subsituting the logical indices
+      for the `dummy_index`.
+
+    - Option: Store as `Array<PrimFunc>`.
+
+      Each `PrimFunc` takes arguments of the logical index, and
+      produces a reorder/split index.
 
 - What is appropriate terminology for size/shape/extent of physical
   and logical buffers?
