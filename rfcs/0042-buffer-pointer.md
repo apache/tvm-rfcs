@@ -1,7 +1,8 @@
 - Feature Name: (fill me in with a unique identifier, `my_awesome_feature`)
 - Start Date: (fill me in with today's date, YYYY-MM-DD)
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0042](https://github.com/apache/tvm-rfcs/pull/0042)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- Related RFCs: [RFC#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 
 # Summary
 [summary]: #summary
@@ -11,6 +12,8 @@ A location being access in a buffer is represented as a
 accessed, and an array of indices to specify the location.
 `BufferLoad` and `BufferStore` objects each hold a `BufferPointer`
 object to specify where they operate.
+
+
 
 # Motivation
 [motivation]: #motivation
@@ -23,6 +26,10 @@ of a matched buffers to instead be direct access of the backing
 buffer.)  By having a `BufferPointer` object to represent a pointer
 into a buffer's memory, these transformations can be done without
 repeated code.
+
+This is intended to make the layout transformations specified in
+[RFC#0039](https://github.com/apache/tvm-rfcs/pull/0039) be more
+straightforward to implement, but is not strictly required for it.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
