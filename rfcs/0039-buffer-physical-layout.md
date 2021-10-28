@@ -2,7 +2,7 @@
 - Start Date: 2021-10-05
 - RFC PR: [apache/tvm-rfcs#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 - GitHub Issue: Not Yet Written
-- Related RFCs: [RFC#XXXX](TODO: Link to BufferPointer RFC)
+- Related RFCs: [RFC#0042](https://github.com/apache/tvm-rfcs/pull/0042)
 
 # Summary
 [summary]: #summary
@@ -12,9 +12,9 @@ buffer during the lowering process.  These transformations will be
 part of the schedule, allowing the same compute definition to be used
 across multiple different layouts.
 
-[RFC#XXXX](TODO: Link to BufferPointer RFC) is intended to make these
-buffer transformations easier to write, though it isn't strictly
-necessary for this change.
+[RFC#0042](https://github.com/apache/tvm-rfcs/pull/0042) is intended
+to make these buffer transformations easier to write, though it isn't
+strictly necessary for this change.
 
 # Motivation
 [motivation]: #motivation
