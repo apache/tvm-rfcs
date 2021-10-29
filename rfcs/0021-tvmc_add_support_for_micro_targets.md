@@ -21,7 +21,7 @@ question **[2]**.
 
 **[0]** [RFC] TVMC: Add support for µTVM -- https://discuss.tvm.apache.org/t/rfc-tvmc-add-support-for-tvm/9049
 
-**[1]** [RFC][Project API] Extend metadata in ProjectOption -- https://github.com/apache/tvm-rfcs/pull/33
+**[1]** [RFC][Project API] Extend metadata in ProjectOption -- https://github.com/apache/tvm-rfcs/blob/main/rfcs/0020-project_api_extend_metadata.md
 
 **[2]** [TVMC] Add new micro context -- https://github.com/apache/tvm/pull/9229
 
@@ -82,7 +82,7 @@ board specified. For example, if Zephyr platform is selected build a
 selected as an option under 'build' will become available.
 
 `flash` can be used for effectively flashing, to the selected board, the
-firmware built. Again, pertinent options for 'flash' context considering the
+built firmware. Again, pertinent options for 'flash' context considering the
 platform selected will be made available for the user, like for example options
 regarding the serial port number to be used when flashing the image to the
 board.
@@ -101,7 +101,7 @@ as per the Project API specification).
 
 A **key-value pair** is used to specify the options specific to the platforms.
 If the option is of type 'bool' the values available are 'true' and 'false'.
-Details on project option types are described in **RFC-0020**.
+Details on project option types are described in [RFC-0020](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0020-project_api_extend_metadata.md).
 
 An example for that interface (using Zephyr) follows:
 
