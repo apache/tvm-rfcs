@@ -91,29 +91,28 @@ B_equivalent = te.compute(
 ```
 
 By default, after all explicitly specified layout transformations are
-applied, all axes are flattened to a single physical axis by following
-a row-major traversal.  This produces a 1-d physical layout, which
-corresponds to flat memory.  To add additional dimensions in the
-physical layout, insert `te.AXIS_SEPARATOR` into the axis
-list return by the physical layout function.  These define groups of
-axes, where each group is combined into a single physical axis.
+applied, all axes are flattened to a single axis by following a
+row-major traversal.  This produces a 1-d buffer, which corresponds to
+flat memory.  To add additional dimensions in the physical layout,
+insert `te.AXIS_SEPARATOR` into the axis list return by the physical
+layout function.  These define groups of axes, where each group is
+combined into a single physical axis.
 
 ```python
 B = te.compute(shape=(M,N,P,Q), ...)
-m, n, p, q = B.op.axis
 s = te.create_schedule(B.op)
 
 # Default, produces a 1-d allocation with shape (M*N*P*Q,)
-s[B].transform_layout(lambda i: i)
+s[B].transform_layout(lambda m,n,p,q: [m,n,p,q])
 
 # One separator, produces a 2-d allocation with shape (M*N, P*Q).
-s[B].transform_layout(lambda i: [i[0], i[1], te.AXIS_SEPARATOR, i[2], i[3]])
+s[B].transform_layout(lambda m,n,p,q: [m, n, te.AXIS_SEPARATOR, p, q])
 
 # Two separators, produces a 3-d allocation with shape (M, N*P, Q).
-s[B].transform_layout(lambda i: [i[0], te.AXIS_SEPARATOR, i[1], i[2], te.AXIS_SEPARATOR, i[3]])
+s[B].transform_layout(lambda m,n,p,q: [m, te.AXIS_SEPARATOR, n, p, te.AXIS_SEPARATOR, q])
 
 # Can be used along with reorders and splits.
-s[B].transform_layout(lambda i: [i[0], i[3]//4, i[1], te.AXIS_SEPARATOR, i[2], i[3]%4])
+s[B].transform_layout(lambda m,n,p,q: [m, q//4, n, te.AXIS_SEPARATOR, p, q%4])
 ```
 
 
@@ -439,6 +438,41 @@ adjacent.
 
     Would require other passes to be aware of where a buffer was first
     defined, in order to add it to the appropriate location.
+    
+    
+- What arguments should the function passed to `transform_layout` accept?
+
+  In these examples, `N` is the number of dimensions of the array,
+  prior to the transformation.
+  
+  Option 3 is preferred.
+
+  - Option 1: Accept a list of length `N`.  Each element of the list
+    is a variable corresponding to a coordinate in the input tensor.
+    
+    This would be the simplest python implementation, but would
+    require additional configuration to have named variables in the
+    mapping.
+
+  - Option 2: Accept `N` named positional arguments (`func(i,j,k)`), where each argument is
+    a variable corresponding to a coordinate in the input tensor.
+    
+    This follows the usual method of defining the `fcompute` function
+    passed to `te.compute`.  This also allows the named variables to
+    be used as the names in TIR, improving readability.
+
+    However, this wouldn't allow utility functions that define
+    transformations that apply to an arbitrary number of indices, such
+    as a layout transformation that changes the last index, while
+    leaving the other `N-1` indices untouched.
+    
+  - Option 3: Accept either `N` named positional arguments
+    (`func(i,j,k)`), or a variable number of arguments
+    (`func(*indices)`).
+    
+    This follows the same convention as the `fcompute` function passed
+    to `te.compute`.  This would allow either an explicit listing of
+    all indices as named arguments, or an arbitrary number of indices.
 
 
 # Prior art
@@ -506,8 +540,11 @@ adjacent.
     - If a series of nested loops contains a `cache_read` or
       `cache_write` stage, can these be recognized and reordered?
 
-  - Option 3: Expose the `reorder_split` definition to be used as part
-    of a schedule definition.
+  - Option 3: Expose the transformed axes to be used as part of a
+    schedule definition.  In TE, the return value from `AA =
+    s[A].transform_layout(...)` would be a tensor, and the transformed
+    axes `AA.op.axis` can then be used for the remainder of the
+    schedule.
 
     This would allow the greatest flexibility, but would make the
     schedule dependent on the transformed layout, beyond the one
