@@ -152,6 +152,50 @@ are deprecated.
     will instead create `BufferLoad` and `BufferStore` nodes with 1-d
     indices.
 
+- BufferTransform
+  - Indicates a transformation that should be performed to modify the
+    specified buffer.
+
+  - A possible structure for the `BufferTransform` node is shown below.
+
+    ```
+    class BufferTransform : public Stmt {
+    public:
+      // The buffer var to be transformed.  All buffers that have
+      // `BufferNode::data` equal to this `buffer_var` should have their
+      // physical layout rewritten.
+      Var buffer_var;
+
+      // The transformation to be applied to the buffer.
+      IndexMap layout_transformation;
+
+      // The statement containing buffer allocations/accesses that should
+      // be rewritten.
+      Stmt body;
+    };
+
+    class IndexMap : public Object {
+    public:
+      /*! \brief Variables representing the indices prior to remapping.
+       *
+       * If initial_index is empty, then final_index should also be
+       * empty, and no mapping is applied.
+       */
+      Array<Var> initial_index;
+
+      /*!
+       * \brief Expressions defining the indices after remapping.
+       *
+       * These expressions should only be in terms of the initial_index,
+       * and must be expressible as a `tvm::arith::IterSumExpr`.  The
+       * mapping from `initial_index` to `final_index` must be injective.
+       *
+       * If final_index is empty, then initial_index should also be
+       * empty, and the map is an identity function.
+       */
+      Array<PrimExpr> final_index;
+    };
+    ```
 
 - AllocateNode
   - Allocation of a buffer, in physical layout.
@@ -438,25 +482,25 @@ adjacent.
 
     Would require other passes to be aware of where a buffer was first
     defined, in order to add it to the appropriate location.
-    
-    
+
+
 - What arguments should the function passed to `transform_layout` accept?
 
   In these examples, `N` is the number of dimensions of the array,
   prior to the transformation.
-  
+
   Option 3 is preferred.
 
   - Option 1: Accept a list of length `N`.  Each element of the list
     is a variable corresponding to a coordinate in the input tensor.
-    
+
     This would be the simplest python implementation, but would
     require additional configuration to have named variables in the
     mapping.
 
   - Option 2: Accept `N` named positional arguments (`func(i,j,k)`), where each argument is
     a variable corresponding to a coordinate in the input tensor.
-    
+
     This follows the usual method of defining the `fcompute` function
     passed to `te.compute`.  This also allows the named variables to
     be used as the names in TIR, improving readability.
@@ -465,11 +509,11 @@ adjacent.
     transformations that apply to an arbitrary number of indices, such
     as a layout transformation that changes the last index, while
     leaving the other `N-1` indices untouched.
-    
+
   - Option 3: Accept either `N` named positional arguments
     (`func(i,j,k)`), or a variable number of arguments
     (`func(*indices)`).
-    
+
     This follows the same convention as the `fcompute` function passed
     to `te.compute`.  This would allow either an explicit listing of
     all indices as named arguments, or an arbitrary number of indices.
