@@ -1,7 +1,7 @@
-- Feature Name: (fill me in with a unique identifier, `my_awesome_feature`)
-- Start Date: (fill me in with today's date, YYYY-MM-DD)
+- Feature Name: BufferPointer
+- Start Date: 2021-10-28
 - RFC PR: [apache/tvm-rfcs#0042](https://github.com/apache/tvm-rfcs/pull/0042)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- GitHub PR: [PR#9391](https://github.com/apache/tvm/pull/9391)
 - Related RFCs: [RFC#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 
 # Summary
@@ -77,7 +77,9 @@ become more verbose.
 The `BufferLoad::pointer` and `BufferStore::pointer` could be generic
 `PrimExpr`, instead of being `BufferPointer` objects.  This would
 require the datatype to be a handle, with an additional parameter to
-indicate what is being stored.  However, this 
+indicate what is being stored.  However, this would require all
+visitors that interact or modify a buffer to be duplicated across both
+reads and writes.
 
 Currently, the `BufferLoad::pointer` and `BufferStore::pointer`
 objects are visited by `ExprMutator` and `StmtMutator`, but are
