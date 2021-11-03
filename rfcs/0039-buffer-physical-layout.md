@@ -116,6 +116,15 @@ s[B].transform_layout(lambda m,n,p,q: [m, q//4, n, te.AXIS_SEPARATOR, p, q%4])
 ```
 
 
+The `te.AXIS_SEPARATOR` object exists only within the API interface,
+and does not have a representation within the generated TIR graph.
+Instead, it is used to indicate that the `BufferTransform` inserted to
+represent the row-major traversal of the N-d buffer to generates a
+flat 1-d index into the underlying array shouldn't be generated.
+Instead, the TIR graph will contain a `BufferTransform` that generates
+a M-d index, where `M` is one greater than the number of
+`te.AXIS_SEPARATOR` instances in the expression given.
+
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -366,6 +375,7 @@ with Allocate(x, shape=[16 * (128/4) * 64, 64 * 4]):
 ```
 
 
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
@@ -534,6 +544,32 @@ adjacent.
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
+- Should the `te.AXIS_SEPARATOR` appear in the TIR graph?
+
+  Option 1 is preferred.
+
+  - Option 1: The `te.AXIS_SEPARATOR` is a TE-specific concept, and
+    does not appear in the generated TIR graph.  Instead, it changes
+    the `BufferTransform` node that represent the flattening of
+    buffers to a device-supported number of indices.
+
+    This would be a unified way to represent all layout
+    transformations in the TIR graph, which may or may not change the
+    dimensionality of the buffer.  The flattening of buffers to a
+    device-supported dimensionality would be handled identically to
+    any other layout transformation, rather than having an implicit
+    row-major traversal.
+
+  - Option 2: The `te.AXIS_SEPARATOR` is represented in the TIR graph,
+    and alters the behavior of the `StorageFlatten` pass.  There is no
+    `BufferTransform` node that represents the flattening of
+
+    In a TIR graph without any other modifications, this would
+    maintain the current behavior of the `StorageFlatten` pass, which
+    reduces the N-d buffer to a 1-d buffer by a row-major traversal.
+    In a TIR graph with some additional annotation to represent the
+    `M` axis separators, the N-d buffer could instead be reduced to a
+    `M+1`-d buffer.
 
 - What is appropriate terminology for size/shape/extent of physical
   and logical buffers?
