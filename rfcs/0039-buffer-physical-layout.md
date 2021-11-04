@@ -117,23 +117,22 @@ s[B].transform_layout(lambda m,n,p,q: [m, q//4, n, te.AXIS_SEPARATOR, p, q%4])
 
 
 The `te.AXIS_SEPARATOR` object exists only within the API interface,
-and does not have a representation within the generated TIR graph.
-Instead, it is used to indicate that the `BufferTransform` inserted to
-represent the row-major traversal of the N-d buffer to generates a
-flat 1-d index into the underlying array shouldn't be generated.
-Instead, the TIR graph will contain a `BufferTransform` that generates
-a M-d index, where `M` is one greater than the number of
-`te.AXIS_SEPARATOR` instances in the expression given.
+and is not part of the representation of the layout transformation
+within the generated TIR graph.  Instead, the TIR graph will contain
+an integer list of axis separators, to be used when flattening buffers
+to device-supported dimensions in the `StorageFlatten` or
+`FlattenBuffer` passes.
 
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-Transformation of a buffer is represented by a `BufferTransformNode`.
-It specifies a buffer to be reshaped, and the transformation to be
-applied to it.  Many of the utilities needed for this transformation
-already exist in `iter_affine_map.h`, and are used in the
-implementation.
+Transformation of a buffer is represented by the attribute
+`"buffer_layout_transformations"` in the `PrimFunc` attributes.  This
+is a map whose keys are buffer var to be reshaped, and whose values
+are the transformations to be applied.  Many of the utilities
+needed for this transformation already exist in `iter_affine_map.h`,
+and are used in the implementation.
 
 A buffer may be allocated with `AllocateNode`, and may be interacted
 with using `BufferLoadNode` and `BufferStoreNode`.
@@ -161,50 +160,7 @@ are deprecated.
     will instead create `BufferLoad` and `BufferStore` nodes with 1-d
     indices.
 
-- BufferTransform
-  - Indicates a transformation that should be performed to modify the
-    specified buffer.
 
-  - A possible structure for the `BufferTransform` node is shown below.
-
-    ```
-    class BufferTransform : public Stmt {
-    public:
-      // The buffer var to be transformed.  All buffers that have
-      // `BufferNode::data` equal to this `buffer_var` should have their
-      // physical layout rewritten.
-      Var buffer_var;
-
-      // The transformation to be applied to the buffer.
-      IndexMap layout_transformation;
-
-      // The statement containing buffer allocations/accesses that should
-      // be rewritten.
-      Stmt body;
-    };
-
-    class IndexMap : public Object {
-    public:
-      /*! \brief Variables representing the indices prior to remapping.
-       *
-       * If initial_index is empty, then final_index should also be
-       * empty, and no mapping is applied.
-       */
-      Array<Var> initial_index;
-
-      /*!
-       * \brief Expressions defining the indices after remapping.
-       *
-       * These expressions should only be in terms of the initial_index,
-       * and must be expressible as a `tvm::arith::IterSumExpr`.  The
-       * mapping from `initial_index` to `final_index` must be injective.
-       *
-       * If final_index is empty, then initial_index should also be
-       * empty, and the map is an identity function.
-       */
-      Array<PrimExpr> final_index;
-    };
-    ```
 
 - AllocateNode
   - Allocation of a buffer, in physical layout.
@@ -227,27 +183,72 @@ are deprecated.
 
 ## Impacted tir Transformations
 
-- `ApplyBufferTransform`
-  - A new pass that takes as input a TIR graph that may have
-    `BufferTransform` nodes present.  The return from
-    `ApplyBufferTransform` has all `BufferTransform` nodes removed,
-    with the buffers marked in them reordered as specified.
+- `ApplyBufferTransforms`
+  - A new pass that takes as input a TIR graph that may have buffer
+    transformations stored in the `PrimFunc` attributes.  Returns
+    a TIR graph with all buffer transforms applied as specified.
 
   - Rewrite `indices` in BufferStore/BufferLoad nodes based on the
     specified transformation.
 
+  - The transformations are stored as a `Map<Var, Array<IndexMap>>` in
+    the `"buffer_layout_transformations"` attribute of a primfunc.
+    All buffers whose `BufferNode::data` is a key in this map should
+    have their physical layout rewritten.  If the array contains
+    multiple transformations, they are applied sequentially.
+
+    A possible structure for the `IndexMap` node is shown
+    below.
+
+    ```
+    class IndexMapNode : public Object {
+    public:
+      /*! \brief Variables representing the indices prior to remapping.
+       *
+       * If initial_index is empty, then final_index should also be
+       * empty, and no mapping is applied.
+       */
+      Array<Var> initial_index;
+
+      /*!
+       * \brief Expressions defining the indices after remapping.
+       *
+       * These expressions should only be in terms of the initial_index,
+       * and must be expressible as a `tvm::arith::IterSumExpr`.  The
+       * mapping from `initial_index` to `final_index` must be injective.
+       *
+       * If final_index is empty, then initial_index should also be
+       * empty, and the map is an identity function.
+       */
+      Array<PrimExpr> final_index;
+    };
+    ```
+
+  - After applying the transformations, the
+    `"buffer_layout_transformations"` attribute should be removed.
+    This ensures that additional application of
+    `ApplyBufferTransforms` has no effect.
+
 - FlattenBuffer/StorageFlatten
-  - Can be implemented as the addition of a `BufferTransform`, which
-    is later lowered by `ApplyBufferTransform`.
 
   - Existing passes that convert from logical layout to physical
     layout for TE schedules (StorageFlatten) or TensorIR schedules
     (FlattenBuffer).
 
-  - Use the `N-1` axis separators specified in BufferNode to convert to
-    an N-d physical layout. The default of having 0 axis separators
-    will correspond to the previous behavior of flattening to a 1-d
-    physical layout.
+  - The transformations are stored as a `Map<Var, Array<IntImm>>` in
+    the `"buffer_axis_separators"` attribute of a primfunc.  All
+    buffers whose `BufferNode::data` is a key in this map should be
+    flattened to an output buffer of dimension
+    `separators[buf->data].size()+1`.  All other buffers should be
+    flattened to a 1-d output buffer.
+
+  - After flattening a buffer to an N-d output, the corresponding
+    value in the `"buffer_axis_separators"` attribute should be set to
+    `range(N-1)`.  This ensures that repeated application of the
+    flattening passes have no additional effect.  (The attribute
+    shouldn't be deleted entirely, as that would cause a flattened
+    buffer with `N` dimensions and an unflattened buffer with `N`
+    dimensions to have identical representations.)
 
 
 ## Examples
@@ -258,25 +259,25 @@ final version of TensorIR that implements this RFC.  Numeric values
 are shown unsimplified to indicate where they come from.
 
 The first example shows a 2-d buffer with no layout transformations
-explicitly specified.  The generated TIR includes a `BufferTransform`
-annotation to apply a row-major traversal and generate a flat 1-d
-buffer.
+explicitly specified.  The generated `PrimFunc` has no
+`"buffer_layout_transformations"` attribute, and so the default
+behavior is used, applying a row-major traversal to generate a flat
+1-d buffer.
 
 ```python
 # In TE schedule, no call to transform_layout.
 
 # Initial TIR graph
 x = Buffer(name="x", shape=[2,3])
-BufferTransform(x, lambda i,j: [i*x.shape[1] + j])
 with Allocate(x):
     val = BufferLoad(x, [10, 15])
     BufferStore(x, 7, [20, 23])
 
-# After applying the implicit flattening to 1-d
+# After flattening to 1-d
 x = Var(name="x")
 with Allocate(x, shape=[2*3]):
-    val = Load(x, index=[10*3 + 15])
-    Store(x, 7, index=[20*3 + 23])
+    val = BufferLoad(x, [10*3 + 15])
+    BufferStore(x, 7, [20*3 + 23])
 ```
 
 This next example shows a 2-d logical buffer, which is lowered to a
@@ -289,30 +290,28 @@ first index in the logical layout.
 # s[x].transform_layout(lambda i,j: [j,i])
 
 # Initial TIR graph
+attrs["buffer_layout_transformations"][x] = lambda i,j: [j,i]
 x = Buffer(name="x", shape=[2,3])
-BufferTransform(x, lambda i,j: [j,i])
-BufferTransform(x, lambda i,j: [i*x.shape[1] + j])
 with Allocate(x):
     val = BufferLoad(x, [10, 15])
     BufferStore(x, 7, [20, 23])
 
 # After applying the explicit reordering
 x = Buffer(name="x", shape=[3,2])
-BufferTransform(x, lambda i,j: [i*x.shape[1] + j])
 with Allocate(x):
-    val = BufferLoad(x, index=[15, 10])
-    BufferStore(x, 7, index=[23, 20])
+    val = BufferLoad(x, [15, 10])
+    BufferStore(x, 7, [23, 20])
 
-# After applying the implicit flattening to 1-d
+# After flattening to 1-d
 x = Var(name="x")
 with Allocate(x, shape=[3*2]):
-    val = Load(x, index=[15*2 + 10])
-    Store(x, 7, index=[23*2 + 20])
+    val = BufferLoad(x, [15*2 + 10])
+    BufferStore(x, 7, [23*2 + 20])
 ```
 
 The next example shows a remapping from NHWC logical layout to NCHWc
 physical layout.  The 4 logical axes are expanded to 5 logical axes
-during the SplitReorderIndices pass, then flattened into 1 physical
+during the `ApplyBufferTransforms` pass, then flattened into 1 physical
 axis during StorageFlatten/FlattenBuffer.
 
 ```python
@@ -320,22 +319,20 @@ axis during StorageFlatten/FlattenBuffer.
 # s[x].transform_layout(lambda n,h,w,c: [n, c//4, h, w, c%4])
 
 # Initial TIR graph
+attrs["buffer_layout_transformations"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
 x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=nhwc_to_nchwc, axis_separators=[])
-BufferTransform(x, lambda n,h,w,c: [n, c//4, h, w, c%4])
-BufferTransform(x, lambda n,C_outer,h,w,c_inner: [x.shape[4]*(x.shape[3]*(x.shape[2]*(x.shape[1]*n + C_outer) + h) + w) + c_inner]
 with Allocate(x):
     val = BufferLoad(x, [11, 37, 23, 101])
 
 # After applying the explicit reordering
 x = Buffer(name="x", shape=[16, 128/4, 64, 64, 4], reorder_splits=[], axis_separators=[])
-BufferTransform(x, lambda n,c_outer,h,w,c_inner: [x.shape[4]*(x.shape[3]*(x.shape[2]*(x.shape[1]*n + c_outer) + h) + w) + c_inner]
 with Allocate(x):
     val = BufferLoad(x, index=[11, floor(101/4), 37, 23, 101%4])
 
-# After applying the implicit flattening to 1-d
+# After flattening to 1-d
 x = Var(name="x")
 with Allocate(x, shape=[16 * (128/4) * 64 * 64 * 4]):
-    val = Load(x, index=[(128/4)*64*64*4*11 + 64*64*4*floor(101/4) + 64*4*37 + 4*23 + 101%4])
+    val = BufferLoad(x, index=[(128/4)*64*64*4*11 + 64*64*4*floor(101/4) + 64*4*37 + 4*23 + 101%4])
 ```
 
 Lastly, an example of remapping from `NHWC` logical layout to `NCHWc`
@@ -352,26 +349,26 @@ target-specific codegen.
 # s[x].transform_layout(lambda n,h,w,c: [n, c//4, h, te.AXIS_SEPARATOR, w, c%4])
 
 # Initial TIR graph
+attrs["buffer_layout_transformations"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
+attrs["buffer_axis_separators"][x] = [2]
 x = Buffer(name="x", shape=[16,64,64,128])
-
-BufferTransform(x, lambda n,h,w,c: [n, c//4, h, w, c%4])
-BufferTransform(x, lambda n,c_outer,h,w,c_inner: [x.shape[1]*(x.shape[2]*c_outer + n) + h,
-                                                  x.shape[4]*w + c_inner])
 with Allocate(x):
     val = BufferLoad(x, [11, 37, 23, 101])
 
 # After applying the explicit reordering.
+attrs["buffer_axis_separators"][x] = [2]
 x = Buffer(name="x", shape=[16, 128/4, 64, 64, 4])
-BufferTransform(x, lambda n,c_outer,h,w,c_inner: [x.shape[1]*(x.shape[2]*c_outer + n) + h,
-                                                  x.shape[4]*w + c_inner])
 with Allocate(x):
     val = BufferLoad(x, index=[11, floor(101/4), 37, 23, 101%4])
 
-# After applying the implicit flattening.  The final result is 2-d,
-# due to the te.AXIS_SEPARATOR used in the `.transform_layout`.
+# After applying StorageFlatten or FlattenBuffer.  The final result is
+# 2-d, due to the te.AXIS_SEPARATOR used in the `.transform_layout`.
+# The `"buffer_axis_separators"` attribute is set to [0], to
+# distinguish this 2-d flattened buffer from a 2-d unflattened buffer.
+attrs["buffer_axis_separators"][x] = [0]
 x = Var(name="x")
 with Allocate(x, shape=[16 * (128/4) * 64, 64 * 4]):
-    val = Load(x, index=[(128/4)*64*11 + 64*floor(101/4) + 37, 4*23 + 101%4])
+    val = BufferLoad(x, index=[(128/4)*64*11 + 64*floor(101/4) + 37, 4*23 + 101%4])
 ```
 
 
@@ -406,26 +403,29 @@ adjacent.
   the tensors passed in will be in the specified format.
 
 
-- Should `BufferTransform` apply only to its body, or apply to the
-  entire graph it is contained in?
+- Should buffer transformations be a node within a TIR graph, or an
+  attribute?
 
-  Option 2 is preferred.
+  Option 1 is preferred.
 
-  - Option 1: A scope-limited `BufferTransform` would define a
-    transformation that should apply to any allocations, reads, or
-    writes that occur to the named buffer within the body of the
-    `BufferTransform`.  However, this couldn't apply to `PrimFunc`
-    arguments, which are outside of the scope of any node within the
-    body.
+  - Option 1: The transformations are stored in attributes of
+    `PrimFunc`.
 
-  - Option 2: A `BufferTransform` that applies to all uses within the
-    entire graph may apply to a buffer that is declared outside of its
-    body.  This would especially be the case for buffers passed as
-    `PrimFunc` arguments.
+    This makes it clear that the transformations apply to all uses of
+    the buffer within the graph, and are not scoped to some region of
+    the TIR graph.
+
+  - Option 2: The transformations are stored in node that inherits
+    from `tir::Stmt`.
+
+    This would be easier for other passes to visit using
+    `StmtVisitor`, if the layout transformations require modification.
+    However, it would add confusion if a `Stmt` impacts buffers far
+    outside its own scope.
 
 
 
-- When should the `tir::transform::LowerBufferTransforms` pass be
+- When should the `tir::transform::ApplyBufferTransforms` pass be
   applied?
 
   Applying it at the end of phase-2 in `driver_api.cc::CreatePassList`
@@ -442,12 +442,12 @@ adjacent.
 
 
 
-- Should `BufferTransform` re-use functionality of other nodes,
-  rather than being an independent node?
+- Should buffer transformations re-use functionality of other nodes?
 
   Option 1 is preferred.
 
-  - Option 1: Add `BufferTransform` as its own node.
+  - Option 1: Add buffer transformations as an attribute to the
+    `PrimFunc`.
 
   - Option 2: In TE-based schedules, `AttrStmtNode` could give the
     buffer to be transformed, along with the transformation to be
