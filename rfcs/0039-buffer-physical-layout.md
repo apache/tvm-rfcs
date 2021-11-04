@@ -1,4 +1,5 @@
 - Feature Name: Buffer Physical Layout
+- Authors: Eric Lunderberg (@Lunderberg), Wuwei Lin (@vinx13)
 - Start Date: 2021-10-05
 - RFC PR: [apache/tvm-rfcs#0039](https://github.com/apache/tvm-rfcs/pull/0039)
 - GitHub Issue: Not Yet Written
