@@ -8,7 +8,7 @@
 # Summary
 [summary]: #summary
 
-This RFC introduces layout transformations that can be applies to a
+This RFC introduces layout transformations that can be applied to a
 buffer during the lowering process.  These transformations will be
 part of the schedule, allowing the same compute definition to be used
 across multiple different layouts.
@@ -21,12 +21,15 @@ strictly necessary for this change.
 [motivation]: #motivation
 
 Currently, TVM assumes that all buffers can be treated as flat memory.
-That is, while a tensor may have N dimensions, the underlying buffer
-allocated by the low-level codegen has a single value defining the
-size, and access into that buffer is done using a single index.  This
-assumptions holds for most cases, such as a CPU accessing RAM, but
-doesn't hold in all cases.  For example, texture memory on a GPU
-requires two indices to access.
+That is, while a rank-N tensor requires N values to describe its shape
+and N indices to identify a particular value within it, the underlying
+buffer allocated by the low-level codegen has a single value defining
+the size, and access into that buffer is done using a single index.
+This assumptions holds for most cases, such as a CPU accessing RAM,
+but doesn't hold in all cases.  For example, texture memory on a GPU
+requires two indices to access.  These are currently handled on a
+case-by-case basis, such as using `tvm::tir::builtin::texture2d_store`
+in a `CallNode`.
 
 In addition, computations that are semantically identical (e.g. 2-d
 convolution) require independent compute definitions and schedules
@@ -34,11 +37,11 @@ convolution) require independent compute definitions and schedules
 accepted as input.
 
 This RFC introduces a mechanism to specify transformations to be
-applied to the layout of buffers in memory, including the option to
-present multi-dimensional indices to the low-level code generators.
-This will allow for target-specific handling of non-flat memory, and
-will allow for code re-use across compute definitions that differ only
-in memory layout.
+applied to the layout of buffers in memory, along with a unified
+method of presenting multiple indices to the low-level code
+generators.  This will allow for target-specific handling of non-flat
+memory, and will allow for code re-use across compute definitions that
+differ only in memory layout.
 
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
@@ -52,14 +55,13 @@ access is done using `tvm::tir::BufferLoad` and
 `tvm::tir::BufferStore` for reads and writes, respectively.
 
 When a TIR graph is passed into the low-level code generator
-`tvm::codegen::Build`, the dimensionality of each buffer must be
-supported by the target code generator.  Typically, this will mean
-generating a 1-dimensional index representing access into flat memory.
-Some code generators may attach alternative semantics for
-multi-dimensional buffers (e.g. 2-d buffers to represent texture
-memory on OpenCL).  A low-level code generator should check the
-dimensionality of the buffers it is acting on, and give a diagnostic
-error for unsupported dimensionality.
+`tvm::codegen::Build`, the rank of each buffer must be supported by
+the target code generator.  Typically, this will mean generating a
+single index representing access into flat memory.  Some code
+generators may attach alternative semantics for `rank>1`
+buffers (e.g. rank-2 buffers to represent texture memory on OpenCL).
+A low-level code generator should check the rank of the buffers it is
+acting on, and give a diagnostic error for unsupported rank.
 
 To define the layout transformation in a TE schedule, use the
 `transform_layout` method of a schedule, as shown below.  The
@@ -94,7 +96,7 @@ B_equivalent = te.compute(
 By default, after all explicitly specified layout transformations are
 applied, all axes are flattened to a single axis by following a
 row-major traversal.  This produces a 1-d buffer, which corresponds to
-flat memory.  To add additional dimensions in the physical layout,
+flat memory.  To produce `rank>1` buffers in the physical layout,
 insert `te.AXIS_SEPARATOR` into the axis list return by the physical
 layout function.  These define groups of axes, where each group is
 combined into a single physical axis.
@@ -121,8 +123,8 @@ The `te.AXIS_SEPARATOR` object exists only within the API interface,
 and is not part of the representation of the layout transformation
 within the generated TIR graph.  Instead, the TIR graph will contain
 an integer list of axis separators, to be used when flattening buffers
-to device-supported dimensions in the `StorageFlatten` or
-`FlattenBuffer` passes.
+to device-supported rank in the `StorageFlatten` or `FlattenBuffer`
+passes.
 
 
 # Reference-level explanation
@@ -239,7 +241,7 @@ are deprecated.
   - The transformations are stored as a `Map<Var, Array<IntImm>>` in
     the `"buffer_axis_separators"` attribute of a primfunc.  All
     buffers whose `BufferNode::data` is a key in this map should be
-    flattened to an output buffer of dimension
+    flattened to an output buffer of rank
     `separators[buf->data].size()+1`.  All other buffers should be
     flattened to a 1-d output buffer.
 
@@ -248,8 +250,8 @@ are deprecated.
     `range(N-1)`.  This ensures that repeated application of the
     flattening passes have no additional effect.  (The attribute
     shouldn't be deleted entirely, as that would cause a flattened
-    buffer with `N` dimensions and an unflattened buffer with `N`
-    dimensions to have identical representations.)
+    rank-`N` buffer and an unflattened rank-`N` buffer to have
+    identical representations.)
 
 
 ## Examples
@@ -497,8 +499,8 @@ adjacent.
 
 - What arguments should the function passed to `transform_layout` accept?
 
-  In these examples, `N` is the number of dimensions of the array,
-  prior to the transformation.
+  In these examples, the tensor is rank `N` prior to the
+  transformation.
 
   Option 3 is preferred.
 
@@ -509,8 +511,9 @@ adjacent.
     require additional configuration to have named variables in the
     mapping.
 
-  - Option 2: Accept `N` named positional arguments (`func(i,j,k)`), where each argument is
-    a variable corresponding to a coordinate in the input tensor.
+  - Option 2: Accept `N` named positional arguments (`func(i,j,k)`),
+    where each argument is a variable corresponding to a coordinate in
+    the input tensor.
 
     This follows the usual method of defining the `fcompute` function
     passed to `te.compute`.  This also allows the named variables to
@@ -556,10 +559,10 @@ adjacent.
 
     This would be a unified way to represent all layout
     transformations in the TIR graph, which may or may not change the
-    dimensionality of the buffer.  The flattening of buffers to a
-    device-supported dimensionality would be handled identically to
-    any other layout transformation, rather than having an implicit
-    row-major traversal.
+    rank of the buffer.  The flattening of buffers to a
+    device-supported rank would be handled identically to any other
+    layout transformation, rather than having an implicit row-major
+    traversal.
 
   - Option 2: The `te.AXIS_SEPARATOR` is represented in the TIR graph,
     and alters the behavior of the `StorageFlatten` pass.  There is no
@@ -594,9 +597,8 @@ adjacent.
 - How should loops over an array be handled when re-writing the shape?
 
   To avoid memory latency issues, loops should iterate over an array
-  sequentially sequentially when possible.  Iteration that is defined
-  in terms of the logical layout may be inappropriate for the physical
-  layout.
+  sequentially when possible.  Iteration that is defined in terms of
+  the logical layout may be inappropriate for the physical layout.
 
   Option 3 is preferred.
 
