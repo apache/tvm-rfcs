@@ -1,7 +1,7 @@
 - Feature Name: Add virtual device information as a first class field on Relay expressions.
 - Start Date: 2021-11-20
-- RFC PR: [apache/tvm-rfcs#1111](https://github.com/apache/tvm-rfcs/pull/1111)
-- GitHub Issue: [apache/tvm#1111](https://github.com/apache/tvm/issues/1111)
+- RFC PR: [apache/tvm-rfcs#1111](https://github.com/apache/tvm-rfcs/pull/0045)
+- GitHub Issue: [apache/tvm#1111](https://github.com/apache/tvm/issues/9665)
 
 # Summary
 [summary]: #summary
