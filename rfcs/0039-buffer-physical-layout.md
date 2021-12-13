@@ -69,8 +69,7 @@ arguments to `transform_layout` is a function that accepts a list of
 transformations are applied.
 
 For example, below defines the reordering from NHWC logical layout to
-NCHWc physical layout.  Similar to `cache_read` and `cache_write`, the
-`transform_layout` method introduces a new stage in the schedule.
+NCHWc physical layout.
 
 ```python
 # Compute definition, written in terms of NHWC logical axes
@@ -123,6 +122,35 @@ an integer list of axis separators, to be used when flattening buffers
 to device-supported rank in the `StorageFlatten` or `FlattenBuffer`
 passes.
 
+If the tensor whose layout is being transformed is the result of
+`te.compute`, then the loop iteration order over that tensor will be
+rewritten to be along the updated memory layout.  If the loop
+iteration order is modified, these new loop iteration variables will
+be returned from `transform_layout()`.
+
+```python
+A = te.placeholder(shape=[16,64,128])
+B = te.compute(A.shape, lambda i,j,k: 2*A[i,j,k])
+
+s = te.create_schedule(B.op)
+
+# A is an input placeholder, and doesn't have nested loops that
+# generate it.  Therefore, while the layout of A is rewritten along
+# with any reads/writes into A, there are no loop iterators to be
+# rewritten and no loop iterators are returned.
+s[A].transform_layout(lambda i,j,k: [i*64 + j, k//4, k%4])
+
+# B is a computed tensor, and is computed inside a sequence of nested
+# loops.  Therefore, when B's layout is rewritten, those nested loops
+# are also rewritten, and the corresponding loop iterators are
+# returned.
+i_outer, jk_merged, i_inner = s[B].transform_layout(lambda i,j,k: [i//4, 128*j + k, i%4])
+
+# The loop iterators returned by transform_layout() can be used later
+# in the schedule, if the iteration order should be different from the
+# layout order of the output tensor.
+s[B].reorder(i_outer, i_inner, jk_merged)
+```
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
