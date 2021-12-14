@@ -296,16 +296,16 @@ behavior is used, applying a row-major traversal to generate a flat
 # In TE schedule, no call to transform_layout.
 
 # Initial TIR graph
-x = Buffer(name="x", shape=[2,3])
+x = Buffer(name="x", shape=[64,128])
 with Allocate(x):
     val = BufferLoad(x, [10, 15])
     BufferStore(x, 7, [20, 23])
 
 # After flattening to 1-d
 x = Var(name="x")
-with Allocate(x, shape=[2*3]):
-    val = BufferLoad(x, [10*3 + 15])
-    BufferStore(x, 7, [20*3 + 23])
+with Allocate(x, shape=[64*128]):
+    val = BufferLoad(x, [10*128 + 15])
+    BufferStore(x, 7, [20*128 + 23])
 ```
 
 This next example shows a 2-d logical buffer, which is lowered to a
@@ -319,22 +319,22 @@ first index in the logical layout.
 
 # Initial TIR graph
 attrs["buffer_layout_transformations"][x] = lambda i,j: [j,i]
-x = Buffer(name="x", shape=[2,3])
+x = Buffer(name="x", shape=[64,128])
 with Allocate(x):
     val = BufferLoad(x, [10, 15])
     BufferStore(x, 7, [20, 23])
 
 # After applying the explicit reordering
-x = Buffer(name="x", shape=[3,2])
+x = Buffer(name="x", shape=[128,64])
 with Allocate(x):
     val = BufferLoad(x, [15, 10])
     BufferStore(x, 7, [23, 20])
 
 # After flattening to 1-d
 x = Var(name="x")
-with Allocate(x, shape=[3*2]):
-    val = BufferLoad(x, [15*2 + 10])
-    BufferStore(x, 7, [23*2 + 20])
+with Allocate(x, shape=[128*64]):
+    val = BufferLoad(x, [15*64 + 10])
+    BufferStore(x, 7, [23*64 + 20])
 ```
 
 The next example shows a remapping from NHWC logical layout to NCHWc
