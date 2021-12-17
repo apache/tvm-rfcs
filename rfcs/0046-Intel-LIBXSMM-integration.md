@@ -23,27 +23,27 @@ We will integrate LIBXSMM with TVM in following 3 components:
 # Reference-level explanation
 1. Users can call libxsmm as CBLAS through extern call API.
 ```
-  def matmul(lhs, rhs, transa=False, transb=False, alpha=1.0, beta=0.0, lda=-1, ldb=-1, ldc=-1, 		**kwargs):
-  	n = lhs.shape[1] if transa else lhs.shape[0]
-  	m = rhs.shape[0] if transb else rhs.shape[1]
-  	return te.extern(
-    	(n, m),
-    	[lhs, rhs],
-    	lambda ins, outs: tvm.tir.call_packed(
-    		"tvm.contrib.libxsmm.matmul", ins[0], ins[1], outs[0], transa, transb, alpha, beta, lda, ldb, ldc),
-    	name="C",
-    	**kwargs,
-  	)
+  def matmul(lhs, rhs, transa=False, transb=False, alpha=1.0, beta=0.0, lda=-1, ldb=-1, ldc=-1, **kwargs):
+    n = lhs.shape[1] if transa else lhs.shape[0]
+    m = rhs.shape[0] if transb else rhs.shape[1]
+    return te.extern(
+      (n, m),
+      [lhs, rhs],
+      lambda ins, outs: tvm.tir.call_packed(
+        "tvm.contrib.libxsmm.matmul", ins[0], ins[1], outs[0], transa, transb, alpha, beta, lda, ldb, ldc),
+      name="C",
+      **kwargs,
+  )
 ```
 2. BYOC allows for graph partitioning and using LIBXSMM for code generation.
-	* API to obtain the partitioned function:
+  * API to obtain the partitioned function:
 ```
-	from tvm.relay.op.contrib import libxsmm
+  from tvm.relay.op.contrib import libxsmm
 
-	# API to call LIBXSMM partitioning
+  # API to call LIBXSMM partitioning
     libxsmm_module = libxsmm.partition_for_cmsisnn(module) 
 ```
-	* Pattern matching table: 
+  * Pattern matching table: 
 ```
 @register_pattern_table("libxsmm")
 def pattern_table():
@@ -56,16 +56,16 @@ def pattern_table():
     libxsmm_pattern = [dense_pattern, denese_bias_pattern, denese_relu_pattern, denese_sigmoid_pattern, denese_bias_relu, denese_bias_sigmoid]
     return libxsmm_pattern
 ```
-	* Build with TVM
+  * Build with TVM
 ```
 with tvm.transform.PassContext(opt_level=3):
-	lib = relay.build(libxsmm_module, target="cpu", params=params)
+  lib = relay.build(libxsmm_module, target="cpu", params=params)
 ```
 3. Integrate into TOPI, an GEMM autotvm template with LIBXSMM as inner kernel.
-	* Use Tensorize/TensorIR to substitute register block of GEMM with LIBXSMM
+  * Use Tensorize/TensorIR to substitute register block of GEMM with LIBXSMM
 ```
 def intrin_func(ins, outs):
-	def _body():
+  def _body():
         ib = tvm.tir.ir_builder.create()
         ib.emit(
           tvm.tir.call_extern(
