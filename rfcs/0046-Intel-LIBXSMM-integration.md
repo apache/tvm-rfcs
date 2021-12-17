@@ -41,46 +41,46 @@ We will integrate LIBXSMM with TVM in following 3 components:
   from tvm.relay.op.contrib import libxsmm
 
   # API to call LIBXSMM partitioning
-    libxsmm_module = libxsmm.partition_for_cmsisnn(module) 
+  libxsmm_module = libxsmm.partition_for_libxsmm(module) 
 ```
   * Pattern matching table: 
 ```
-@register_pattern_table("libxsmm")
-def pattern_table():
-    dense_pattern = ("libxsmm.dense", make_pattern(with_bias=False, with_activation=None))
-    denese_bias_pattern = ("libxsmm.dense_bias", make_pattern(with_bias=True, with_activation=None))
-    denese_relu_pattern = ("libxsmm.dense_relu", make_pattern(with_bias=False, with_activation="relu"))
-    denese_sigmoid_pattern = ("libxsmm.dense_sigmoid", make_pattern(with_bias=False, with_activation="sigmoid"))
-    denese_bias_relu = ("libxsmm.dense_bias_relu", make_pattern(with_bias=True, with_activation="relu"))
-    denese_bias_sigmoid = ("libxsmm.dense_bias_sigmoid", make_pattern(with_bias=True, with_activation="sigmoid"))
-    libxsmm_pattern = [dense_pattern, denese_bias_pattern, denese_relu_pattern, denese_sigmoid_pattern, denese_bias_relu, denese_bias_sigmoid]
-    return libxsmm_pattern
+  @register_pattern_table("libxsmm")
+  def pattern_table():
+      dense_pattern = ("libxsmm.dense", make_pattern(with_bias=False, with_activation=None))
+      denese_bias_pattern = ("libxsmm.dense_bias", make_pattern(with_bias=True, with_activation=None))
+      denese_relu_pattern = ("libxsmm.dense_relu", make_pattern(with_bias=False, with_activation="relu"))
+      denese_sigmoid_pattern = ("libxsmm.dense_sigmoid", make_pattern(with_bias=False, with_activation="sigmoid"))
+      denese_bias_relu = ("libxsmm.dense_bias_relu", make_pattern(with_bias=True, with_activation="relu"))
+      denese_bias_sigmoid = ("libxsmm.dense_bias_sigmoid", make_pattern(with_bias=True, with_activation="sigmoid"))
+      libxsmm_pattern = [dense_pattern, denese_bias_pattern, denese_relu_pattern, denese_sigmoid_pattern, denese_bias_relu, denese_bias_sigmoid]
+      return libxsmm_pattern
 ```
   * Build with TVM
 ```
-with tvm.transform.PassContext(opt_level=3):
-  lib = relay.build(libxsmm_module, target="cpu", params=params)
+  with tvm.transform.PassContext(opt_level=3):
+    lib = relay.build(libxsmm_module, target="cpu", params=params)
 ```
 3. Integrate into TOPI, an GEMM autotvm template with LIBXSMM as inner kernel.
   * Use Tensorize/TensorIR to substitute register block of GEMM with LIBXSMM
 ```
-def intrin_func(ins, outs):
-  def _body():
-        ib = tvm.tir.ir_builder.create()
-        ib.emit(
-          tvm.tir.call_extern(
-            "int", "libxsmm_sgemm", m, n, k, 1.0, ins[0].access_ptr("r"), K, ins[1].access_ptr("r"), n, 0.0, outs[0].access_ptr("w"), N
-          )
+  def intrin_func(ins, outs):
+    def _body():
+      ib = tvm.tir.ir_builder.create()
+      ib.emit(
+        tvm.tir.call_extern(
+          "int", "libxsmm_sgemm", m, n, k, 1.0, ins[0].access_ptr("r"), K, ins[1].access_ptr("r"), n, 0.0, outs[0].access_ptr("w"), N
         )
-        return ib.get()
-      def _update():
-        ib = tvm.tir.ir_builder.create()
-        ib.emit(
-          tvm.tir.call_extern(
-            "int", "libxsmm_sgemm", m, n, k, 1.0, ins[0].access_ptr("r"), K, ins[1].access_ptr("r"), n, 1.0, outs[0].access_ptr("w"), N
-          )
+      )
+      return ib.get()
+    def _update():
+      ib = tvm.tir.ir_builder.create()
+      ib.emit(
+        tvm.tir.call_extern(
+           "int", "libxsmm_sgemm", m, n, k, 1.0, ins[0].access_ptr("r"), K, ins[1].access_ptr("r"), n, 1.0, outs[0].access_ptr("w"), N
         )
-        return ib.get()
+      )
+      return ib.get()
 ```
 
 # Testing
