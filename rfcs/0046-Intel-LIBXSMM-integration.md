@@ -23,17 +23,17 @@ We will integrate LIBXSMM with TVM in following 3 components:
 # Reference-level explanation
 1. Users can call libxsmm as CBLAS through extern call API.
 ```
-	def matmul(lhs, rhs, transa=False, transb=False, alpha=1.0, beta=0.0, lda=-1, ldb=-1, ldc=-1, 		**kwargs):
-  		n = lhs.shape[1] if transa else lhs.shape[0]
-  		m = rhs.shape[0] if transb else rhs.shape[1]
-  		return te.extern(
-    		(n, m),
-    		[lhs, rhs],
-    		lambda ins, outs: tvm.tir.call_packed(
-      		"tvm.contrib.libxsmm.matmul", ins[0], ins[1], outs[0], transa, transb, alpha, beta, lda, ldb, ldc),
-    		name="C",
-    		**kwargs,
-  		)
+  def matmul(lhs, rhs, transa=False, transb=False, alpha=1.0, beta=0.0, lda=-1, ldb=-1, ldc=-1, 		**kwargs):
+  	n = lhs.shape[1] if transa else lhs.shape[0]
+  	m = rhs.shape[0] if transb else rhs.shape[1]
+  	return te.extern(
+    	(n, m),
+    	[lhs, rhs],
+    	lambda ins, outs: tvm.tir.call_packed(
+    		"tvm.contrib.libxsmm.matmul", ins[0], ins[1], outs[0], transa, transb, alpha, beta, lda, ldb, ldc),
+    	name="C",
+    	**kwargs,
+  	)
 ```
 2. BYOC allows for graph partitioning and using LIBXSMM for code generation.
 	* API to obtain the partitioned function:
