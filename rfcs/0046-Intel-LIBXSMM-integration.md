@@ -97,3 +97,12 @@ We will add unittest for coresponding extern call, BYOC and TOPI related code:
 # Future possibilities
 * LIBXSMM has DNN support, so it might be interesting to also integrate DNN primitives such as Conv to TVM;
 * LIBXSMM has quantized kernel (int8), we can also integrate it to TVM, as long as it surpass existing oneDNN implementations.
+
+# Upstream plan
+This proposal would be split to following PR series:
+1. Add LIBXSMM as extern call;
+2. Add LIBXSMM to BYOC for accelerating small gemm;
+3. Add LIBXSMM-enabled normal size GEMM to TOPI;
+4. Add LIBXSMM-enabled normal size GEMM to Relay op strategy.
+
+Test cases will be provided with these PRs.
