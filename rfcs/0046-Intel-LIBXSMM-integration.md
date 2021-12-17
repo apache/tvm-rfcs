@@ -16,9 +16,10 @@ By the way, given that LIBXSMM can generate quite efficient GEMM kernel implemen
 This proposal aims to integrate LIBXSMM into TVM to accelerate small GEMM and serve as inner-kernel to accelerate normal size GEMM.
 
 We will integrate LIBXSMM with TVM in following 3 components:
-1. Add extern call “tvm.contrib.libxsmm.gemm” in “src/runtime/contrib” directory, and corresponding python interface in "python/tvm/contrib/" directory, so users can call them just as CBLAS; 
+1. Add extern call “tvm.contrib.libxsmm.gemm” in “src/runtime/contrib” directory, and corresponding python interface in "python/tvm/contrib/" directory, so users can call them just as CBLAS;
 2. Use BYOC to accelerate small GEMM (cube_root(m * n * k ) <= 256) and its epilogue fusion variations (bias/relu/sigmoid/bias_relu/bias_sigmoid);
 3. AutoTVM template we wrote with LIBXSMM as inner kernel into TOPI, as a GEMM implementation candidate.
+4. Add target system and Relay op strategy support. When users specify `llvm -libs=libxsmm`, Relay op strategy automatically lowers corresponding GEMM ops to libxsmm.
 
 # Reference-level explanation
 1. Users can call libxsmm as CBLAS through extern call API.
