@@ -100,9 +100,10 @@ We will add unittest for coresponding extern call, BYOC and TOPI related code:
 
 # Upstream plan
 This proposal would be split to following PR series:
-1. Add LIBXSMM as extern call;
-2. Add LIBXSMM to BYOC for accelerating small gemm;
-3. Add LIBXSMM-enabled normal size GEMM to TOPI;
-4. Add LIBXSMM-enabled normal size GEMM to Relay op strategy.
+1. Add LIBXSMM to TVM CI;
+2. BYOC support for accelerating small gemm;
+3. Documentation about LIBXSMM support, including supported ops/patterns/dtypes/versions and limitations.
+4. TOPI op support for normal size GEMM;
+4. Relay op strategy for normal size GEMM.
 
 Test cases will be provided with these PRs.
