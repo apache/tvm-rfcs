@@ -62,7 +62,7 @@ At launch time, we intend to use only static nodes. However, autoscaled nodes ha
 
 ### Infrastructure-as-Code Repository
 
-The production TVM CI instance will be managed using an open source Infrastructure-as-Code repository living in GitLab. GitLab is preferable for DevOps workflows due to a slightly nicer pipelines system, particularly one which allows for manual intervention if needed. All configuration except credentials will be stored in this repository. TVM Committers, plus additional delegates of those committers responsible for running the TVM Jenkins infrastructure, will be granted write access to this repository. Any changes to this repository will require review from those individuals with write access who are actively involved in the day-to-day operations of TVM CI.
+The production TVM CI instance will be managed using an open source Infrastructure-as-Code repository living in GitHub. All configuration except credentials will be stored in this repository. TVM Committers, plus additional delegates of those committers responsible for running the TVM Jenkins infrastructure, will be granted write access to this repository. Any changes to this repository will require review from those individuals with write access who are actively involved in the day-to-day operations of TVM CI.
 
 ## Maintenance Tasks
 
