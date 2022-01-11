@@ -63,7 +63,7 @@ Overall, given that it brings significantly better experience as stated in the p
 
 This refactoring is the last missing piece of effort that brings core data structures of the TVM runtime into the ABI-stable TVM runtime.
 
-Alternatively, one might argue that it’s not important whether `PackedFunc` should be a TVM or not; however, it significantly brings negative impact when TVM object system is used across the DLL boundary, or putting `PackedFunc` into TVM containers.
+Alternatively, one might argue that it’s not important whether `PackedFunc` should be a TVM object or not; however, it significantly brings negative impact when TVM object system is used across the DLL boundary, or putting `PackedFunc` into TVM containers.
 
 ## 7. Prior Art
 
