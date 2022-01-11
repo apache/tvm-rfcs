@@ -117,7 +117,15 @@ We will not initially enable autoscaling. After a few weeks of successful operat
 
 ## Ownership
 
-We propose that the Infrastructure-as-Code repository for this system be open-sourced but that the maintenance be delegated to a set of volunteers in the community. IaC operations will be launched in practice from GitHub Actions inside a new e.g. `tlcpack/ci-*` repositories. Cloud credentials will be provided to the IaC repository (stored privately, accessible to those community volunteers involved with CI operations) to enable maintenance access to the fleet of nodes.
+We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repository be handled by TVM committers. Once the system is operational, IaC operations will be launched from GitHub Actions inside new e.g. `tlcpack/tvm-ci-*` repositories. We will create the following repositories:
+
+* `tlcpack/tvm-ci-packer` - Contains Packer build scripts for the AMI base images used by the executors.
+* `tlcpack/tvm-ci-terraform` - Contains Terraform infrastructure-as-code which documents how cloud services are configured.
+* `tlcpack/tvm-ci-ansible` - Contains Ansible infrastructure-as-code which documents how the software on each node is configured.
+
+The set of users who can write to these repositories are the TVM committers. Cloud credentials will be provided to these IaC repositories (stored privately, accessible to TVM committers) to enable maintenance access to the fleet of nodes.
+
+These IaC repositories will be placed under the `tlcpack` organization initially while we experiment with maintaining the system and come to a full understanding of what's needed from GitHub. After the new CI has been in production for some time (e.g. in Q2 2022), we will assess these needs and decide whether it's feasible to move it into a repository underneath the `apache` organization. This RFC doesn't intend to remove any documentation on how unit tests are run from the TVM repository--the project expects that sufficient documentation should exist in `apache/tvm` to run unit tests and that the IaC here serves, for now, to reflect that documentation into automated test infrastructure.
 
 ## Alternatives
 
@@ -134,3 +142,4 @@ We considered using GitHub Actions to drive the TVM CI instead of Jenkins. While
 
 1. With an open IaC repository, it should be possible to share sponsorship of the Jenkins executor nodes with others in the TVM community. The exact process for this, however, has yet to be defined.
 2. How can we add support for testing hardware not available from cloud providers? What additional infrastructure might this require?
+3. We may need to change the TVM committer promotion process to accomodate oncall staff or document an additional process by which those staff can be granted write access to the IaC repos without having committer status. We will take this up after the system has been live for a period of time.
