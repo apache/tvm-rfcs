@@ -149,7 +149,7 @@ items in a roadmap.
 Roadmaps are defined using [GitHub
 Projects](https://docs.github.com/en/issues/trying-out-the-new-projects-experience/about-projects)
 and can include GitHub Issues, Pull Requests, and simple note cards. Maintainers should strive to
-place mainly **GitHub Issues** in Roadmaps to make it possible for the community to learn more about
+place mainly **GitHub Issues** in roadmaps to make it possible for the community to learn more about
 ongoing work and reduce triage burden.
 
 Each item on a roadmap is intended to track one of these community processes:
