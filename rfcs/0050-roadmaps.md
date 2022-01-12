@@ -4,7 +4,7 @@
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 - pre-RFC: https://discuss.tvm.apache.org/t/pre-rfc-tvm-roadmap/11171
 - pre-RFC: https://discuss.tvm.apache.org/t/pre-rfc-roadmap-rfcs/11711
-- Co-Authors: Denise Kutnick (@denise-k), Andrew Reusch (@areusch)
+- Co-Authors: Denise Kutnick (@denise-k), @areuscheusch (@areusch)
 
 NOTE(areusch): This RFC is a combination of the two above pre-RFCs, and limited copy-editing has
 been done to preserve the flow of the document.
@@ -14,8 +14,8 @@ been done to preserve the flow of the document.
 This RFC proposes to add product roadmaps to TVM.
 
 Roadmaps should be seen as a way of unifying the planning process of TVM, all the way from ideas to
-PR merges. The roadmaps discussed in this pre-RFC are intentionally designed to integrate with TVM’s
-existing planning tools (e.g. Github tracking issues, RFCs), while adding an additional space for
+PR merges. The roadmaps discussed in this RFC are intentionally designed to integrate with TVM’s
+existing planning tools (e.g. GitHub tracking issues, RFCs), while adding an additional space for
 sharing and collaboration earlier in the R&D process.
 
 This proposal includes two categories of roadmaps:
@@ -26,7 +26,7 @@ This proposal includes two categories of roadmaps:
   TVM: including vertical efforts involving TVM's intermediate representations (such as Relay or
   TIR) and the horizontal efforts which span across TVM's full stack (such as Automation or
   Documentation). Details about each of the components in TVM will be discussed later in this
-  pre-RFC.
+  RFC.
 
 ## Motivations
 
@@ -45,8 +45,8 @@ heavily on the intended contents.
 
 ### Tooling
 
-The roadmap utilizes Github Projects as the underlying tooling mechanism. This maximizes reuse of
-existing content tracked in Github, and is very user-friendly for existing Github users.
+The roadmap utilizes GitHub Projects as the underlying tooling mechanism. This maximizes reuse of
+existing content tracked in GitHub, and is very user-friendly for existing GitHub users.
 
 This RFC proposes to place the TVM roadmaps directly in the `apache/tvm` repository, since the
 roadmap is intended to be a community-focused project, and having the roadmaps directly in TVM would
@@ -81,7 +81,7 @@ features within the roadmap:
 
     - **Roadmap Items:** Each column of development contains roadmap items which contribute to each
     of the **Themes & Goals** described above. These items are meant to unify feature development
-    within each project, whether it is coming from an RFC, Github task tracking, or directly from
+    within each project, whether it is coming from an RFC, GitHub task tracking, or directly from
     within the roadmap. Items on the roadmap generally have feature ownership at least partially
     identified at a minimum.
 3. **Backlog Column**: Items on the roadmap which don't have an owner or a proposed development
@@ -156,8 +156,8 @@ Each item on a roadmap is intended to track one of these community processes:
 - **pre-RFCs** serve as a way to begin discussions on planned work at the earliest stage of
   maturity. **pre-RFCs** are typically posted in the [TVM Discuss
   forums](http://discuss.tvm.apache.org) in order to solicit TVM Community feedback. For an example
-  of a **pre-RFC**, see the screenshot of Andrew R's proposal to *Convert RST Docs to Markdown*
-  below.
+  of a **pre-RFC**, see the screenshot of @areusch's proposal to [Convert RST Docs to Markdown
+  ](https://discuss.tvm.apache.org/t/docs-discuss-convert-restructuredtext-docs-to-markdown/10264).
 
     **pre-RFCs** can be tracked on a Roadmap by preemptively creating a GitHub Task-tracking Issue
     in [tvm-rfcs](https://github.com/apache/tvm-rfcs).
@@ -169,19 +169,28 @@ Each item on a roadmap is intended to track one of these community processes:
   [tvm-rfcs](https://github.com/apache/tvm-rfcs) below.
 
     Open **RFCs** can be directly linked into any roadmap. Once an **RFC** is accepted, please use
-    the **Github Task-Tracking** process to track **RFC** Execution.
+    the **GitHub Task-Tracking** process to track **RFC** Execution.
     ![image|690x357](./assets/0050/roadmap-item-rfc.png)
 
-- **Github Task-Tracking Issues** are used in [tvm](https://github.com/apache/tvm) to share the
-  progress of accepted RFCs over time. For an example of a **Github Task-Tracking Issue**, see the
-  screenshot of Andrew L's RFC to *Add Mixed-Precision Support to TVM* below.
+- **GitHub Task-Tracking Issues** are used in [tvm](https://github.com/apache/tvm) to share the
+  progress of midsize features and/or accepted RFCs over time. 
+  - For an example of a  **GitHub Task-Tracking Issue**, see the screenshot of @AndrewZhaoLuo's RFC
+    to *Add Mixed-Precision Support to TVM* below.
 
     These task-tracking issues can be directly linked into any roadmap.
     ![image|663x499](./assets/0050/roadmap-item-gh-task-tracking-issue.png)
 
+  - For an example of a midsize feature which could be categorized as a **GitHub Task-Tracking Issue**,
+    see the screenshot of @FranckQC's *Implementation of Common Subexpression Elimination for TIR*
+    below.
+
+    These features will need a **separate GitHub Issue* created and linked to the applicable pull
+    requests, so that they can be properly linked into GitHub Projects.
+    ![image|663x335](./assets/0050/roadmap-item-gh-task-tracking-pr.png)
+
 - **Bugfixes** are actionable GitHub Issues not necessarily connected to a Task-Tracking
   Issue. Generally, they require only 1 PR and the work is clearly specified in the issue. For an
-  example of a **bugfix** Github Issue, see the screenshot of a flaky CI test report below.
+  example of a **bugfix** GitHub Issue, see the screenshot of a flaky CI test report below.
 
     You can directly link **bugfixes** in a roadmap by adding their corresponding GitHub Issues as a
     card. Generally, it’s the maintainer’s responsibility to combine related **bugfixes** in order
@@ -259,10 +268,10 @@ benefits of having roadmaps for TVM vastly outweigh the negatives.
   high-quality contents within the roadmap, community roadmap guidelines will be created and
   upstreamed.
 - **Organization of the roadmap**: Since the proposed roadmaps would live directly in `apache/tvm`
-  via Github Projects, roadmap items would be created directly in `apache/tvm` as Github
-  issues. Currently, Github issue usage is very limited in `apache/tvm` in order to ensure easier
+  via GitHub Projects, roadmap items would be created directly in `apache/tvm` as GitHub
+  issues. Currently, GitHub issue usage is very limited in `apache/tvm` in order to ensure easier
   triage and timely closure of issues. Having the TVM roadmaps live in `apache/tvm` would increase
-  the overall count of Github issues in the repository, but the roadmap items could be labeled with
+  the overall count of GitHub issues in the repository, but the roadmap items could be labeled with
   a `tvm:roadmap` tag so that they can be properly triaged and filtered.
 
 ## Rationale & Alternatives
@@ -277,7 +286,7 @@ drawbacks of its own.
   `apache/tvm`, but it would increase the complexity and fragmentation of the roadmap significantly,
   since this roadmap repository would have to link to RFC tracking issues in `apache/tvm` anyways.
 - **Use a separate tool for the roadmap:** Using a separate tool for the roadmap may provide more
-  functionality than Github projects. However, this would require much more effort to create and
+  functionality than GitHub projects. However, this would require much more effort to create and
   maintain.
 
 ## Prior Art
@@ -288,8 +297,8 @@ TVM.
 
 ![image|690x351](./assets/0050/prior-art-1.jpeg)
 
-It is also inspired by the [public Github roadmap](https://github.com/github/roadmap), which is an
-excellent example of usage for Github Projects.
+It is also inspired by the [public GitHub roadmap](https://github.com/github/roadmap), which is an
+excellent example of usage for GitHub Projects.
 
 ![image|690x426](./assets/0050/prior-art-public-gh-roadmap.png)
 
@@ -297,24 +306,24 @@ excellent example of usage for Github Projects.
 
 This is a prospective upstreaming timeline for the TVM roadmap.
 
-|Milestone Name|Deliverables|Schedule|
-| --- | --- | --- |
-|TVM Roadmap M1A: Taking the Plunge|<li>All roadmap projects defined<br><li>Initial prototype roadmap (TVM CI & Testing) upstreamed <br> <li>Skeleton roadmap documentation upstreamed <br> <li>Scope of M1B and M1C clearly defined|Late September|
-|TVM Roadmap M1B: Building Momentum|<li> At least 3 additional roadmaps upstreamed <br> <li> Additional roadmap process documentation upstreamed|Mid October|
-|TVM Roadmap M1C: Ready for Prime Time|<li> All initial roadmaps (described in M1A RFC) upstreamed <br> <li> All RFC opens from M1A and M1B addressed <br><li> Publicize roadmap in documentation and TVM forums|Early November|
+|Milestone Name|Deliverables|
+| --- | --- |
+|TVM Roadmap M1A: Taking the Plunge|<li>All roadmap projects defined<br><li>Initial prototype roadmap (TVM CI & Testing) upstreamed <br> <li>Skeleton roadmap documentation upstreamed <br> <li>Scope of M1B and M1C clearly defined|
+|TVM Roadmap M1B: Building Momentum|<li> At least 3 additional roadmaps upstreamed <br> <li> Additional roadmap process documentation upstreamed|
+|TVM Roadmap M1C: Ready for Prime Time|<li> All initial roadmaps (described in M1A RFC) upstreamed <br> <li> All RFC opens from M1A and M1B addressed <br><li> Publicize roadmap in documentation and TVM forums|
 
 ## Unresolved Questions
 
 Questions about the design and contents of the TVM Roadmap will be progressively resolved through
 the upstreaming timeline shown above. Any unresolved questions at the end of TVM Roadmap Milestone 1
-will be created as roadmap items in the TVM Community Roadmap 🙂
+will be created as roadmap items in the TVM Community Roadmap.
 
 ## Future Possibilities
 
-- Create [Github issue templates](https://github.com/apache/tvm/tree/main/.github/ISSUE_TEMPLATE)
-  for roadmap items (similar to the existing Github issue templates for docs, CI, etc).
-- Use [the new Github issues/projects (closed beta)](https://github.com/features/issues) to improve
+- Create [GitHub issue templates](https://github.com/apache/tvm/tree/main/.github/ISSUE_TEMPLATE)
+  for roadmap items (similar to the existing GitHub issue templates for docs, CI, etc).
+- Use [the new GitHub issues/projects (closed beta)](https://github.com/features/issues) to improve
   roadmap functionality.
 
 ## Special Thanks
-Thanks so much for copyediting, @areusch and @electriclilies! :hugs:
+Thanks so much for copyediting, @electriclilies! :hugs:
