@@ -175,8 +175,8 @@ Each item on a roadmap is intended to track one of these community processes:
 
 - **GitHub Task-Tracking Issues** are used in [tvm](https://github.com/apache/tvm) to share the
   progress of midsize features and/or accepted RFCs over time. 
-  - For an example of a  **GitHub Task-Tracking Issue**, see the screenshot of [**@AndrewZhaoLuo**
-    ](https://github.com/AndrewZhaoLuo)'s RFC to *Add Mixed-Precision Support to TVM* below.
+  - For an example of a  **GitHub Task-Tracking Issue**, see the screenshot of [**@AndrewZhaoLuo**](https://github.com/AndrewZhaoLuo)'s 
+    RFC to *Add Mixed-Precision Support to TVM* below.
 
     These task-tracking issues can be directly linked into any roadmap.
     ![image|663x499](./assets/0050/roadmap-item-gh-task-tracking-issue.png)
