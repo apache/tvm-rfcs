@@ -62,7 +62,7 @@ At launch time, we intend to use only static nodes. However, autoscaled nodes ha
 
 ### Infrastructure-as-Code Repository
 
-The production TVM CI instance will be managed using an open source Infrastructure-as-Code repository living in GitHub. All configuration except credentials will be stored in this repository. TVM Committers, plus additional delegates of those committers responsible for running the TVM Jenkins infrastructure, will be granted write access to this repository. Any changes to this repository will require review from those individuals with write access who are actively involved in the day-to-day operations of TVM CI.
+The production TVM CI instance will be managed using an open source Infrastructure-as-Code repository living in GitHub. All configuration except credentials will be stored in this repository. TVM Committers will be granted write access to this repository. Any changes to this repository will require review from those individuals with write access who are actively involved in the day-to-day operations of TVM CI.
 
 ## Maintenance Tasks
 
@@ -117,7 +117,7 @@ We will not initially enable autoscaling. After a few weeks of successful operat
 
 ## Ownership
 
-We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repository be handled by TVM committers. Once the system is operational, IaC operations will be launched from GitHub Actions inside new e.g. `tlcpack/ci-*` repositories. We will create the following repositories:
+We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repositories be under the same project governance and PMC; IaC operations will therefore (after the project enters production) be launched from GitHub Actions inside new e.g. `tlcpack/ci-*` repositories. We will create the following repositories:
 
 * `tlcpack/ci-packer` - Contains Packer build scripts for the AMI base images used by the executors.
 * `tlcpack/ci-terraform` - Contains Terraform infrastructure-as-code which documents how cloud services are configured.
@@ -134,7 +134,7 @@ These IaC repositories will be placed under the `tlcpack` organization initially
 We considered using GitHub Actions to drive the TVM CI instead of Jenkins. While GitHub Actions has several attractive properties (for two, a modern configuration language and management of the "Jenkins master" equivalent), there are a couple of compelling reasons to build our own infrastructure including the Jenkins master:
 
 1. **Maintenance of dedicated executor fleet**. TVM's build is sensitive to the type of hardware used to execute the CI. Using GitHub Actions only alleviates us of the burden of running the Jenkins master. We would still need to run our own fleet of executors with the GitHub agent.
-2. **Write access to CI configuration**. GitHub Actions is configured from within the `tvm` repository. While there are many benefits to this, operationally write access to the `tvm` repository is a slow process that is currently granted based on historical contribution to TVM. This process isn't particularly impedance-matched to the needs of a DevOps team, where access checks are routine but low-overhead and the group with write permissions should be controlled but easy to change. And, it's likely that many of the maintenance tasks involved with running TVM executors require the involvement of the current group of TVM Committers—indeed, no TVM committer is on the OctoML Infrastructure team today. This is not to say that any of these things could be changed, but when this project was started, it was considered to be challenging to accommodate these requirements in the TVM committer system.
+2. **Write access to CI configuration**. GitHub Actions is configured from within the `tvm` repository. While there are many benefits to this, operationally write access to the `tvm` repository is a slow process that is currently granted based on historical contribution to TVM. This process isn't particularly impedance-matched to the needs of a DevOps team, where access checks are routine but low-overhead and the group with write permissions should be controlled but easy to change. And, it's likely that many of the maintenance tasks involved with running TVM executors require the involvement of the current group of TVM Committers—indeed, no TVM committer is on the OctoML Infrastructure team today.
 3. **Private TVM CI instances**. While TVM CI will always remain open and public, there are multiple companies which both contribute to TVM and desire to run their own CI instance internally. Sticking to an open-source CI system avoids any vendor-specific pitfalls (e.g. anyone *could* run Jenkins internally and reference our configuration).
 4. **Supporting non-cloud TVM Targets**. TVM CI does not currently test against targets not available in a public cloud. We have no plans to include such targets in any CI process which may contribute a binding vote on a PR's; however, as TVM expands to target mobile and edge (e.g. iOS, Android, and microTVM-related targets), there are some good reasons to consider allowing vendors the capability to notify when a PR would break their specific build. Adding this functionality to GitHub Actions could further complicate the permissions issue contemplated above.
 
