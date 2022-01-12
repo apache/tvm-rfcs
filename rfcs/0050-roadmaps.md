@@ -185,7 +185,7 @@ Each item on a roadmap is intended to track one of these community processes:
     see the screenshot of [**@FranckQC**](https://github.com/FranckQC)'s *Implementation of Common Subexpression Elimination for TIR*
     below.
 
-    These features will need a **separate GitHub Issue* created and linked to the applicable pull
+    These features will need a *separate GitHub Issue* created and linked to the applicable pull
     requests, so that they can be properly linked into GitHub Projects.
     ![image|663x335](./assets/0050/roadmap-item-gh-task-tracking-pr.png)
 
