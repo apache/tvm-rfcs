@@ -4,7 +4,8 @@
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 - pre-RFC: https://discuss.tvm.apache.org/t/pre-rfc-tvm-roadmap/11171
 - pre-RFC: https://discuss.tvm.apache.org/t/pre-rfc-roadmap-rfcs/11711
-- Co-Authors: Denise Kutnick (@denise-k), @areuscheusch (@areusch)
+- Co-Authors: Denise Kutnick ([**@denise-k**](https://github.com/denise-k)), Andrew Reusch 
+  ([**@areusch**](https://github.com/areusch))
 
 NOTE(areusch): This RFC is a combination of the two above pre-RFCs, and limited copy-editing has
 been done to preserve the flow of the document.
@@ -156,8 +157,8 @@ Each item on a roadmap is intended to track one of these community processes:
 - **pre-RFCs** serve as a way to begin discussions on planned work at the earliest stage of
   maturity. **pre-RFCs** are typically posted in the [TVM Discuss
   forums](http://discuss.tvm.apache.org) in order to solicit TVM Community feedback. For an example
-  of a **pre-RFC**, see the screenshot of @areusch's proposal to [Convert RST Docs to Markdown
-  ](https://discuss.tvm.apache.org/t/docs-discuss-convert-restructuredtext-docs-to-markdown/10264).
+  of a **pre-RFC**, see the screenshot of [**@areusch**](https://github.com/areusch)'s proposal to 
+  [Convert RST Docs to Markdown](https://discuss.tvm.apache.org/t/docs-discuss-convert-restructuredtext-docs-to-markdown/10264).
 
     **pre-RFCs** can be tracked on a Roadmap by preemptively creating a GitHub Task-tracking Issue
     in [tvm-rfcs](https://github.com/apache/tvm-rfcs).
@@ -174,14 +175,14 @@ Each item on a roadmap is intended to track one of these community processes:
 
 - **GitHub Task-Tracking Issues** are used in [tvm](https://github.com/apache/tvm) to share the
   progress of midsize features and/or accepted RFCs over time. 
-  - For an example of a  **GitHub Task-Tracking Issue**, see the screenshot of @AndrewZhaoLuo's RFC
-    to *Add Mixed-Precision Support to TVM* below.
+  - For an example of a  **GitHub Task-Tracking Issue**, see the screenshot of [**@AndrewZhaoLuo**
+    ](https://github.com/AndrewZhaoLuo)'s RFC to *Add Mixed-Precision Support to TVM* below.
 
     These task-tracking issues can be directly linked into any roadmap.
     ![image|663x499](./assets/0050/roadmap-item-gh-task-tracking-issue.png)
 
   - For an example of a midsize feature which could be categorized as a **GitHub Task-Tracking Issue**,
-    see the screenshot of @FranckQC's *Implementation of Common Subexpression Elimination for TIR*
+    see the screenshot of [**@FranckQC**](https://github.com/FranckQC)'s *Implementation of Common Subexpression Elimination for TIR*
     below.
 
     These features will need a **separate GitHub Issue* created and linked to the applicable pull
@@ -326,4 +327,4 @@ will be created as roadmap items in the TVM Community Roadmap.
   roadmap functionality.
 
 ## Special Thanks
-Thanks so much for copyediting, @electriclilies! :hugs:
+Thanks so much for copyediting, [**@electriclilies**](https://github.com/electriclilies)! :hugs:
