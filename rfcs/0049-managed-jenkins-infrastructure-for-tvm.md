@@ -117,11 +117,11 @@ We will not initially enable autoscaling. After a few weeks of successful operat
 
 ## Ownership
 
-We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repository be handled by TVM committers. Once the system is operational, IaC operations will be launched from GitHub Actions inside new e.g. `tlcpack/tvm-ci-*` repositories. We will create the following repositories:
+We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repository be handled by TVM committers. Once the system is operational, IaC operations will be launched from GitHub Actions inside new e.g. `tlcpack/ci-*` repositories. We will create the following repositories:
 
-* `tlcpack/tvm-ci-packer` - Contains Packer build scripts for the AMI base images used by the executors.
-* `tlcpack/tvm-ci-terraform` - Contains Terraform infrastructure-as-code which documents how cloud services are configured.
-* `tlcpack/tvm-ci-ansible` - Contains Ansible infrastructure-as-code which documents how the software on each node is configured.
+* `tlcpack/ci-packer` - Contains Packer build scripts for the AMI base images used by the executors.
+* `tlcpack/ci-terraform` - Contains Terraform infrastructure-as-code which documents how cloud services are configured.
+* `tlcpack/ci-ansible` - Contains Ansible infrastructure-as-code which documents how the software on each node is configured.
 
 The set of users who can write to these repositories are the TVM committers. Cloud credentials will be provided to these IaC repositories (stored privately, accessible to TVM committers) to enable maintenance access to the fleet of nodes.
 
