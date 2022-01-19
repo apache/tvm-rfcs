@@ -117,15 +117,17 @@ We will not initially enable autoscaling. After a few weeks of successful operat
 
 ## Ownership
 
-We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repositories be under the same project governance and PMC; IaC operations will therefore (after the project enters production) be launched from GitHub Actions inside new e.g. `tlcpack/ci-*` repositories. We will create the following repositories:
+We propose that the Infrastructure-as-Code repository for this system be open-sourced and that maintenance of the repositories be under the same project governance and PMC; IaC operations will therefore (after the project enters production) be launched from GitHub Actions inside new git repositories dedicated to operating the CI. It is the intent of the authors of this RFC to eventually host these repositories in the `apache` GitHub Organization. However, for the **initial** launch, we will create the following repositories:
 
 * `tlcpack/ci-packer` - Contains Packer build scripts for the AMI base images used by the executors.
 * `tlcpack/ci-terraform` - Contains Terraform infrastructure-as-code which documents how cloud services are configured.
 * `tlcpack/ci-ansible` - Contains Ansible infrastructure-as-code which documents how the software on each node is configured.
 
-The set of users who can write to these repositories are the TVM committers. Cloud credentials will be provided to these IaC repositories (stored privately, accessible to TVM committers) to enable maintenance access to the fleet of nodes.
+These repositories will be operated in the same way as `apache/tvm`. For example, the set of users who can write to these repositories are the TVM committers, and all files will include the ASF header. Cloud credentials will be provided to these IaC repositories as GitHub Secrets (e.g. stored privately, accessible to TVM committers) to enable maintenance access to the fleet of nodes.
 
-These IaC repositories will be placed under the `tlcpack` organization initially while we experiment with maintaining the system and come to a full understanding of what's needed from GitHub. After the new CI has been in production for some time (e.g. in Q2 2022), we will assess these needs and decide whether it's feasible to move it into a repository underneath the `apache` organization. This RFC doesn't intend to remove any documentation on how unit tests are run from the TVM repository--the project expects that sufficient documentation should exist in `apache/tvm` to run unit tests and that the IaC here serves, for now, to reflect that documentation into automated test infrastructure.
+These IaC repositories will be placed under the `tlcpack` organization during the initial launch whie we experiment with maintaining the system and come to a full understanding of what's needed from GitHub. After the new CI has been in production for some time (e.g. in Q2 2022), we will assess these needs and determine whether it's feasible to move it into a repository underneath the `apache` organization. Most likely, it will be possible to do this and we will form a request to the Apache infrastructure team at this time. In the unlikely event that this would adversely interfere with operations, the PMC will establish a set of rules for operating out of the `tlcpack` organization.
+
+This RFC doesn't intend to remove any documentation on how unit tests are run from the TVM repository--the project expects that sufficient documentation should exist in `apache/tvm` to run unit tests and that the IaC here serves, for now, to reflect that documentation into automated test infrastructure.
 
 ## Alternatives
 
