@@ -6,10 +6,10 @@
 # Summary
 [summary]: #summary
 
-We propose FamilySeer, a new search method that optimized search effienecy and search quality of the Auto-scheduler. We introduce several features:
+We propose FamilySeer, a new search method that optimizes search efficiency and search quality of the Auto-scheduler. We introduce several features:
 
-- FamilySeer exploits the subgraph similarity to form a collection of subgraph families, and construct cost models at subgraph family basis to improve cost model accuracy.
-- We enable the subgraphs within each family to share the search results within each tuning iteration, avoiding costly code measurements on real hardware and thus accelerating the search process to converge to optimal results.
+- FamilySeer exploits the subgraph similarity to form a collection of subgraph families and constructs cost models at subgraph family basis to improve cost model accuracy.
+- We enable subgraphs within each family to share the search results within each tuning iteration, avoiding costly code measurements on real hardware and thus accelerating the search process to converge to optimal results.
 - We also make some general optimizations like enabling parallel measurement on single node with multiple GPUs and training the cost model on GPU.
 
 # Motivation
@@ -28,7 +28,7 @@ The search process will at the end take a dozen of hours. This motivates us to f
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-We intergrate our search method into Auto-scheduler, therefore users only need to change some of the parameters to enable our search method.
+We integrate our search method into Auto-scheduler. Therefore, users only need to change some of the parameters to enable our search method.
 
 We use the code below in [Auto-scheduling a Neural Network for NVIDIA GPU](https://tvm.apache.org/docs/how_to/tune_with_autoscheduler/tune_network_cuda.html#begin-tuning) as an example:
 
@@ -51,7 +51,7 @@ tuner.tune(tune_option,search_policy="sketch.xgb.family_op")
 
 ```
 
-When we begin tuning, the `tuner` load the `tune_option` into the `tune` function. There are several parameters in the `tune` function (Refer to class [Taskscheduler](https://tvm.apache.org/docs/reference/api/python/auto_scheduler.html?highlight=taskscheduler#tvm.auto_scheduler.TaskScheduler)). Users can enable our method by changing the `search_policy` parameter to `sketch.xgb.family_<family_algorithm>`. We currently provide two family algorithm as an option: `op` refers to classfiying subgraphs based on the core operation and `hash` refers to classfiying subgraphs based on operation sequence. We recommend using `op` to achieve better performance.
+The `tuner` loads the `tune_option` into the `tune` function. There are several parameters in the `tune` function (Refer to class [Taskscheduler](https://tvm.apache.org/docs/reference/api/python/auto_scheduler.html?highlight=taskscheduler#tvm.auto_scheduler.TaskScheduler)). Users can enable our method by changing the `search_policy` parameter to `sketch.xgb.family_<family_algorithm>`. We currently provide two family algorithms as an option: `op` refers to classifying subgraphs based on the core operation, and `hash` refers to classifying subgraphs based on operation sequence. We recommend using `op` to achieve better performance.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
@@ -107,8 +107,7 @@ def make_family_group(
 
 ```
 
-We use static analyzing, which classifies the subgraphs(tasks) based on
-their attributes. 
+We use static analyzing to classify the subgraphs(tasks) based on their attributes. 
 
 2. Constructing family cost model
 ```python
@@ -152,7 +151,7 @@ elif "family" in model_group:
 
 ```
 
-After identifying similar subgraphs, We return a list of subgraph families (subgraph group) and build a cost model for each subgraph families.
+After identifying similar subgraphs, We return `family_group` (a list of subgraph families) and build a cost model for each subgraph family.
 
 3.Foresee tuning
 
@@ -177,12 +176,12 @@ The foresee tuning takes `task_idx_groups` (A list of subgraph families) and `sk
 # Drawbacks
 [drawbacks]: #drawbacks
 
-FamilySeer currently relys on static analysis to identify subgraphs, which might result in misjudgements on some of the subgraphs. We are looking for alternative method to identify subgraphs dynamically while maintain the same time budget.
+When searching on a larger search space (such as larger batch size), FamilySeer performs similarly or sometimes worse than Auto-scheduler. This is because a larger search space requires more time before the cost model can provide an accurate prediction. Deploying an inaccurate cost model on Foresee tuning may result in spending time budget on non-improvement code transformations.
 
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 
-Auto-Scheduler generates a large enough search space so searching the space efficiently is important. With FamilySeer, Users can search for the same optimal code under less time budget. We hope that our search method can be an alternative option for those who expect to obtain better optimal code under limited time budget.
+Auto-Scheduler generates a large enough search space, so searching the space with efficiency is important. With FamilySeer, Users can search for the same optimal code under less time budget. We hope that our search method can be an alternative option for those who expect to obtain better optimal code under a limited time budget.
 
 # Prior art
 [prior-art]: #prior-art
@@ -192,11 +191,15 @@ Please refer to [this paper](https://arxiv.org/abs/2201.00194).
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-Our search method is up for [discussion](https://discuss.tvm.apache.org/t/rfc-familyseer-a-new-search-method-for-auto-scheduler/11877). After the conversation on the discussion forum, We will focus on identifying subgraph dynamically. 
+Our search method is up for [discussion](https://discuss.tvm.apache.org/t/rfc-familyseer-a-new-search-method-for-auto-scheduler/11877).
 
 # Future possibilities
 [future-possibilities]: #future-possibilities
 
-1. Advanced Foresee tuning
+1. Dynamic subgraph family anlaysis
 
-Auto-tuning is the process of looking for the only best optimal code for Deep learning network. To build a cost model, many less performed code has to be evaluated. If we can analyze the subgraph similarity accurately, we can draw an relationship map between each subgraph and focus on building highly accurate cost model for the most related subgraph. Once an accurate cost model has been built, We can predict optimal code for other subgraphs instead of searching iteratively.
+FamilySeer currently relies on static analysis to identify subgraphs, which might result in misjudgments on some of the subgraphs. We are looking for an alternative method to identify subgraphs dynamically while maintaining the same time budget.
+
+2. Advanced Foresee tuning
+
+Auto-tuning is the procedure of looking for the only best optimal code for deep learning network. Many less performed codes have to be evaluated to build an accurate cost model. By accurately analyzing the subgraph similarity, we can draw a relationship map between each subgraph and focus on building highly accurate cost model for the most related subgraphs. Once an accurate cost model has been built, We can predict optimal code for other subgraphs instead of searching iteratively.
