@@ -1,6 +1,6 @@
 - Feature Name: microTVM Roadmap
 - Start Date: 2022-01-18
-- RFC PR: [apache/tvm-rfcs#0051](https://github.com/apache/tvm-rfcs/pull/0053)
+- RFC PR: [apache/tvm-rfcs#0053](https://github.com/apache/tvm-rfcs/pull/0053)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 - Co-Authors: Denise Kutnick ([**@denise-k**](https://github.com/denise-k)), Andrew Reusch 
   ([**@areusch**](https://github.com/areusch)), Chris Sidebottom ([**@Mousius**](https://github.com/Mousius))
