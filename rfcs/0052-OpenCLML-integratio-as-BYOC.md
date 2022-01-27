@@ -59,7 +59,7 @@ OpenCLML doesn’t define a new open context instead it reused the context defin
 
 OpenCLML has its own CLML tensor objects called ```cl_ml_tensor_memory_desc_qcom```. The runtime defines the copy API from OpenCL to CLML Tensors within the same OpenCL work space without bringing the data back to host.
 
-OpenCLML supports tuning too which generally produces a tuning cache file and reuses for later runs. This implementation supports looking for environment variable ```CLML_IS_TUNNING_RUN``` set to 0/1 to run for tuning and also supports ```CLML_TUNNING_CACHE``` to set the tuning cache file location.
+OpenCLML supports tuning too which generally produces a tuning cache file and reuses for later runs. This implementation supports looking for environment variable ```CLML_IS_TUNNING_RUN``` set to 0/1 to run for tuning and also supports ```CLML_TUNNING_CACHE``` to set the tuning cache file location. While implementation CLML tuning happens at last step of ```BuildEngine``` by calling ```clTuneMLOpQCOM``` followed by ```clSaveMLTuningCacheQCOM``` for saving the cache to given file. Later we set ```CLML_IS_TUNNING_RUN``` to ```0``` and use ```clLoadMLTuningCacheQCOM``` for reloading the cache with out tuning.
 
 # Drawbacks
 [drawbacks]: #drawbacks
