@@ -18,9 +18,9 @@ A small subset of tests take up a large portion of the total test runtime in Pul
 
 [guide-level-explanation]: #guide-level-explanation
 
-CI runtime constantly plagues TVM developers with long iteration times, exacerbated by flakiness and difficult-to-reproduce steps. To reduce runtime, we can execute more work concurrently and increase usage of available resources, usually by parallelization within (apache/tvm#9834) or between (apache/tvm#9733) CI jobs. Another way is to do less work, which is what this RFC proposes. By running some tests on `main` only, we still get some measure of coverage provided by these tests without burdening PR developers.
+CI runtime constantly plagues TVM developers with long iteration times, exacerbated by flakiness and difficult-to-reproduce steps. To reduce runtime, we can execute more work concurrently and increase usage of available resources, usually by parallelization within ([apache/tvm#9834](https://github.com/apache/tvm/pull/9834)) or between ([apache/tvm#9733](https://github.com/apache/tvm/pull/9733)) CI jobs. Another way is to do less work, which is what this RFC proposes. By running some tests on `main` only, we still get some measure of coverage provided by these tests without burdening PR developers.
 
-The runtime savings of this change are potentially significant, as this gives us a black-box knob which we can manually tune over time to trade off between PR test coverage and PR test runtime. [This gist](https://gist.github.com/driazati/e009f09ff44c6bc91c4d95a8e17fd6f1) shows a listing of TVM test runtime in descending order. And this list the potential time savings (across all jobs) in CI of cutting off tests above an arbitrary runtime (not to propose use a cutoff, but just to demonstrate in broad strokes the potential impact of this change):
+The runtime savings of this change are potentially significant, as this gives us a black-box knob which we can manually tune over time to trade off between PR test coverage and PR test runtime. [This gist](https://gist.github.com/driazati/e009f09ff44c6bc91c4d95a8e17fd6f1) shows a listing of TVM test runtime in descending order, showing the potential time savings (across all jobs) in CI of cutting off tests above an arbitrary runtime (not to propose use a cutoff, but just to demonstrate in broad strokes the potential impact of this change):
 
 ```
 [cutoff=10.0s] Total savings (m): 419.95m by skipping 695 tests
@@ -39,7 +39,7 @@ The runtime savings of this change are potentially significant, as this gives us
 
 [reference-level-explanation]: #reference-level-explanation
 
-A decorator `@tvm.testing.slow` will be added (see apache/tvm#10057) that implements
+A decorator `@tvm.testing.slow` will be added (see [apache/tvm#10057](https://github.com/apache/tvm/pull/10057)) that implements
 the above behavior. Skipping slow tests would be an opt-in, rather than opt-out.
 This way developers who don't read this RFC won't have to adjust their workflows
 at all to run these tests locally. There is also a need to run slow tests on PRs
@@ -57,7 +57,7 @@ always run the full set of tests.
 
 [drawbacks]: #drawbacks
 
-The primary caveat is that tests that run on `main` may now fail due to PRs that were green when they were merged, so this will require some buy-in from all TVM developers. However, the runtime savings are significant (see below) enough to make this worth it. Developments like apache/tvm#9554 will make the revert process much smoother as well to minimize disruptions.
+The primary caveat is that tests that run on `main` may now fail due to PRs that were green when they were merged, so this will require some buy-in from all TVM developers. However, the runtime savings are significant (see below) enough to make this worth it. Developments like [apache/tvm#9554](https://github.com/apache/tvm/pull/9554) will make the revert process much smoother as well to minimize disruptions.
 
 # Rationale and alternatives
 
@@ -73,7 +73,7 @@ miss certain tests. However, this run-what-changed future would be difficult to
 achieve.
 
 Other efforts involve looking into tests themselves to determine why they are slow.
-Often TVM's tests are running much more work than they actually intend to test in
+Often TVM's tests are running much more work than they actually intend to test (such as using entire off-the-shelf networks to test a few operators) in
 more of an integration test than a unit test. Replacing these types of test with
 a framework that makes it easier to test TVM passes and functionality in smaller
 chunks is related but orthogonal to this work. It still has the same issue (coverage
@@ -100,7 +100,7 @@ debugged, `@slow` decorators could be removed.
   2. How often does this test fail? If the test fails often, there is less of a case that it should be `@slow`-ed since it provides good signal to developers.
   3. Who relies on this test? Do they understand the implications of `@slow`?
 
-- Who will monitor `main` for PR-related breakages? What is the SLA on fixes? Recent additions such as [messaging Discord on `main` failures](https://github.com/tlc-pack/ci-monitoring) and keeping track of the last known good commit (apache/tvm#10056) should make this easier.
+- Who will monitor `main` for PR-related breakages? What is the SLA on fixes? Recent additions such as [messaging Discord on `main` failures](https://github.com/tlc-pack/ci-monitoring) and keeping track of the last known good commit ([apache/tvm#10056](https://github.com/apache/tvm/pull/10056)) should make this easier.
 
 # Future possibilities
 
