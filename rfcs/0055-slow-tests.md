@@ -12,7 +12,7 @@ Add a Python decorator to skip tests on PRs but run them on branches (e.g. `main
 
 [motivation]: #motivation
 
-A small subset of tests take up a large portion of the total test runtime. This RFC proposes that we skip these tests on PRs where CI runtime is critical and run them only on main.
+A small subset of tests take up a large portion of the total test runtime in Pull Requests (PRs). This RFC proposes that we skip these tests on PRs where CI runtime is critical and run them only on `main`.
 
 # Guide-level explanation
 
