@@ -12,15 +12,30 @@ Add a Python decorator to skip tests on PRs but run them on branches (e.g. `main
 
 [motivation]: #motivation
 
-A small subset of tests take up a large portion of the total test runtime in Pull Requests (PRs). This RFC proposes that we skip these tests on PRs where CI runtime is critical and run them only on `main`.
+A small subset of tests take up a large portion of the total test runtime in Pull Requests (PRs). This
+RFC proposes that we skip these tests on PRs where CI runtime is critical and
+run them only on `main`.
 
 # Guide-level explanation
 
 [guide-level-explanation]: #guide-level-explanation
 
-CI runtime constantly plagues TVM developers with long iteration times, exacerbated by flakiness and difficult-to-reproduce steps. To reduce runtime, we can execute more work concurrently and increase usage of available resources, usually by parallelization within ([apache/tvm#9834](https://github.com/apache/tvm/pull/9834)) or between ([apache/tvm#9733](https://github.com/apache/tvm/pull/9733)) CI jobs. Another way is to do less work, which is what this RFC proposes. By running some tests on `main` only, we still get some measure of coverage provided by these tests without burdening PR developers.
+CI runtime constantly plagues TVM developers with long iteration times, exacerbated
+by flakiness and difficult-to-reproduce steps. To reduce runtime, we can execute
+more work concurrently and increase usage of available resources, usually by
+parallelization within ([apache/tvm#9834](https://github.com/apache/tvm/pull/9834))
+or between ([apache/tvm#9733](https://github.com/apache/tvm/pull/9733)) CI jobs.
+Another way is to do less work, which is what this RFC proposes. By running some
+tests on `main` only, we still get some measure of coverage provided by these tests
+without burdening PR developers.
 
-The runtime savings of this change are potentially significant, as this gives us a black-box knob which we can manually tune over time to trade off between PR test coverage and PR test runtime. [This gist](https://gist.github.com/driazati/e009f09ff44c6bc91c4d95a8e17fd6f1) shows a listing of TVM test runtime in descending order, showing the potential time savings (across all jobs) in CI of cutting off tests above an arbitrary runtime (not to propose use a cutoff, but just to demonstrate in broad strokes the potential impact of this change):
+The runtime savings of this change are potentially significant, as this gives us
+a black-box knob which we can manually tune over time to trade off between PR test
+coverage and PR test runtime. [This gist](https://gist.github.com/driazati/e009f09ff44c6bc91c4d95a8e17fd6f1)
+(see the "Details" below for a sample) shows a listing of TVM test runtime in descending
+order, showing the potential time savings (across all jobs) in CI of cutting
+off tests above an arbitrary runtime (not to propose use a cutoff, but just to
+demonstrate in broad strokes the potential impact of this change):
 
 ```
 [cutoff=10.0s] Total savings (m): 419.95m by skipping 695 tests
@@ -35,6 +50,35 @@ The runtime savings of this change are potentially significant, as this gives us
 [cutoff=100.0s] Total savings (m): 160.36m by skipping 42 tests
 ```
 
+<details>
+
+Top 20 slowest tests of https://gist.github.com/driazati/e009f09ff44c6bc91c4d95a8e17fd6f1
+
+```
+runtime (s)	file	test
+1044.31	tests/python/frontend/tensorflow/test_forward.py	test_forward_broadcast_args
+697.41	tests/python/frontend/tensorflow/test_forward.py	test_forward_broadcast_to
+624.77	tests/python/frontend/tensorflow/test_forward.py	test_forward_ssd
+567.74	tests/python/frontend/tflite/test_forward.py	test_all_elemwise
+433.44	tests/python/topi/python/test_topi_upsampling.py	test_upsampling3d
+329.4	tests/python/topi/python/test_topi_conv2d_int8.py	test_conv2d_nchw
+326.02	tests/python/frontend/pytorch/test_object_detection.py	test_detection_models
+282.74	tests/python/frontend/tflite/test_forward.py	test_forward_transpose_conv
+280.26	tests/python/topi/python/test_topi_conv2d_hwnc_tensorcore.py	test_conv2d_hwnc_tensorcore
+277.15	tests/python/topi/python/test_topi_conv3d_transpose_ncdhw.py	test_conv3d_transpose_ncdhw
+249.39	tests/python/topi/python/test_topi_conv2d_NCHWc.py	test_conv2d_NCHWc
+243.81	tests/python/relay/test_py_converter.py	test_global_recursion
+227.9	tests/python/frontend/pytorch/test_forward.py	test_segmentation_models
+194.23	tests/python/relay/test_op_level6.py	test_topk
+183.41	tests/python/frontend/tensorflow/test_forward.py	test_forward_ptb
+178.62	tests/python/relay/test_py_converter.py	test_global_recursion
+171.25	tests/python/frontend/pytorch/qnn_test.py	test_quantized_imagenet
+169.2	tests/python/frontend/tensorflow/test_forward.py	test_forward_resnetv2
+169.13	tests/python/topi/python/test_topi_conv2d_int8.py	test_conv2d_nhwc
+```
+
+</details>
+
 # Reference-level explanation
 
 [reference-level-explanation]: #reference-level-explanation
@@ -46,8 +90,13 @@ at all to run these tests locally. There is also a need to run slow tests on PRs
 in some cases, such as fixing reverted commits or if a developer suspects their
 change would have a wide reaching impact. In this case, `@ci run slow tests` can
 be added to the PR body before tests are run in order to disable skipping slow tests.
+A similar mechanism could be implemented in C++ using [`GTEST_SKIP`](https://github.com/google/googletest/blob/main/docs/advanced.md#skipping-test-execution).
 
-Using a decorator has the advantage of being explicit compared to an automated system to detect and skip slow tests. Clicking through to the decorator’s short definition makes it clear what is going on so this shouldn’t add too much of a development burden. Slow tests run by default to minimize disruption but can be controlled by setting `SKIP_SLOW_TESTS=1`.
+Using a decorator has the advantage of being explicit compared to an automated system
+to detect and skip slow tests. Clicking through to the decorator’s short definition
+makes it clear what is going on so this shouldn’t add too much of a development burden.
+Slow tests run by default to minimize disruption but can be controlled by setting
+`SKIP_SLOW_TESTS=1`, which would affect all slow test filtering fixtures (in C++ and Python).
 
 An environment variable `SKIP_SLOW_TESTS=1` will be set in Jenkins on PRs. Branches,
 including `main` and `ci-docker-staging` will not have this flag set and will
@@ -57,16 +106,22 @@ always run the full set of tests.
 
 [drawbacks]: #drawbacks
 
-The primary caveat is that tests that run on `main` may now fail due to PRs that were green when they were merged, so this will require some buy-in from all TVM developers. However, the runtime savings are significant (see below) enough to make this worth it. Developments like [apache/tvm#9554](https://github.com/apache/tvm/pull/9554) will make the revert process much smoother as well to minimize disruptions.
+The primary caveat is that tests that run on `main` may now fail due to PRs that
+were green when they were merged, so this will require some buy-in from all TVM
+developers. However, the runtime savings are significant (see below) enough to make
+this worth it. Developments like [apache/tvm#9554](https://github.com/apache/tvm/pull/9554) will make the revert process much
+smoother as well to minimize disruptions.
 
 # Rationale and alternatives
 
 [rationale-and-alternatives]: #rationale-and-alternatives
 
 This isn't a complete solution. Most PRs end up running lots of tests that the
-PR didn't affect at all. Ideally we would have a way a-la Bazel or Buck to
-walk the actual dependency graph of PRs (ignoring / banning some of Python's
-dynamism e.g. `importlib.import_module`) to determine what tests to run on a PR.
+PR didn't affect at all. Ideally we would have to determine the dependency graph
+of PRs based solely on files changed, but this isn't generally possible without
+restricting Python and making big changes to the existing TVM build system.
+[testmon](https://testmon.org/) is another approach, which uses coverage data to
+determine which tests to run, though Python also makes this difficult to implement correctly.
 This could also be implemented at the human level, with developers tagging their
 PRs based on what they think should run, though this has a higher potential to
 miss certain tests. However, this run-what-changed future would be difficult to
@@ -76,10 +131,10 @@ Other efforts involve looking into tests themselves to determine why they are sl
 Often TVM's tests are running much more work than they actually intend to test (such as using entire off-the-shelf networks to test a few operators) in
 more of an integration test than a unit test. Replacing these types of test with
 a framework that makes it easier to test TVM passes and functionality in smaller
-chunks is related but orthogonal to this work. It still has the same issue (coverage
-is reduced) but with the drawback of requiring significantly higher resources (though
-it is on our roadmap in the near future). Over time as slow tests are manually
-debugged, `@slow` decorators could be removed.
+chunks is related but orthogonal to this work. It still changes coverage, though
+in a more measured and deliberate way, but with the drawback of requiring
+significantly higher resources (though it is on our roadmap in the near future).
+Over time as slow tests are manually debugged, `@slow` decorators could be removed.
 
 # Prior art
 
@@ -87,7 +142,8 @@ debugged, `@slow` decorators could be removed.
 
 - Tensorflow skips long tests: https://www.tensorflow.org/community/contribute/tests#test_times_should_aim_for_half_of_test_size_timeout_to_avoid_flakes
 - PyTorch does essentially the same thing with a `@slow` decorator but maintains
-  an automatically updating list of slow tests to skip: https://github.com/pytorch/pytorch/blob/master/torch/testing/_internal/common_utils.py#L748-L755
+  an automatically updating list of slow tests to skip:
+  https://github.com/pytorch/pytorch/blob/master/torch/testing/_internal/common_utils.py#L748-L755
 - scikit-learn has a similar system for low-signal, slow tests: https://github.com/scikit-learn/scikit-learn/pull/21645
 
 # Unresolved questions
@@ -108,3 +164,4 @@ debugged, `@slow` decorators could be removed.
 
 - Better communication in Jenkins job pages of which tests ran, which did not, and why
 - Different levels of tests. `main` is the most frequent step, but longer running tests could be moved out to nightly or even release level testing (though this makes debugging failures more difficult).
+- Gather test coverage data to get a basic idea of what code is being tested
