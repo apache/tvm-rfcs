@@ -165,3 +165,5 @@ Over time as slow tests are manually debugged, `@slow` decorators could be remov
 - Better communication in Jenkins job pages of which tests ran, which did not, and why
 - Different levels of tests. `main` is the most frequent step, but longer running tests could be moved out to nightly or even release level testing (though this makes debugging failures more difficult).
 - Gather test coverage data to get a basic idea of what code is being tested
+- Track per-test durations for commits and report on CI runs what the runtime difference of each PR is (so developers can easily see the burden of their change)
+
