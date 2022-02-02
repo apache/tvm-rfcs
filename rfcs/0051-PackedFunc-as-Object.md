@@ -1,11 +1,11 @@
 - Feature Name: PackedFunc as Object
 - Start Date: 2022-01-01
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/51/
-- GitHub Issue: TBD
+- GitHub Issue: https://github.com/apache/tvm/pull/10032
 
 ## 1. Summary
 
-This RFC allows developers to use `PackedFunc` as TVM objects, which completes the last missing step of TVM runtime object system.
+This RFC allows developers to use `PackedFunc` as TVM objects, which completes the last missing step of TVM runtime object system; and stabilizes the `PackedFunc` into a layout-stable TVM object, which makes `PackedFunc` shareable across C++ DLL boundary.
 
 ## 2. Motivation
 
@@ -13,7 +13,9 @@ Historically, several fundamental data structures in TVM are not part of the run
 
 The rationale of the original design is mainly for simplicity, which is desirable for the usecases as a monolithic compiler. As time goes on, the community has come to realize the fact that the object system should be inclusive enough and by design allow more convenient integration with vendor libraries. Therefore, as part of the effort in TVM refactoring and TVM Unity, recent work strives to re-implement these core data structures to be consistent with the runtime object protocol with stable ABI guarantee, and thus could be passed across the DLL boundary.
 
-As the central piece of the TVM ecosystem, this proposal focuses on making `PackedFunc` a TVM object. By doing so, it completes the last missing piece of the object ecosystem, allows TVM containers to carry `PackedFunc`s, and enables `PackedFunc`s to be passed across the DLL boundary to bring convenience to the vendor library integration.
+As the central piece of the TVM ecosystem, this proposal focuses on making `PackedFunc` a TVM object. By doing so, it completes the last missing piece of the object ecosystem, allows TVM containers to carry `PackedFunc`s.
+
+In addition, the original design uses a `std::function` to store callable objects, which is not able to be passed across the DLL boundary. However, this proposal deprecates the original design, and introduces a layout-stable one, which enables `PackedFunc`s to be passed across the DLL boundary to bring convenience to the vendor library integration.
 
 
 ## 3. Guide-level introduction
@@ -26,7 +28,7 @@ To avoid API misuse from developers, the `PackedFuncObj` cannot be created or ma
 
 In the future, it’s possible to incrementally add more information into `PackedFuncObj` to better help debugging and error reporting.
 
-Note: This RFC doesn’t change any of the existing functionality, including C ABI or `PackedFunc`’s C++ API. Any modification to the C ABI is out of scope of this RFC.
+Note: This RFC doesn’t change any of the existing functionality, including C ABI or `PackedFunc`’s C++ API. Any modification to the C ABI is out of scope of this RFC. And this RFC does not create new ABIs, just refactors existing ones.
 
 ## 4. Reference-level introduction
 
@@ -34,10 +36,9 @@ As introduced below, the RFC introduces a new class:
 
 ```C++
 class PackedFuncObj : public runtime::Object {
-  using FCall = void(const PackedFuncObj*, TVMArgs, TVMRetValue*);
-  FCall* f_call_;
+  using FCallPacked = void(const PackedFuncObj*, TVMArgs, TVMRetValue*);
+  FCallPacked* f_call_packed_;
 };
-
 ```
 
 A templated subclass is introduces to do the type-erasing trick:
