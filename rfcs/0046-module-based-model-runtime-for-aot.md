@@ -110,7 +110,7 @@ At present, Metadata is passed from Compiler to Runtime in several different way
 
 3. AotExecutorCodegen and GraphExecutorCodegen have adopted the practice of producing the
    graph-level
-   [`runtime::MetadataNode`](https://github.com/apache/tvm/blob/main/src/runtime/meta_data.h#L55):
+   [`tvm::relay::backend::ExecutorCodegenMetadata`](https://github.com/apache/tvm/blob/c3ace209253507dcb109c12ab8b82575fc668862/src/relay/backend/utils.h#L89):
 
     ```bash
     /*!
@@ -147,7 +147,7 @@ At present, Metadata is passed from Compiler to Runtime in several different way
 Some duplication of information is already present. Likely this is due in part to the existing
 middle-end compiler design, in which a separate `IRModule` is produced for each backend. Another
 factor may be: since `runtime::Module` are responsible for their own serialization, and passing
-`Node` across `PackedFunc` requires a cast, the lack of a centralized facility for
+`tvm::Node` across `PackedFunc` requires a cast, the lack of a centralized facility for
 `runtime::Modules` to obtain module-level Metadata has led backend authors to roll their own. This
 pattern means that it's very difficult to assess the full scope of metadata handed to the runtime,
 particularly across all backends.
@@ -158,9 +158,9 @@ argues for the expansion of `runtime::MetadataNode` in the following ways:
 
 1. Rename `runtime::MetadataModule` to `runtime::ConstLoaderModule` to disambiguate the two and make
    its purpose in life clearer.
-2. Expand `input_args` in the existing `runtime::Metadata` to parity with `runtime::FunctionInfo`,
-   plus include `_sizes` from `tvm::relay::transform::FunctionInfoNode` and the required `shape` and
-   `dtype` information from the beginning of this section.
+2. Expand the function metadata in the existing `relay::backend::ExecutorCodegenMetadata` to parity with
+   `runtime::FunctionInfo`, plus include `_sizes` from `tvm::relay::transform::FunctionInfoNode` and
+   the required `shape` and `dtype` information from the beginning of this section.
 3. Introduce `ModelMetadataModule` to contain this information for use with the C++ runtime.
 
     ```bash
