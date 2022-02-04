@@ -106,3 +106,16 @@ CI stability is defined by the overall availability and uptime of CI machines.
 - Fallback mechanism for CI node failure
 - Documented postmortem protocol for CI node failure
 
+### Security
+
+#### Definition
+
+Security in the context of TVM CI & Testing can be defined in two different ways:
+- **TVM Security**: This is the security of TVM's codebase as a whole.
+- **CI Security**: This is the security of TVM's CI pipelines and machines.
+
+#### Goals & Success Criteria
+
+- System-level security (e.g. operating system updates) should be regularly maintained on TVM's CI & Build machines, ensuring CI Security.
+- TVM's external dependencies should be updated on CI & Build machines in a timely manner, so that any security patches within those dependencies are installed, ensuring CI Security.
+- Security analysis should be regularly conducted on TVM's codebase to spot potential vulnerabilities and ensure TVM Security.
