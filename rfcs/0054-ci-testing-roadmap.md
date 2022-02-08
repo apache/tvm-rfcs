@@ -121,3 +121,4 @@ This roadmap will cover **CI Security**. **TVM Security** will be covered separa
 
 - System-level security (e.g. operating system updates) should be regularly maintained on TVM's CI & Build machines, ensuring CI Security.
 - TVM's external dependencies should be updated on CI & Build machines in a timely manner, so that any security patches within those dependencies are installed, ensuring CI Security.
+- TVM's CI & Testing pipelines should automatically monitor the TVM codebase and alert users if any security issues are found.
