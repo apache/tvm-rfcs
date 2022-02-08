@@ -79,6 +79,11 @@ runtime (s)	file	test
 
 </details>
 
+Usages of `@slow` will first be limited to manually inspected tests that have
+low flakiness and infrequent failures on PRs in general in order to have the
+least impact on test coverage on PRs. The relevant test owners will also need
+to approve of their tests being moved to `main` at first with `@slow`.
+
 # Reference-level explanation
 
 [reference-level-explanation]: #reference-level-explanation
@@ -128,12 +133,13 @@ miss certain tests. However, this run-what-changed future would be difficult to
 achieve.
 
 Other efforts involve looking into tests themselves to determine why they are slow.
-Often TVM's tests are running much more work than they actually intend to test (such as using entire off-the-shelf networks to test a few operators) in
+Often TVM's tests are running much more work than they actually intend to test
+(such as using entire off-the-shelf networks to test a few operators) in
 more of an integration test than a unit test. Replacing these types of test with
 a framework that makes it easier to test TVM passes and functionality in smaller
-chunks is related but orthogonal to this work. It still changes coverage, though
-in a more measured and deliberate way, but with the drawback of requiring
-significantly higher resources (though it is on our roadmap in the near future).
+chunks is related but orthogonal to this work, requiring significantly higher
+resources due to the need to implement testing infrastructure for passes and
+inspect the relevant tests (though it is on our roadmap in the near future).
 Over time as slow tests are manually debugged, `@slow` decorators could be removed.
 
 # Prior art
