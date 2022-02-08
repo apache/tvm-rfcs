@@ -73,12 +73,20 @@ PrimFunc([input1, input2, output]) attrs={"global_symbol": "tvmgen_my_mod_run_mo
 }
 ```
 
-The AotExecutor then needs to accomplish the following to meet Module-based Model Runtime Interface:
+The AotExecutor is a runtime wrapper component around this function that needs to accomplish the
+following to meet Module-based Model Runtime Interface:
 
 1. Allocate input and output tensors as defined in the `run_model` function using the correct Device
    API.
 2. Provide a mapping from relay parameter name to positional argument.
 3. Invoke the generated TIR function and provide profiling.
+
+In the future, AOT will support heterogenous execution e.g. allocating tensors and driving inference
+on `DLDevice` other than `kDLCPU`. Note that to align this code generator with the sensitive
+environment present on a bare-metal microcontroller, the TIR top-level function intentionally
+presumes that the input and output tensors already live on the `DLDevice`. This allows the user to
+decide whether the AotExecutor generic runtime component will be used to fill input tensors or
+whether they prefer to handle this in their application (or e.g. through background DMA).
 
 ### Compiler ↔ Runtime Metadata
 
@@ -154,7 +162,7 @@ particularly across all backends.
 
 Work is currently ongoing to unify the pre-codegen `IRModule` into a single instance. After this
 work is completed, it will be much easier to produce a centralized module-level Metadata. This RFC
-argues for the expansion of `runtime::MetadataNode` in the following ways:
+argues for a restructuring of the way we export Metadata through the following steps:
 
 1. Rename `runtime::MetadataModule` to `runtime::ConstLoaderModule` to disambiguate the two and make
    its purpose in life clearer.
