@@ -558,6 +558,123 @@ adjacent.
     all indices as named arguments, or an arbitrary number of indices.
 
 
+- What convention should be used for buffer indexing?
+
+  Previously, the interpretation of an index into a buffer depended on
+  whether the buffer was being accessed with
+  `BufferStore`/`BufferLoad` (pre-flattening) or with `Store`/`Load`
+  (post-flattening).  Since the same data structures will be used at
+  all lowering stages, the indexing should have consistent semantics.
+
+  Option 1 is preferred.
+
+  - Option 1: When accessing a buffer, the type and offset are based on
+    `buffer->dtype`.
+
+    The offset of an element is given by `index *
+    sizeof(buffer->dtype)`.  The type of the element being accessed is
+    `buffer->dtype.with_lanes(index.lanes() * buffer->dtype.lanes())`.
+
+    This is the convention used by user-defined schedules in TE, and
+    in BufferLoad/BufferStore objects.  In this convention, scalar
+    loads and vectorized loads can be expressed for scalar buffers and
+    vectorized buffers.  Accessing a buffer to return a different
+    datatype requires declaring an aliasing buffer that shares the
+    same backing array.
+
+    ```python
+    @T.prim_func
+    def scalar_load_from_scalar_buffer(A: T.Buffer[(64,), "float32"]):
+        assert A[0].dtype == "float32"
+
+
+    @T.prim_func
+    def vector_load_from_vector_buffer(A: T.Buffer[(16,), "float32x4"]):
+        assert A[0].dtype == "float32x4"
+
+
+    @T.prim_func
+    def vector_load_from_vector_buffer(A: T.Buffer[(16,), "float32x4"]):
+        A_vector_2 = T.buffer_decl([32], "float32x2", data=A.data)
+        assert A[0].dtype == "float32x4"
+        assert A_vector_2[0].dtype == "float32x2"
+
+
+    @T.prim_func
+    def vector_load_from_scalar_buffer_option1(A: T.Buffer[(64,), "float32"]):
+        assert A[T.ramp(0, 1, 4)].dtype == "float32x4"
+
+
+    @T.prim_func
+    def vector_load_from_scalar_buffer_option2(A: T.Buffer[(64,), "float32"]):
+        A_vector = T.buffer_decl([16], "float32x4", data=A.data)
+        assert A_vector[0].dtype == "float32x4"
+
+
+    @T.prim_func
+    def scalar_load_from_vector_buffer(A: T.Buffer[(16,), "float32x4"]):
+        A_scalar = T.buffer_decl([64], "float32", data=A.data)
+        assert A_scalar[0].dtype == "float32"
+    ```
+
+    - Pro: The return type of `buf[0]` is always `buf.dtype`, even
+      when `buf.dtype` is a vectorized type.
+
+    - Pro: No changes needed on the user-defined schedules.
+
+    - Con: Requires updates to code generators to follow this new
+      convention.  However, the code generators will already require
+      updates to support BufferLoad/BufferStore.
+
+  - Option 2: When accessing a buffer, the type and offset are based on
+    `buffer->dtype.element_of()`.
+
+    The offset of an element is given by `index *
+    sizeof(buffer->dtype.element_of())`.  The type of the element
+    being accessed is `buffer->dtype.with_lanes(index.lanes())`.
+
+    Prior to this RFC, this is the convention used by Load/Store
+    nodes.  In this convention, scalar loads and vectorized loads can
+    be expressed for scalar buffers and vectorized buffers.  Accessing
+    a buffer to return a vectorized datatype requires using a
+    vectorized index, even if the buffer holds a vectorized datatype.
+
+    ```python
+    @T.prim_func
+    def scalar_load_from_scalar_buffer(A: T.Buffer[(64,), "float32"]):
+        assert A[0].dtype == "float32"
+
+
+    @T.prim_func
+    def vector_load_from_vector_buffer(A: T.Buffer[(16,), "float32x4"]):
+        assert A[T.ramp(0, 1, 4)].dtype == "float32x4"
+
+
+    @T.prim_func
+    def scalar_load_from_vector_buffer(A: T.Buffer[(16,), "float32x4"]):
+        assert A[0].dtype == "float32"
+
+
+    @T.prim_func
+    def vector_load_from_scalar_buffer(A: T.Buffer[(64,), "float32"]):
+        assert A[T.ramp(0, 1, 4)].dtype == "float32x4"
+    ```
+
+    - Pro: The number of lanes of output can be determined solely from
+      the index used to access the buffer.  That is, `A[0]` is
+      guaranteed to have one lane of output, and `A[Ramp(0, stride=1,
+      lanes=4)]` is guaranteed to have four lanes of output.
+
+    - Con: Access of a buffer with scalar index does not always have
+      the same datatype as the buffer.  If the buffer has a vectorized
+      datatype, then `buf[0].dtype != buf.dtype`.
+
+    - Con: Need explicit check for vectorized types at the codegen
+      level.
+
+    - Con: Requires updates to user-defined schedules.
+
+
 # Prior art
 [prior-art]: #prior-art
 
