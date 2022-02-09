@@ -60,7 +60,7 @@ Why should we *not* do this?
 Discuss prior art, both the good and the bad, in relation to this proposal.
 A few examples of what this can include are:
 
-- Does this feature exist in other ML compilers or languages and discuss the experince their community has had?
+- Does this feature exist in other ML compilers or languages and discuss the experience their community has had?
 - For community proposals: Is this done by some other community and what were their experiences with it?
 - For other teams: What lessons can we learn from what other communities have done here?
 - Papers: Are there any published papers or great posts that discuss this? 
