@@ -171,7 +171,9 @@ are deprecated.
 ## Impacted TIR Nodes
 
 - BufferNode
-  - Describes a N-d buffer.  The layout of the buffer may be
+  - Describes a N-d buffer.  This may directly represent a tensor (N-d
+    buffer produced by TE), a flat memory array (1-d buffer as input
+    to the low-level codegen), or intermediates between them.
 
 - BufferRealizeNode
   - Realization of a buffer, in logical layout.
