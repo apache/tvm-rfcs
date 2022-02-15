@@ -104,7 +104,7 @@ At present, Metadata is passed from Compiler to Runtime in several different way
    `runtime::MetadataModule`
 2. Many non-DSO-exportable backends (`cuda`, `hexagon`, `metal`, `opencl`, `sdaccel`, `rocm`,
    `vulkan`) have adopted the convention of including a
-   [1runtime::FunctionInfo`](https://github.com/apache/tvm/blob/main/src/runtime/meta_data.h#L106)
+   [`runtime::FunctionInfo`](https://github.com/apache/tvm/blob/main/src/runtime/meta_data.h#L106)
    (NOTE: distinct from `tvm::relay::transform::FunctionInfo`) in their serialization:
 
     ```bash
@@ -153,16 +153,23 @@ At present, Metadata is passed from Compiler to Runtime in several different way
 
 
 Some duplication of information is already present. Likely this is due in part to the existing
-middle-end compiler design, in which a separate `IRModule` is produced for each backend. Another
-factor may be: since `runtime::Module` are responsible for their own serialization, and passing
-`tvm::Node` across `PackedFunc` requires a cast, the lack of a centralized facility for
+middle-end compiler design, in which a separate `IRModule` is produced for each backend. This means
+that any metadata which requires whole-program analysis must be computed by an upstream TIR pass and
+stored on the function whose code-generator needs it, rather than centrally.
+
+Another factor may be: since `runtime::Module` are responsible for their own serialization,
+and passing `tvm::Node` across `PackedFunc` requires a cast, the lack of a centralized facility for
 `runtime::Modules` to obtain module-level Metadata has led backend authors to roll their own. This
 pattern means that it's very difficult to assess the full scope of metadata handed to the runtime,
 particularly across all backends.
 
-Work is currently ongoing to unify the pre-codegen `IRModule` into a single instance. After this
-work is completed, it will be much easier to produce a centralized module-level Metadata. This RFC
-argues for a restructuring of the way we export Metadata through the following steps:
+This RFC argues for creating a centralized `tvm::runtime::metadata::Metadata` struct which contains
+all Metadata consumed at runtime. Unifying runtime Metadata allows us to reduce the amount of
+serialization logic and eliminate duplication of metadata. The current compiler design stores
+centrally-produced Metadata in a side channel, but this could be improved in future RFCs e.g. should
+we move away from splitting IRModules per backend.
+
+This RFC argues for a restructuring of the way we export Metadata through the following steps:
 
 1. Rename `runtime::MetadataModule` to `runtime::ConstLoaderModule` to disambiguate the two and make
    its purpose in life clearer.
