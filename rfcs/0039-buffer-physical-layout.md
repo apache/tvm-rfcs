@@ -76,11 +76,10 @@ NCHWc physical layout.
 B = te.compute(A.shape, lambda n,h,w,c: A[n,h,w,c])
 s = te.create_schedule(B.op)
 
-def nhwc_to_nchwc(logical_axes):
-    n,h,w,c = logical_axes
+def nhwc_to_nchwc(n, h, w, c):
     return [n, c//4, h, w, c%4]
 
-B_nchwc = s[B].transform_layout(nhwc_to_nchwc)
+transformed_nchwc_axes = s[B].transform_layout(nhwc_to_nchwc)
 
 # Compute definition that would produce an equivalent physical layout
 B_equivalent = te.compute(
@@ -155,12 +154,17 @@ s[B].reorder(i_outer, i_inner, jk_merged)
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
 
-Transformation of a buffer is represented by the attribute
-`"buffer_layout_transformations"` in the `PrimFunc` attributes.  This
-is a map whose keys are buffer var to be reshaped, and whose values
-are the transformations to be applied.  Many of the utilities
-needed for this transformation already exist in `iter_affine_map.h`,
-and are used in the implementation.
+For schedules written in either TE or TIR, the axis separators are stored
+in `BufferNode::axis_separators`.  For TIR-based schedules, the
+re-indexing of a buffer is performed on demand.  For TE-based schedules,
+the mapping used to re-index a buffer is stored in the
+`"layout_transform_map"` attribute of the `PrimFunc`, and is applied as
+part of lowering.  This attribute is a map whose keys are buffer var to
+be reshaped, and whose values are the transformations to be applied.
+
+Many of the utilities needed for this transformation already exist in
+`iter_affine_map.h`, and are used in the implementation.  For TIR-based
+schedules, the transformation primitive is appleid immediately.
 
 A buffer may be allocated with `AllocateNode`, and may be interacted
 with using `BufferLoadNode` and `BufferStoreNode`.
@@ -222,7 +226,7 @@ are deprecated.
     specified transformation.
 
   - The transformations are stored as a `Map<Var, Array<IndexMap>>` in
-    the `"buffer_layout_transformations"` attribute of a primfunc.
+    the `"layout_transform_map"` attribute of a primfunc.
     All buffers whose `BufferNode::data` is a key in this map should
     have their physical layout rewritten.  If the array contains
     multiple transformations, they are applied sequentially.
@@ -255,7 +259,7 @@ are deprecated.
     ```
 
   - After applying the transformations, the
-    `"buffer_layout_transformations"` attribute should be removed.
+    `"layout_transform_map"` attribute should be removed.
     This ensures that additional application of
     `ApplyBufferTransforms` has no effect.
 
@@ -265,20 +269,18 @@ are deprecated.
     layout for TE schedules (StorageFlatten) or TensorIR schedules
     (FlattenBuffer).
 
-  - The transformations are stored as a `Map<Var, Array<IntImm>>` in
-    the `"buffer_axis_separators"` attribute of a primfunc.  All
-    buffers whose `BufferNode::data` is a key in this map should be
-    flattened to an output buffer of rank
-    `separators[buf->data].size()+1`.  All other buffers should be
-    flattened to a 1-d output buffer.
+  - The transformations are stored in the `Buffer` object as the
+    `BufferNode::axis_separators`.  All buffers that share the same
+    `BufferNode::data` should be flattened to an
+    output buffer of rank `axis_separators.size()+1`.  All other
+    buffers should be flattened to a 1-d output buffer.
 
   - After flattening a buffer to an N-d output, the corresponding
-    value in the `"buffer_axis_separators"` attribute should be set to
-    `range(N-1)`.  This ensures that repeated application of the
-    flattening passes have no additional effect.  (The attribute
-    shouldn't be deleted entirely, as that would cause a flattened
-    rank-`N` buffer and an unflattened rank-`N` buffer to have
-    identical representations.)
+    value in the `axis_separators` should be set to `range(N-1)`.
+    This ensures that repeated application of the flattening passes
+    have no additional effect.  (The list shouldn't be deleted
+    entirely, as that would cause a flattened rank-`N` buffer and an
+    unflattened rank-`N` buffer to have identical representations.)
 
 
 ## Examples
@@ -290,7 +292,7 @@ are shown unsimplified to indicate where they come from.
 
 The first example shows a 2-d buffer with no layout transformations
 explicitly specified.  The generated `PrimFunc` has no
-`"buffer_layout_transformations"` attribute, and so the default
+`"layout_transform_map"` attribute, and so the default
 behavior is used, applying a row-major traversal to generate a flat
 1-d buffer.
 
@@ -320,7 +322,7 @@ first index in the logical layout.
 # s[x].transform_layout(lambda i,j: [j,i])
 
 # Initial TIR graph
-attrs["buffer_layout_transformations"][x] = lambda i,j: [j,i]
+attrs["layout_transform_map"][x] = lambda i,j: [j,i]
 x = Buffer(name="x", shape=[64,128])
 with Allocate(x):
     val = BufferLoad(x, [10, 15])
@@ -349,7 +351,7 @@ axis during StorageFlatten/FlattenBuffer.
 # s[x].transform_layout(lambda n,h,w,c: [n, c//4, h, w, c%4])
 
 # Initial TIR graph
-attrs["buffer_layout_transformations"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
+attrs["layout_transform_map"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
 x = Buffer(name="x", shape=[16,64,64,128], reorder_splits=nhwc_to_nchwc, axis_separators=[])
 with Allocate(x):
     val = BufferLoad(x, [11, 37, 23, 101])
@@ -379,24 +381,22 @@ target-specific codegen.
 # s[x].transform_layout(lambda n,h,w,c: [n, c//4, h, te.AXIS_SEPARATOR, w, c%4])
 
 # Initial TIR graph
-attrs["buffer_layout_transformations"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
-attrs["buffer_axis_separators"][x] = [2]
-x = Buffer(name="x", shape=[16,64,64,128])
+attrs["layout_transform_map"][x] = lambda n,h,w,c: [n, c//4, h, w, c%4]
+x = Buffer(name="x", shape=[16,64,64,128], axis_separators=[2])
 with Allocate(x):
     val = BufferLoad(x, [11, 37, 23, 101])
 
 # After applying the explicit reordering.
-attrs["buffer_axis_separators"][x] = [2]
-x = Buffer(name="x", shape=[16, 128/4, 64, 64, 4])
+x = Buffer(name="x", shape=[16, 128/4, 64, 64, 4], axis_separators=[2])
 with Allocate(x):
     val = BufferLoad(x, index=[11, floor(101/4), 37, 23, 101%4])
 
 # After applying StorageFlatten or FlattenBuffer.  The final result is
 # 2-d, due to the te.AXIS_SEPARATOR used in the `.transform_layout`.
-# The `"buffer_axis_separators"` attribute is set to [0], to
-# distinguish this 2-d flattened buffer from a 2-d unflattened buffer.
-attrs["buffer_axis_separators"][x] = [0]
-x = Var(name="x")
+# The `axis_separators` are set to [0], to distinguish this 2-d flattened
+# buffer from a 2-d unflattened buffer.
+
+x = Buffer(name="x", shape=[16 * (128/4) * 64, 64*4], axis_separators=[0])
 with Allocate(x, shape=[16 * (128/4) * 64, 64 * 4]):
     val = BufferLoad(x, index=[(128/4)*64*11 + 64*floor(101/4) + 37, 4*23 + 101%4])
 ```
