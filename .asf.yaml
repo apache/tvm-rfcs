@@ -17,6 +17,8 @@
 
 github:
   description: "A home for the final text of all TVM RFCs."
+  features:
+    issues: true  # Enable for roadmap tracking.
   labels:
     - tvm
     - vta
