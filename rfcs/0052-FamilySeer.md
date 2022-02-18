@@ -6,7 +6,7 @@
 # Summary
 [summary]: #summary
 
-We propose FamilySeer, a new search method that optimizes search efficiency and search quality of the Auto-scheduler. We introduce several features:
+We propose FamilySeer, a new search method that optimizes search efficiency and quality of the Auto-scheduler. We introduce several features:
 
 - FamilySeer exploits the subgraph similarity to form a collection of subgraph families and constructs cost models at subgraph family basis to improve cost model accuracy.
 - We enable subgraphs within each family to share the search results within each tuning iteration, avoiding costly code measurements on real hardware and thus accelerating the search process to converge to optimal results.
@@ -28,7 +28,7 @@ The search process will at the end take a dozen of hours. This motivates us to f
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-We integrate our search method into Auto-scheduler. Therefore, users only need to change some of the parameters to enable our search method.
+We integrate our search method into Auto-Scheduler. Therefore, users only need to change some of the parameters to enable our search method.
 
 We use the code below in [Auto-scheduling a Neural Network for NVIDIA GPU](https://tvm.apache.org/docs/how_to/tune_with_autoscheduler/tune_network_cuda.html#begin-tuning) as an example:
 
@@ -64,47 +64,55 @@ def make_family_group(
   tasks,
   search_policy,
 ):
+  """identify each subgraphs and group them into subgraph family.
+  """
   if search_policy == "default":
-    search_policy = "sketch.xgb"
+      search_policy = "sketch.xgb"
 
   if isinstance(search_policy, str):
-    policy = search_policy.split(".")
-    if len(policy) == 2:
-        return {}
-    elif len(policy) == 3:
-      policy_type, model_type, model_group = policy
-      _, class_type = model_group.split("_")
-    else:
-      raise ValueError("Invalid search policy: " + search_policy)
+      policy = search_policy.split(".")
+      if len(policy) == 2:
+          return {}
+      elif len(policy) == 3:
+          _, _, model_group = policy
+          _, class_type = model_group.split("_")
+      else:
+          raise ValueError("Invalid search policy: " + search_policy)
       
-
   family_group = {}
-  # Identifying Similar Subgraphs based on core operation
   if class_type == "op":
-    for idx, task in enumerate(tasks):
-      task_layers=task.desc.split('_')
-      if task_layers[1] not in family_group:
-        family_group[task_layers[1]] = []
-        family_group[task_layers[1]].append(idx)
-      else:
-        family_group[task_layers[1]].append(idx)
+      for idx, task in enumerate(tasks):
+          task_layers = task.desc.split('_')
+          if task_layers[1] not in family_group:
+              family_group[task_layers[1]] = []
+              family_group[task_layers[1]].append(idx)
+          else:
+              family_group[task_layers[1]].append(idx)
 
-  # Identifying Similar Subgraphs based on hash
   elif class_type == "hash":
-    for idx, task in enumerate(tasks):
-      task_hash=task.workload_key[2:34]
-      if task_hash not in family_group:
-        family_group[task_hash] = []
-        family_group[task_hash].append(idx)
-      else:
-        family_group[task_hash].append(idx)
+      for idx, task in enumerate(tasks):
+          first = task.workload_key.find("[\"") + 2
+          end = task.workload_key.find("\",")
+          task_hash = task.workload_key[first:end]
+          if task_hash not in family_group:
+              family_group[task_hash] = []
+              family_group[task_hash].append(idx)
+          else:
+              family_group[task_hash].append(idx)
 
+  elif class_type == "ind":
+      for idx, task in enumerate(tasks):
+          if task.workload_key not in family_group:
+              family_group[task.workload_key] = []
+              family_group[task.workload_key].append(idx)
+          else:
+              family_group[task.workload_key].append(idx)
+      
   if family_group is not None:
-    for key,value in family_group.items():
-      print("family group :", key, "---", value)
+      for key, value in family_group.items():
+          print("family group :", key, "---", value)
 
   return family_group
-
 ```
 
 We use static analyzing to classify the subgraphs(tasks) based on their attributes. 
@@ -112,7 +120,6 @@ We use static analyzing to classify the subgraphs(tasks) based on their attribut
 2. Constructing family cost model
 ```python
 elif "family" in model_group:
-  
   # generate cost model for each family
   cost_model_pool = []
   for _,group in family_group.items():
