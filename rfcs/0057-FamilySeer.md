@@ -1,6 +1,6 @@
 - Feature Name: (FamilySeer: A new search method for Auto-scheduler)
 - Start Date: (2021-01-07)
-- RFC PR: [apache/tvm-rfcs#25](https://github.com/apache/tvm-rfcs/pull/52)
+- RFC PR: [apache/tvm-rfcs#57](https://github.com/apache/tvm-rfcs/pull/57)
 - GitHub Issue: [apache/tvm#9875](https://github.com/apache/tvm/pull/9875)
 
 # Summary
