@@ -2,20 +2,34 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="293.54663mm"
    height="119.06223mm"
    viewBox="0 0 293.54663 119.06223"
    version="1.1"
    id="svg5"
-   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"
    sodipodi:docname="uma_toplevel.svg"
-   inkscape:export-filename="C:\Users\kml2rng\Desktop\tvm-s4e\python\tvm\relay\backend\contrib\generic\rfc\assets\uma_toplevel.png"
+   inkscape:export-filename="uma_toplevel.png"
    inkscape:export-xdpi="120"
-   inkscape:export-ydpi="120"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
+   inkscape:export-ydpi="120">
+  <metadata
+     id="metadata197">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
   <sodipodi:namedview
      id="namedview7"
      pagecolor="#ffffff"
@@ -30,13 +44,13 @@
      fit-margin-left="0"
      fit-margin-right="0"
      fit-margin-bottom="0"
-     inkscape:zoom="0.74118967"
-     inkscape:cx="734.62977"
-     inkscape:cy="-47.895972"
-     inkscape:window-width="1920"
-     inkscape:window-height="1017"
-     inkscape:window-x="-8"
-     inkscape:window-y="-8"
+     inkscape:zoom="1.0482005"
+     inkscape:cx="588.90869"
+     inkscape:cy="167.16933"
+     inkscape:window-width="1916"
+     inkscape:window-height="946"
+     inkscape:window-x="0"
+     inkscape:window-y="31"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
   <defs
@@ -88,6 +102,15 @@
          style="stroke-width:0.264583"><tspan
            style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:Arial;fill:#000000;stroke-width:0.264583"
            id="tspan1080" /></tspan></text>
+    <rect
+       style="fill:#ffffff;stroke-width:0.26458332"
+       id="rect205"
+       width="294.57031"
+       height="119.3931"
+       x="17.94133"
+       y="164.11879"
+       inkscape:export-xdpi="120"
+       inkscape:export-ydpi="120" />
     <path
        style="fill:#ffe6cc;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.264583"
        d="m 181.09808,250.77995 v 26.27307 H 305.525 v -26.27307 z"
@@ -327,9 +350,10 @@
            style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
            id="tspan62489">Operators</tspan></tspan></text>
     <path
-       style="fill:#e1d5e7;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.264583"
+       style="fill:#e1d5e7;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.26458299"
        d="m 198.90962,172.79629 c 0,-4.68557 3.80769,-8.49327 8.49327,-8.49327 h 33.9625 c 4.68558,0 8.48269,3.8077 8.48269,8.49327 v 59.47404 c 0,4.68558 -3.79711,8.48269 -8.48269,8.48269 h -33.9625 c -4.68558,0 -8.49327,-3.79711 -8.49327,-8.48269 z"
-       id="path62495" />
+       id="path62495"
+       inkscape:connector-curvature="0" />
     <path
        style="fill:none;stroke:#3f136c;stroke-width:0.999394px;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        clip-path="url(#clipEmfPath1-8)"
@@ -338,7 +362,7 @@
        transform="matrix(0.26458333,0,0,0.26458333,18.31924,164.07033)" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607001px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
        x="207.93828"
        y="171.6328"
        id="text62503"><tspan
@@ -346,41 +370,11 @@
          x="207.93828"
          y="171.6328"
          id="tspan62501"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62499">Relay/</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="218.93828"
-       y="171.6328"
-       id="text62509"><tspan
-         sodipodi:role="line"
-         x="218.93828"
-         y="171.6328"
-         id="tspan62507"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62505">Relax.build</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="238.18828"
-       y="171.6328"
-       id="text62515"><tspan
-         sodipodi:role="line"
-         x="238.18828"
-         y="171.6328"
-         id="tspan62513"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62511">()</tspan></tspan></text>
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607001px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.26458299"
+           id="tspan62499">Relay/ Relax.build()</tspan></tspan></text>
     <path
        style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.264583"
        d="m 204.24039,175.93764 h 30.86346 l 9.41347,9.41346 -9.41347,9.41346 h -30.86346 l 9.41346,-9.41346 z"
@@ -529,7 +523,7 @@
        id="path62579" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.35px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.3499999px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
        x="266.95801"
        y="183.93465"
        id="text62585"><tspan
@@ -537,26 +531,11 @@
          x="266.95801"
          y="183.93465"
          id="tspan62583"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.35px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62581">.c / .</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.35px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="278.97339"
-       y="183.93465"
-       id="text62591"><tspan
-         sodipodi:role="line"
-         x="278.97339"
-         y="183.93465"
-         id="tspan62589"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.35px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62587">ll</tspan></tspan></text>
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.3499999px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.26458299"
+           id="tspan62581">.c / .ll</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:400;font-size:6.35px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -665,49 +644,24 @@
        id="path62635" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="162.53906"
-       y="185.00761"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;line-height:125%;font-family:'Bosch Office Sans';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
+       x="173.61946"
+       y="186.52211"
        id="text62641"><tspan
          sodipodi:role="line"
-         x="162.53906"
-         y="185.00761"
+         x="173.61946"
+         y="186.52211"
          id="tspan62639"
-         style="stroke-width:0.264583"><tspan
+         style="text-align:center;text-anchor:middle;stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62637">Unsupporte</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="172.26982"
-       y="190.08455"
-       id="text62647"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;font-family:'Bosch Office Sans';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.26458299"
+           id="tspan62637">Unsupported</tspan></tspan><tspan
          sodipodi:role="line"
-         x="172.26982"
-         y="190.08455"
-         id="tspan62645"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62643">d</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="164.01982"
-       y="195.16147"
-       id="text62653"><tspan
-         sodipodi:role="line"
-         x="164.01982"
-         y="195.16147"
-         id="tspan62651"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62649">Operators</tspan></tspan></text>
+         x="173.61946"
+         y="191.81377"
+         style="text-align:center;text-anchor:middle;stroke-width:0.26458299"
+         id="tspan199">Operators</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
@@ -718,10 +672,10 @@
          x="157.02672"
          y="175.72591"
          id="tspan62657"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.264583;font-size:3.52777778px"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.88607px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:3.52777778px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
            id="tspan62655">Relay/Relax Graph</tspan></tspan></text>
     <text
        xml:space="preserve"
@@ -754,33 +708,33 @@
        id="path62671" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:700;font-size:4.23333px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="126.70439"
-       y="228.7018"
+       style="font-style:normal;font-variant:normal;font-weight:700;font-size:4.23332977px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
+       x="125.54424"
+       y="228.25558"
        id="text62677"><tspan
          sodipodi:role="line"
-         x="126.70439"
-         y="228.7018"
+         x="125.54424"
+         y="228.25558"
          id="tspan62675"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:700;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
+           style="font-style:normal;font-variant:normal;font-weight:700;font-size:4.23332977px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.26458299"
            id="tspan62673">UMA</tspan></tspan></text>
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="121.839"
-       y="233.77872"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
+       x="121.12505"
+       y="233.51099"
        id="text62683"><tspan
          sodipodi:role="line"
-         x="121.839"
-         y="233.77872"
+         x="121.12505"
+         y="233.51099"
          id="tspan62681"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.26458299"
            id="tspan62679">Partitioner</tspan></tspan></text>
     <path
        style="fill:#d9d9d9;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.264583"
@@ -895,63 +849,25 @@
        id="path62731" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="92.318306"
-       y="274.63"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.94439983px;line-height:125%;font-family:'Bosch Office Sans';text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
+       x="127.17078"
+       y="275.10947"
        id="text62737"><tspan
          sodipodi:role="line"
-         x="92.318306"
-         y="274.63"
+         x="127.17078"
+         y="275.10947"
          id="tspan62735"
-         style="stroke-width:0.264583"><tspan
+         style="text-align:center;text-anchor:middle;stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62733">Register pattern </tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="128.66061"
-       y="274.63"
-       id="text62743"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.94439983px;font-family:'Bosch Office Sans';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.26458299"
+           id="tspan62733">Register pattern e.g. hard rules</tspan></tspan><tspan
          sodipodi:role="line"
-         x="128.66061"
-         y="274.63"
-         id="tspan62741"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62739">e.g.</tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="138.22215"
-       y="274.63"
-       id="text62749"><tspan
-         sodipodi:role="line"
-         x="138.22215"
-         y="274.63"
-         id="tspan62747"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62745">hard rules </tspan></tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;line-height:125%;font-family:'Bosch Office Sans';text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
-       x="92.318306"
-       y="282.32999"
-       id="text62755"><tspan
-         sodipodi:role="line"
-         x="92.318306"
-         y="282.32999"
-         id="tspan62753"
-         style="stroke-width:0.264583"><tspan
-           dx="0"
-           dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.9444px;font-family:'Bosch Office Sans';fill:#000000;stroke-width:0.264583"
-           id="tspan62751">and relay passes</tspan></tspan></text>
+         x="127.95663"
+         y="281.28998"
+         style="text-align:center;text-anchor:middle;stroke-width:0.26458299"
+         id="tspan201"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.94439983px;font-family:'Bosch Office Sans';text-align:center;text-anchor:middle;fill:#000000;stroke-width:0.26458299"
+           id="tspan203">and relay passes </tspan></tspan></text>
   </g>
 </svg>

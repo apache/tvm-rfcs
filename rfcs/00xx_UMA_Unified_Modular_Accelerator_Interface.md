@@ -61,12 +61,13 @@ In the following the tasks and the functionality of each block in the figure bel
 
 ![](uma_toplevel.png)
 
-UMA Partitioning: 
+UMA Partitioner: 
 * Register relay passes
 * Register patterns - supported sub-graph operations
 * Order: pre-partitioning passes, Graph partitioning, post-partitioning passes
-* UMAPartitioner baseclass (Python only) has to be inherited by accelerator-specific Partitioners (e.g. Accelerator A Partitioner, etc)
-
+* API level:
+    * UMA Partitioner creates a wrapper API to TVM core-compiler APIs
+    * *UMAPartitioner* baseclass (Python only) has to be inherited by accelerator-specific Partitioners (e.g. Accelerator A Partitioner, etc)
 
 The figure below described the *UMA Pipeline*. The blocks are described below:
 
@@ -101,8 +102,8 @@ NS-TIR: Non-Schedulable TIR
 UMA provides a mostly python-based API. On the C++ side, new targets are registered using target hooks (RFC #0010). A generic `codegen.cc` handles the calls to the python side.
 ```
 .
-�"?�"?�"? codegen.cc
-�""�"?�"? targets.cc
+├── codegen.cc
+└── targets.cc
 ```
 ```cpp
 TVM_REGISTER_TARGET_KIND("accelerator_A", kDLCPU)
@@ -116,17 +117,17 @@ TVM_REGISTER_TARGET_KIND("accelerator_B", kDLCPU)
 The python API is structured as shown below. Two base classes for relay graph partitioning and modification `UMAPartitioner`, and lowering from relay to TIR `UMALower` are building the core API. New custom accelerators are added in subdirectories by inheriting these two base classes.
 ```
 .
-�"?�"?�"? partitioner.py
-�"?�"?�"? lower.py
-�"?�"?�"? utils.py
-�"?�"?�"? accelerator_A
-�"?   �"?�"?�"? partitioner.py
-�"?   �"?�"?�"? lower.py
-�"?   �"?�"?�"? passes.py
-�"?   �"?�"?�"? patterns.py
-�"?   �""�"?�"? schedules.py
-�""�"?�"? accelerator_B
-    �""�"?�"? ...
+├── partitioner.py
+├── lower.py
+├── utils.py
+├── accelerator_A
+│   ├── partitioner.py
+│   ├── lower.py
+│   ├── passes.py
+│   ├── patterns.py
+│   └── schedules.py
+└── accelerator_B
+    └── ...
 ```
 The `UMAPartitioner` base class performs a target specific relay graph partitioning. New custom accelerators can control this process by registering supported patterns and relay passes using the provided API.
 ```python
