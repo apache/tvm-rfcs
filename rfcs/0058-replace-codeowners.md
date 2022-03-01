@@ -26,7 +26,7 @@ Since manual processes often lead to inconsistencies, and the conditions above a
 
 1. Automatically assigning reviewers based on cc tags in PR messages
 2. Periodic automated ping messages for participants in PRs to prevent PRs from languishing
-3. Automatically ping people based on opt-in subscriptions for labels
+3. Automatically ping people based on opt-in subscriptions for labels. Use `CONTRIBUTORS.md` to add reviewers to PRs based on people's stated areas of expertise / interest. It will be up to everyone to manage their topic subscriptions (by editing an issue or submitting a PR to change `CONTRIBUTORS.md`).
 
 Committers are responsible for monitoring and triaging new PRs and issues to the relevant parties, and this RFC doesn’t change that. It assists by reducing notification spam so that each notification a committer gets is now something that needs to be addressed.
 
@@ -46,7 +46,7 @@ It may make it more difficult for some PRs to get reviews. Instead of everyone b
 
 - Narrow `CODEOWNERS` to people that will commit to reviewing every request they receive. This is likely untenable due to the volume and cross cutting nature of many changes (i.e. a small change to one file as part of a larger PR will trigger reviewers for that file, even if they can’t review the entire PR).
 - Drastically lower the requirements to become a committer. This would remove the need for some of the automation above as we could rely on GitHub reviews instead of bespoke tools but we would still need to get rid of `CODEOWNERS` to avoid spam. Additionally, the set of reviewers will become broader, improving PR response latency but increasing the need for coordination amongst reviewers.
-- Use [GitHub teams](https://docs.github.com/en/organizations/organizing-members-into-teams/about-teams) to assign reviews. This is difficult since the teams have to be created in the Apache organization which is hard for us to manage. Despite sharing responsibility, this still leads to lots of notifications for participants.
+- Use [GitHub teams](https://docs.github.com/en/organizations/organizing-members-into-teams/about-teams) to assign reviews. This is difficult since the teams have to be created in the Apache organization which is hard for us to [manage](https://issues.apache.org/jira/browse/INFRA-22864). Despite sharing responsibility, this still leads to lots of notifications for participants.
 
 # **Future possibilities**
 
