@@ -53,3 +53,5 @@ Alternative choices:
 [unresolved-questions]: #unresolved-questions
 
 Will there be any actual performance impact in removing tophub from being the default?
+
+Should we provide a deprecation notice, or a change notice, or no notice at all?
