@@ -114,45 +114,71 @@ TVM_REGISTER_TARGET_KIND("accelerator_B", kDLCPU)
     .set_attr<FTVMRelayToTIR>("RelayToTIR", relay::contrib::generic::RelayToTIR("accelerator_B"));
     .set_attr<FTVMTIRToRuntime>("TIRToRuntime", relay::contrib::generic::accelerator_B::TIRToRuntime);
 ```
-The python API is structured as shown below. Two base classes for relay graph partitioning and modification `UMAPartitioner`, and lowering from relay to TIR `UMALower` are building the core API. New custom accelerators are added in subdirectories by inheriting these two base classes.
+The python API is structured as shown below. The base class `UMABackend` functions as the core API. It uses the API points described in the [flow description](#flow-description) to register elements for the different stages.
 ```
 .
-├── partitioner.py
-├── lower.py
-├── utils.py
-├── accelerator_A
-│   ├── partitioner.py
+├── backend.py
+├── api
+│   ├── codegen.py
 │   ├── lower.py
+│   ├── partitioner.py
+│   └── utils.py
+├── accelerator_A
+│   ├── backend.py
+│   ├── codegen.py
 │   ├── passes.py
 │   ├── patterns.py
-│   └── schedules.py
+│   ├── schedules.py
+│   └── strategies.py
 └── accelerator_B
     └── ...
 ```
-The `UMAPartitioner` base class performs a target specific relay graph partitioning. New custom accelerators can control this process by registering supported patterns and relay passes using the provided API.
+A custom accelerator is added by inheriting the `UMABackend`. New elements (e.g., passes, schedules) are added using a registration machanism.
 ```python
-class MyCustomAcceleratorPartitioner(UMAPartitioner):
-    @property
-    def target_name(self):
-        return "my_custom_accelerator"
+"""UMA backend for the UltraTrail accelerator"""
 
-    def _register_patterns(self):
+class UltraTrailBackend(UMABackend):
+    def __init__(self):
+        super(UltraTrailBackend, self).__init__()
+
+        # Relay to Relay function registration
         self._register_pattern("conv1d_relu", conv1d_relu_pattern())
-    
-    def _register_relay_passes(self):
+
         self._register_relay_pass(1, ConfigGenerator())
         self._register_relay_pass(2, BufferScopeAnnotator())
-```
-The `UMALower` base class performs a lowering from relay to TIR. New custom accelerators can control this process by registering custom schedules and TIR passes using the provided API.
-```python
-class MyCustomAcceleratorLower(UMALower):
-    def __init__(self):
-        super(MyCustomAcceleratorLower, self).__init__()
 
-    def _register_tir_schedules(self):
+        # Relay to TIR function registration
+        self._register_operator_strategy("nn.conv1d", custom_conv1d_strategy, plevel=9)
+
         self._register_tir_schedule(insert_extern_calls)
 
-    def _register_tir_passes(self):
-        self._register_tir_pass(0, GenerateConstants())
+        self._register_tir_pass(0, CodegenGenerateConfig())
+        self._register_tir_pass(0, CodegenGenerateConstants())
+
+        # TIR to runtime function registration
+        self._register_codegen(format="c", includes=None, constants=None, replace_call_extern=None)
+
+    @property
+    def target_name(self):
+        return "ultra_trail"
+```
+Once a `UMABackend` is registered, it hooks into the usual `relay.build` process to create the code for the target accelerator.
+```
+# Load model
+mod, params = relay.frontend.from_pytorch(scripted_model, [("input_data", input_shape)])
+
+# Register a UMA backend
+UltraTrailBackend().register()
+mod = UltraTrailBackend().partition(mod)
+
+# Relay build (AOT C target)
+TARGET = tvm.target.Target("c")
+RUNTIME = tvm.relay.backend.Runtime("crt")
+EXECUTOR = tvm.relay.backend.Executor("aot", {"unpacked-api": True})
+
+with tvm.transform.PassContext(
+    opt_level=3, config={"tir.disable_vectorize": True}, disabled_pass=["AlterOpLayout"]
+):
+    module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
 ```
 
