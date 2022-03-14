@@ -105,15 +105,7 @@ UMA provides a mostly python-based API. On the C++ side, new targets are registe
 ├── codegen.cc
 └── targets.cc
 ```
-```cpp
-TVM_REGISTER_TARGET_KIND("accelerator_A", kDLCPU)
-    .set_attr<FTVMRelayToTIR>("RelayToTIR", relay::contrib::generic::RelayToTIR("accelerator_A"))
-    .set_attr<FTVMTIRToRuntime>("TIRToRuntime", relay::contrib::generic::accelerator_A::TIRToRuntime);
 
-TVM_REGISTER_TARGET_KIND("accelerator_B", kDLCPU)
-    .set_attr<FTVMRelayToTIR>("RelayToTIR", relay::contrib::generic::RelayToTIR("accelerator_B"));
-    .set_attr<FTVMTIRToRuntime>("TIRToRuntime", relay::contrib::generic::accelerator_B::TIRToRuntime);
-```
 The python API is structured as shown below. The base class `UMABackend` functions as the core API. It uses the API points described in the [flow description](#flow-description) to register elements for the different stages.
 ```
 .
