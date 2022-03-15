@@ -73,6 +73,10 @@ for a sub-graph since that choice must be captured in the overall `IRModule` by 
 TVM backend those kernels may themselves be subject to schedule tuning.
 - **Does this clash with the UMA proposal?** No. Though Collage takes over fusion and partitioning, it only needs
 access to the pattern table for the active BYOC toolchains. Collage can track any changes to that registry.
+- **Won't this mean the BYOC-specific fusion patterns and lowering will be after standard
+  Relay passes?** Yes. At the moment `CollageFuseOps` runs just before `FuseOps`, which is
+  after quite a few passes such as `qnn.transform.Legalize`. We think we need to move `CollageFuseOps` to be
+  much earlier in the pipeline but are not yet sure of the consequences.
 
 ## Success Metrics
 
@@ -81,7 +85,7 @@ access to the pattern table for the active BYOC toolchains. Collage can track an
    compiler (via BYOC), and (obviously!) TVM native.
 2. Collage does not require new per-target or per-model patterns or rules to be implemented independently of the BYOC
    integrations.
-3. Collage with just the native TWM and a single BYOC toolchain enabled is never worse than using the
+3. Collage with just the native TVM and a single BYOC toolchain enabled is never worse than using the
    existing `partition_for_<toolchain` method in TVM today.
 
 ## Project Milestones
@@ -584,6 +588,13 @@ other Relay passes except `LowerTEPass`. Thus it's fine for `FuseOps` to be run 
   explored by a search layer outside of TVM), ii) pushed into the BYOC lowering/codegen function (to prepare the
   sub-graph for further compilation) or iii) moved into the standard Relay optimization passes run before
   `CollageFuseOps`.
+- **BYOC-specific patterns must match after standard Relay passes**: We currently run `CollageFuseOps` just before
+  `FuseOps`, which means it runs after quite a number of standard Relay passes which themselves may invoke some
+  target-specific rewrites (eg for quantization legalization). However, currently BYOC `partition_for_<toolchain>`
+  functions run before any other Relay passes, and thus the Relay model is seen in it's 'clean' state. We need to
+  figure out how to move `CollageFuseOps` earlier in the pipeline to be before any target-specific rewrites or any 
+  passes which may make BYOC patterns and lowering more difficult, but without interfering with TVM's fusion. This
+  needs more thought.
 - **Higher tuning cost**: Obviously Collage needs to estimate the latency of many more candidate kernels, and each
   candidate may itself trigger tuning during lowering. For TVM this can require O(thousands) of trials and take O(hours)
   , so we'll be very dependent on cached tuning logs to amortize this cost between models for the same target.
