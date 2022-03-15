@@ -31,15 +31,16 @@ This tuning approach contrasts with TVM's existing "greedy" and "manual" approac
   latency. Collage will also explore mixing and matching between multiple BYOC toolchains as well as TVM's native
   backend.
 
-The design (when Collage is enabled) subsumes TVM's fixed `FuseOps` and BYOC-provided `partition_for_<toolchain>`
+When Collage is enabled it subsumes TVM's fixed `FuseOps` and (some) BYOC-provided `partition_for_<toolchain>`
 operations (built using the `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes) with a
 single new
 `CollageFuseOps` pass. The pass is carefully engineered to build directly on the existing `"TOpPattern"` attributes
 (provided for every Relay operator and used by `FuseOps`), BYOC `"target.<toolchain>"`
 operator predicates (provided for some operator/toolchain pairs by 'operator-based' BYOC integrations) and BYOC operator
 pattern/predicates (registered in the pattern table by 'pattern-based' BYOC integrations). In this way only the more
-boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage. The
-`partition_for_<toolchain>` operations are retained for users who wish to retain manual control.
+boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage. Note however the
+`partition_for_<toolchain>` operations are retained for users who wish to retain manual control, and to support
+global rewrites in preparation for partitioning.
 
 > NOTE: We'd like to coordinate these changes with the UMA project. Our aim in this design is to make the smallest
 > changes to BYOC as possible. We think the changes described here can be easily reworked to follow any BYOC API
@@ -59,7 +60,19 @@ Collage offers four advantages:
 
 ## FAQ
 
-Pending.
+- **Are you deprecating `FuseOps`?** No. On the VM compilation path `FuseOps` is run multiple times to prepare for
+lowering newly inserted primitives. `FuseOps` is also much more efficient when sub-graph search is not required.
+Finally, `FuseOps` has some special cases we're not yet handling in `CollageFuseOps`.
+- **Are you deprecating the BYOC `partition_for_<toolchain>` methods?** No. Collage does not yet have a way to handle
+any global passes invoked before partitioning in those functions.
+- **Can I use Collage for optimizing layout? Device placement? Quantization strategy?** No. Collage only explores
+partitionings, and cannot currently explore rewrites. So, for example, Collage cannot explore the choice of device
+for a sub-graph since that choice must be captured in the overall `IRModule` by new `device_copy` calls or some other
+`IRModule` rewrite.
+- **Won't this increase tuning time?** Yes. Collage will explore significantly more candidate kernels, and for the
+TVM backend those kernels may themselves be subject to schedule tuning.
+- **Does this clash with the UMA proposal?** No. Though Collage takes over fusion and partitioning, it only needs
+access to the pattern table for the active BYOC toolchains. Collage can track any changes to that registry.
 
 ## Success Metrics
 
@@ -90,9 +103,8 @@ TVM. A rough PR progression is:
 
 - TensorRT and CUTLASS BYOC changes are backwards compat. The existing `partition_for_X` functions remain. The
   CUTLASS-specific tuning and codegen functions will either continue to be supported or we'll work with users to account
-  for them being folded into the function-at-a-time `relay.ext.cutlass`
-  codegen function.
-- The the `DFPattern` and friends changes are all mostly just for improving the robustness of the
+  for them being folded into the function-at-a-time `relay.ext.cutlass` codegen function.
+- The `DFPattern` and friends changes are all mostly just for improving the robustness of the
   `IndexedGraph<T>` class and can go into main independently.
 - Some basic `Expr` improvements can go into main independently.
 - The design allows for multiple `Target`s for the same `DLDeviceType`. That requires the various
@@ -553,14 +565,25 @@ other Relay passes except `LowerTEPass`. Thus it's fine for `FuseOps` to be run 
 
 - **Some BYOC boilerplate changes required**: TVM's current BYOC integration API only requires the 'lowering/codegen'
   function to be registered to a well-known global function name. Everything else is up to the BYOC author.
-    - Collage requires pattern-based BYOC integrations to register their patterns in the global pattern table.
+    - Collage requires pattern-based BYOC integrations to register their patterns in the global pattern table. Some
+      BYOC integrations use the table but many do not, but it's an easy fix.
     - Collage requires the BYOC lowering function to yield a valid `runtime::Module` without requiring any additional
-      BYOC-specific passes to be run.
+      BYOC-specific passes to be run. Some BYOC integrations require the user to run separate passes to tune and/or
+      compile the partitioned, those need to be moved into the lowering function itself.
     - Collage requires the BYOC integration to either correctly test for which operators are supported in the
       pattern/operator predicate, or gracefully propagate failure rather than CHECK-fail if an unsupported operator is
       included in a candidate kernel. Thus a BYOC integration will need to be 'robustified' to become 'Collage
-      compatible'. Overall we've tried to make as few changes as possible. Collage will happily follow along with any
-      improvements to the BYOC integration API (eg via the UMA project).
+      compatible'.
+  
+  Overall we've tried to make as few changes as possible. Collage will happily follow along with any
+  improvements to the BYOC integration API (eg via the UMA project).
+- **Non-compositional BYOC toolchains**: BYOC partitioning functions often run global passes to get the Relay graph into
+  a state better aligned with the toolchain on the assumption they are the exclusive partitioning pass. Most obvious is
+  the choice of layout, and if two BYOC integrations have a different choice of layout then there's currently no way for
+  them to be used concurrently. All of those passes must either be i) pushed up to global configuration (which could be
+  explored by a search layer outside of TVM), ii) pushed into the BYOC lowering/codegen function (to prepare the
+  sub-graph for further compilation) or iii) moved into the standard Relay optimization passes run before
+  `CollageFuseOps`.
 - **Higher tuning cost**: Obviously Collage needs to estimate the latency of many more candidate kernels, and each
   candidate may itself trigger tuning during lowering. For TVM this can require O(thousands) of trials and take O(hours)
   , so we'll be very dependent on cached tuning logs to amortize this cost between models for the same target.
@@ -572,15 +595,15 @@ other Relay passes except `LowerTEPass`. Thus it's fine for `FuseOps` to be run 
   selected of sub-graph and toolchain as a candidate kernel, cost = estimated sum of kernel costs plus launch penalties)
   , and thus only pay the cost of tuning candidate kernels which could possibly influence the final partitioning.
 - **No non-local optimization**: Though Collage can explore the choice of sub-graph and toolchain, it cannot explore any
-  choices which require the arguments and/or result of the sub-graph to be rewritten. Thus Collage **cannot** be used to
-  search over:
+  choices which require the arguments and/or result of the sub-graph to be rewritten, or the overall `IRModule` to be
+  changed. Thus Collage **cannot** be used to search over:
     - choice of layout for arguments/results (may require insertion of layout transforms),
     - choice of memory scope for arguments/results (may require insertion of device copies),
-    - choice of device on which to host the kernel (ditto)
-      since all those choices can require changes beyond the candidates sub-graph.
-- the choice of layout for a kernel since any choice other than the model's default must be
-  'corrected' for by the inserted layout transformations. To support this efficiently we'd need to abandon the
-  simple-minded but fast `SubGraph` representation we describe below in favor of something like an EGraph
+    - choice of device on which to host the kernel (ditto),
+    - choice of quantization scheme,
+  
+  since all those choices can require changes beyond the candidate's sub-graph. To support this efficiently we'd need
+  to abandon the simple-minded but fast `SubGraph` representation we describe here in favor of something like an EGraph
   representation, which seems like a very large change for TVM.
 - **Dependency management**: Currently BYOC integrations tend to assume they are the only non-TVM toolchain in use. So
   it's possible two toolchains introduce runtime dependencies which can't be satisfied. Collage has no notion of
@@ -613,13 +636,6 @@ other Relay passes except `LowerTEPass`. Thus it's fine for `FuseOps` to be run 
   use can be arbitrary. We probably want to i) validate our variance estimator is accurate, ii) choose a percentile
   slightly above 50% for the estimated candidate kernel latency, and iii) fall back to hard-coded priorities when the
   measured variance is too high.
-- **Non-compositional BYOC toolchains**: BYOC partitioning functions often run global passes to get the Relay graph into
-  a state better aligned with the toolchain on the assumption they are the exclusive partitioning pass. Most obvious is
-  the choice of layout, and if two BYOC integrations have a different choice of layout then there's currently no way for
-  them to be used concurrently. All of those passes must either be i) pushed up to global configuration (which could be
-  explored by a search layer outside of TVM), ii) pushed into the BYOC lowering/codegen function (to prepare the
-  sub-graph for further compilation) or iii) moved into the standard Relay optimization passes run before
-  `CollageFuseOps`.
 - **Repeated FuseOps**: Some passes (eg `ManifestAlloc`) introduce new calls to primitive function which must be fused
   and lowered, even though the main work of fusion and lowering has already occurred. We'll need to either
   retain `FuseOps`, or ensure `CollageFuseOps` retains the efficiency and handling of `FuseOps` when there's no
@@ -802,6 +818,9 @@ However:
 
 ## TODO in the 'v2' prototype
 
+- Can me move `CollageFuseOps` earlier in the pipeline? Are there passes in `partiton_for_x` preambles which are
+  always safe to run in the standard Relay flow (eg inline constants).
+- Dig into quantization.
 - Implement extern-for-TVM support and bring in `cudnn` and `cublas`.
 - Cross-check against one of the 'v1' models.
 - Bring up on `GPT2`.
