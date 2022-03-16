@@ -208,4 +208,29 @@ with tvm.transform.PassContext(
     module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
 ```
 
-### 
+####UMABackend References
+
+#### _register_config
+```python
+UMABackend._register_config(parameters: dict)
+```
+The following ```parameters``` are allow to be passed via ```_register_config```.
+
+Table of supported parameters:
+
+|Parameter name|Type|Default|Description|
+|--------------|-----------|-----------|-----------|
+|partitioning.enable_MergeCompilerRegions|bool |True |MergeCompilerRegions pass is used for partitioning
+
+This list is not complete and it is the intend of **THIS RFC** to find a small set of necessary parameters. 
+
+Example usage:
+```python
+UMABackend._register_config({"partitioning.enable_MergeCompilerRegions": False})
+```
+
+#### _register_pattern
+```python
+UMABackend.self._register_pattern()
+```
+TODO
