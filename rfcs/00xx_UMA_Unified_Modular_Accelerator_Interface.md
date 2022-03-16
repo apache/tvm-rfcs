@@ -28,11 +28,25 @@ The features and proposals of *Target registered compiler flow customization* [T
 
 
 
-##  Motivation
+##  Goal and Motivation
 
 A number of accelerators have already been integrated into TVM, e.g. VTA, ARM EthosU. 
 These are similar in both the structure of their build flow and the operations that they can offload.
 Nonetheless, due to incremental independent development, the TVM interfaces and processing steps used are quite different with little commonality.  A consistent, unified, infrastructure would simplify accelerator integration making it accessible to smaller, hardware-focused, development teams.
+
+The **goal** of UMA is to establish two API layers with a different target groups of users:
+
+**Porcelain Layer**: UMA
+  - Straight-forward, *Python-only* and stable API wrapper of plumbing layer
+  - Easy and clearly-defined template for integration of accelerators
+  - Short learning period for hardware/software engineers new to TVM
+
+**Plumbing Layer**: 
+  - Collage-like API + other TVM APIs
+  - Powerful API to core-compiler + other TVM features
+  - Target audience is experienced TVM users/developers
+  - C++ and Python APIs
+
 
 ## Focus
 
@@ -49,8 +63,8 @@ Accelerator support or optimization functions **outside** the scope of UMA are:
 * Real-time execution (to be handled by executor/run-time)
 * High-level support for parameter conversion like quantization or sparsity exploitation (to be realized via model pre-processing or in accelerator backends)
 
+## Guide-level explanation 
 
-## Reference-level explanation 
 
 ### Flow description 
 
@@ -90,12 +104,50 @@ UMA Pipelining:
   * UMACodegen baseclass has to be inherited by accelerator-specific Codegen classes (e.g. Accelerator A Codegen, etc)
   * Output: Target .c files
 
-The intention is to use TensorIR and Relax with MetaScheduler for optimization.
+The intention is to use TensorIR with MetaScheduler for optimization and Relax in later versions.
 
 
 Abbreviations:
 S-TIR: Schedulable TIR
 NS-TIR: Non-Schedulable TIR
+
+### Adding a New Custom Accelerator
+
+A custom accelerator is added by inheriting the `UMABackend`. New elements (e.g., passes, schedules) are added using a registration machanism.
+```python
+"""UMA backend for the UltraTrail accelerator"""
+
+class UltraTrailBackend(UMABackend):
+    def __init__(self):
+        super(UltraTrailBackend, self).__init__()
+        
+        # Configuration parameters
+        self._register_config({"partitioning.enable_MergeCompilerRegions": False}) # Example config parameter
+
+        # Relay to Relay function registration
+        self._register_pattern("conv1d_relu", conv1d_relu_pattern())
+
+        self._register_relay_pass(1, ConfigGenerator())
+        self._register_relay_pass(2, BufferScopeAnnotator())
+
+        # Relay to TIR function registration
+        self._register_operator_strategy("nn.conv1d", custom_conv1d_strategy, plevel=9)
+
+        self._register_tir_schedule(insert_extern_calls)
+
+        self._register_tir_pass(0, CodegenGenerateConfig())
+        self._register_tir_pass(0, CodegenGenerateConstants())
+
+        # TIR to runtime function registration
+        self._register_codegen(format="c", includes=None, constants=None, replace_call_extern=None)
+
+    @property
+    def target_name(self):
+        return "ultra_trail"
+```
+
+## Reference-level explanation 
+
 
 
 ### File and class structure and Snippets as example for integration
@@ -125,36 +177,10 @@ The python API is structured as shown below. The base class `UMABackend` functio
 └── accelerator_B
     └── ...
 ```
-A custom accelerator is added by inheriting the `UMABackend`. New elements (e.g., passes, schedules) are added using a registration machanism.
-```python
-"""UMA backend for the UltraTrail accelerator"""
 
-class UltraTrailBackend(UMABackend):
-    def __init__(self):
-        super(UltraTrailBackend, self).__init__()
+### UMABackend class
 
-        # Relay to Relay function registration
-        self._register_pattern("conv1d_relu", conv1d_relu_pattern())
-
-        self._register_relay_pass(1, ConfigGenerator())
-        self._register_relay_pass(2, BufferScopeAnnotator())
-
-        # Relay to TIR function registration
-        self._register_operator_strategy("nn.conv1d", custom_conv1d_strategy, plevel=9)
-
-        self._register_tir_schedule(insert_extern_calls)
-
-        self._register_tir_pass(0, CodegenGenerateConfig())
-        self._register_tir_pass(0, CodegenGenerateConstants())
-
-        # TIR to runtime function registration
-        self._register_codegen(format="c", includes=None, constants=None, replace_call_extern=None)
-
-    @property
-    def target_name(self):
-        return "ultra_trail"
-```
-Once a `UMABackend` is registered, it hooks into the usual `relay.build` process to create the code for the target accelerator.
+Once a `UMABackend` is registered (as shown in Guide-level explanation), it hooks into the usual `relay.build` process to create the code for the target accelerator.
 ```
 # Load model
 mod, params = relay.frontend.from_pytorch(scripted_model, [("input_data", input_shape)])
@@ -174,3 +200,29 @@ with tvm.transform.PassContext(
     module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
 ```
 
+#### UMABackend References
+
+#### _register_config
+```python
+UMABackend._register_config(parameters: dict)
+```
+The following ```parameters``` are allow to be passed via ```_register_config```.
+
+Table of supported parameters:
+
+|Parameter name|Type|Default|Description|
+|--------------|-----------|-----------|-----------|
+|partitioning.enable_MergeCompilerRegions|bool |True |MergeCompilerRegions pass is used for partitioning
+
+This list is not complete and it is the intend of **THIS RFC** to find a small set of necessary parameters. 
+
+Example usage:
+```python
+UMABackend._register_config({"partitioning.enable_MergeCompilerRegions": False})
+```
+
+#### _register_pattern
+```python
+UMABackend.self._register_pattern()
+```
+TODO
