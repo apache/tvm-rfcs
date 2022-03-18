@@ -42,7 +42,7 @@ The **goal** of UMA is to establish two API layers with a different target group
   - Short learning period for hardware/software engineers new to TVM
 
 **Plumbing Layer**: 
-  - Collage-like API + other TVM APIs
+  - Collage-like API [COLLAGE-RFC](https://github.com/mbs-octoml/mbs-tvm-rfcs/blob/mbs-rfcs-collage/rfcs/xxxx-collage.md) + other TVM APIs
   - Powerful API to core-compiler + other TVM features
   - Target audience is experienced TVM users/developers
   - C++ and Python APIs
@@ -88,7 +88,7 @@ The figure below described the *UMA Pipeline*. The blocks are described below:
 ![](uma_pipeline.png)
 
 UMA Pipelining:
-* Consists of UMALower and UMACogen, which implement the target hook Relay-to-TIR and TIR-to-Runtime (proposed in [TVM-RFC0010])
+* Consists of UMALower and UMACodgen, which implement the target hook Relay-to-TIR and TIR-to-Runtime (proposed in [TVM-RFC0010])
 * UMALower
   * Input: Partitioned composite functions
   * Custom primitives can be registered
@@ -104,7 +104,7 @@ UMA Pipelining:
   * UMACodegen baseclass has to be inherited by accelerator-specific Codegen classes (e.g. Accelerator A Codegen, etc)
   * Output: Target .c files
 
-The intention is to use TensorIR with MetaScheduler for optimization and Relax in later versions.
+The intention is to use TensorIR with MetaScheduler for optimization and Relax (a possible succesor of Relay [video link](https://www.youtube.com/watch?v=xVbkjJDMexo)) in later versions.
 
 
 Abbreviations:
