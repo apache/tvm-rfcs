@@ -905,8 +905,9 @@ the transition to 'v2'.
 
 - **Are you deprecating `FuseOps`?** No. `FuseOps` will be run along with all the other Relay passes on the 
   TVM partitions (ie all Relay expressions not partitioned onto a BYOC backend).
-- **Are you deprecating the BYOC `partition_for_<toolchain>` methods?** No. Collage does not yet have a way to handle
-  any global passes invoked before partitioning in those functions.
+- **Are you deprecating the BYOC `partition_for_<toolchain>` functions?** No. Collage does not yet have a way to handle
+  any global passes invoked before partitioning in those functions. Those functions are still the best approach
+  for users who cannot tolerate long search/tuning times.
 - **Can I use Collage for optimizing layout? Device placement? Quantization strategy?** No. Collage only explores
   partitionings, and cannot currently explore rewrites. Though Collage could allow sub-graphs to be rewritten as
   part of a partitioning choice (eg to insert `device_copy` nodes on inputs and outputs), there's little utility to
