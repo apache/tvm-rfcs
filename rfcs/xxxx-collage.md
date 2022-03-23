@@ -358,58 +358,87 @@ virtual std::vector<CandidatePartition> AllCandidates(const DataflowGraph& dataf
 ```
 
 The candidates are allowed to overlap, and ultimately it is the job of the Collage searcher to find a selection of
-candidates which covers the whole Relay expression without overlap.
+candidates which cover the whole Relay expression without overlap. There may be many thousands of candidates in flight
+during the Collage search.
 
-We provide a set of 'base' partition rules which produce candidates from the dataflow graph directly. We also provide a
-set of 'combinator' partition rules which can produce new candidates from the results of an arbitrary sub-rule or
-sub-rules. By mixing these base and combinator rules we can express a wide variety of partition strategies and encoding
-conventions.
+We currently have three distinct flavors of partitions:
 
-There may be many thousands of candidates in flight during the Collage search. We take care to defer constructing or
-rewriting Relay expressions until absolutely necessary. We only pay for extracting a function to represent a candidate
-when we need to measure it's cost. And we only pay for rewriting the overall Relay expression to commit to a
-partitioning when the Collage search has completed.
+- For pattern-based BYOC integrations, individual `DFPattern`s are used to select the `"Composite"` functions to
+  offload, and those are grouped into a `"Primitive"` Relay function with a `"Compiler"` attribute.
+- For operator-based BYOC integrations, per-operator predicates indicate operators to offload, and again those are
+  grouped into a `"Primitive"` Relay function with a `"Compiler"` attribute.
+- For TVM, obviously all of Relay can go into a single partition, however for search efficiency the partitions should
+  roughly mimic the Relay `FuseOps`. That pass uses the `"TOpPattern"` (of type `OPPatternKind`) attribute on all Relay
+  operators, and rules for when operators of one kind can be folded into another (typically by moving scalar ops from
+  elementwise operators into the output position of an earlier operator). This is implemented as a
+  stand-alone analysis which encodes its result using `"Primitive"` functions.
 
-The base rules implemented so far:
+Two new flavors are also showing up:
+
+- For easy external library integration we would like to borrow the `DFPattern`-with-composite-functions approach from
+  pattern-based BYOC integrations. But we'd like to leave those composite functions outside of any `"Primitive"`
+  function so that the library calls could end up within larger TVM kernels.
+- `FuseOps` is generally considered too inflexible, and we've sought a more flexible way to express target-dependent
+  fusion rules.
+
+So in the same way `DFPattern`s provide a small library of 'base' and 'combinator' pattern rules supporting a wide
+variety of examples, we seek the same economy and flexibility from `PartitionRule`s. 
+
+An obvious question is whether all partition rules should be expressed with `DFPattern`s, possibly by extending
+the `DFPattern` library itself. Indeed, though it does not appear to be used in prod, the `DominatorPattern` is
+an attempt to use `DFPattern`s to subsume the existing `FuseOps` machinery. We actually went down this path but
+decided to back out:
+- Since we are interested in searching over possibly overlapping candidate partitions we'd need the `DFPattern`
+  machinery to all enumeration over all matching sub-expressions. That would require a rewrite of the
+  `DFPatternMatcher`.
+- Some of the more subtle fusion rules are difficult to express as patterns.
+- `DFPattern`s are widely used outside of just partitioning, so any change would need to ensure no efficiency
+  or cognitive overhead for those common cases.
+
+That pushed us to the present design, which builds on `DFPatterns`, but introduces new 'base' and 'combinator'
+partition rules which can be combined to match the desired partition flavors. The 'base' rules produce candidates
+from the dataflow graph directly (eg all sub-graphs matching a given `DFPattern`). The 'combinator' rules 
+combine the candidates found by one or more sub-rules into a new set of candidates (eg by indicating the 
+sub-candidates should be wrapped by a `"Composite"` function, or touching sub-candidates should be unioned
+together).
+
+The base rules are:
 
 - `DFPatternPartitionRule`: Given a `DFPattern` and expression predicate, produces a candidate for every sub-graph
-  matched by the pattern and predicate. Unlike the `PatternRewriter`, candidates are free to overlap. Used to bring BYOC
-  patterns into the Collage framework.
-- `OpPredicatePartitionRule`: Given an attribute name, produces a candidate for every call to a primitive Relay operator
-  where the operator i) has predicate bound to that attribute which ii) returns true given the call sub-expression.
-  Generally this will result in a singleton sub-graph containing only the call, but it may also pull in constant
-  arguments to the call should they be required. Used to bring BYOC operator predicates into the Collage framework.
+  matched by the pattern and predicate. Unlike the `PatternRewriter`, candidates are free to overlap. Mainly used
+  to bring BYOC patterns into the Collage framework.
+- `OpPredicatePartitionRule`: Given an attribute name, produces a candidate for every call to a primitive Relay
+  operator where the operator i) has predicate bound to that attribute which ii) returns true given the
+  call sub-expression. Generally this will result in a singleton sub-graph containing only the call, but it may also
+  pull in constant arguments to the call should they be required. Used to bring BYOC operator predicates into the
+  Collage framework.
 - `OpCallByKindPartitionRule`: Uses the `"TOpPattern"` attribute provided for every Relay operator to produce a
-  candidate for every call to a 'fusable Relay operator'. Used to look ahead to how TVM will fuse sub-graphs.
+  candidate for every call to a 'fusable Relay operator'. Used to select the operators which `FuseOps` will consider
+  parts of kernels.
 
-The combinator rules implemented so far:
+The combinator rules are:
 
-- `CompositePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped by a `"Composite"`
+- `CompositePartitionRule`: Indicates all sub-candidates matched by the sub-rule should be wrapped by a `"Composite"`
   function. The `"Composite"` name is taken from the rule name. Used to indicate Relay operators (or groups of Relay
   operators) should be mapped to target-specific operators, both for BYOC and TVM external library integrations.
-- `PrimitivePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped by a `"Primitive"`
+- `PrimitivePartitionRule`: Indicates all sub-candidates matched by the sub-rule should be wrapped by a `"Primitive"`
   function, possibly with an additional `"Compiler"` attribute. Used to delineate a partition (or kernel).
-- `UnionPartitionRule`: Simply unions all the candidates from all sub-rules together. Used to combine
+- `UnionPartitionRule`: Simply unions all the sub-candidates from all sub-rules together. Used to combine
   individual `DFPatternPartitionRules`.
-- `CombinePartitionRule`: Given a sub-rule and a list of 'combiner' rules, finds all possible ways of combining the
-  sub-rule's candidates to yield even larger candidates. Note that the sub-rule's candidates may also be directly
-  included in the results. The
-  'combiner' rules allow combining by \p OpPatternKinds, combining the arguments to tuples which themselves are
-  arguments to Relay operator calls, and so on. This rule is intended to mimic the existing TVM `FuseOps` pass, though:
-  i) all candidates are found rather than just the largest, ii) the starting set of candidates can be provided by any
-  other rule, and iii) we rely on `SubGraph` validity checking to weed out infeasible candidates.
+- `CombinePartitionRule`: Given a sub-rule and a list of 'combiner' rules (see below), finds all possible ways of
+  combining the sub-candidates to yield even larger candidates. Note that the sub-candidates may also be directly
+  included in the results. The 'combiner' rules allow combining by `OpPatternKinds`, combining the arguments to
+  tuples which themselves are arguments to Relay operator calls, and so on. This rule is intended to mimic the
+  existing TVM `FuseOps` pass, though: i) all candidates are found rather than just the largest, ii) the starting
+  set of candidates can be provided by any other rule, and iii) we rely on `SubGraph` validity checking to weed out
+  infeasible candidates.
 - `OnlyValidPartitionRule`: Given a `SubGraphConfig`, ignores candidates with 'invalid' sub-graphs. Used to limit the
   maximum candidate depth, the number of independent outputs, and whether intermediate 'taps' are allowed.
 - `HostPartitionRule`: Produces candidates for all Relay expressions which could be
   'left behind' for execution by the host (eg on the VM). This rule lets us simplify the overall Collage search
   algorithm.
 
-(Though not yet implemented, we'd like to allow a combinator rule which will union candidate based on their 'anchor'
-operators. This can be used to implement 'vertical' and 'horizontal' partition on more primitive candidates. Note that
-the \p SubGraph machinery supports multiple-input and -output sub-graphs and their validation, so horizontal partition
-is easy implement.)
-
-Here are some typical ways to combine `PartitionRules` for different partition/fusion strategies:
+Here are some typical ways to combine `PartitionRules` for different partition flavors:
 
 - Classic operator-predicate based BYOC with
   `AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes (eg see `tensorrt.py`):
@@ -432,6 +461,25 @@ Here are some typical ways to combine `PartitionRules` for different partition/f
                       :
           CompositePartitionRule(labeln)
             DFPatternPartitionRule(patternn)
+  ```
+
+  The `CompositePartitionRule`/`DFPatternPartitionRule` combination is repeated for each entry in the pattern table for
+  the BYOC toolchain name, eg:
+  ```
+  CompositePartitionRule(
+    rule_name="cutlass.conv2d_bias_residual_multiply_relu"
+    sub_rule=DFPatternPartitionRule(
+      pattern=CallPatternNode(Op(nn.relu), 
+                              [AltPattern(CallPatternNode(Op(multiply), 
+                                                          [CallPatternNode(AltPattern(Op(add) | Op(nn.bias_add)),
+                                                                           [CallPatternNode(Op(nn.conv2d), [*, *]), *]),
+                                                           *]) |
+                                          CallPatternNode(Op(multiply),
+                                                          [*, 
+                                                           CallPatternNode(AltPattern(Op(add) | Op(nn.bias_add)),
+                                                                           [CallPatternNode(Op(nn.conv2d), [*, *]), *])
+                                                          ]))
+                              ])))
   ```
 
 - "Consider this library implementation for these sub-expressions", using `DFPatterns` to pick out which Relay operators
@@ -775,8 +823,8 @@ This puts us in a bit of a pickle since there's no obvious single point in the c
    there's no opportunity to apply any BYOC preamble passes which may be needed before patterns are used.
 2. We could run just after the BYOC preamble passes. However that's prematurely committing to a particular BYOC
    integration, and there's no way to detect when two BYOC integrations have incompatible preambles.
-3. We could run instead of `FuseOps` to collapse partitioning with fusion. However, by that stage too many
-   TVM-specific optimizations have been applied for the BYOC integrations to work.
+3. We could run instead of `FuseOps` to collapse partitioning with fusion. However, by that stage too many TVM-specific
+   optimizations have been applied for the BYOC integrations to work.
 
 Our compromise is to i) run Collage at the very beginning of compilation (ie option 1), ii) require the user manually
 apply global passes which may assist particular BYOC integrations (such as to choose a particularly favorable layout),
@@ -919,20 +967,21 @@ the transition to 'v2'.
   direction but found the complexity overwhelming. We believe it's best to keep `DFPattern`s focussed on the simple and
   common case of deterministically matching specific sub-expressions.
 - **Why should partitioning have anything to do with fusion?** For efficiency Collage should only explore candidate
-  partitions which roughly match kernel boundaries. This means Collage's partitioning rules need to roughly predict
-  the fusion rules of each backend, TVM included.
+  partitions which roughly match kernel boundaries. This means Collage's partitioning rules need to roughly predict the
+  fusion rules of each backend, TVM included.
 
 ## Appendix G: Representing Collage 'backends'
 
-The paper introduced an explicit representation for 'backends'. In this design we've chosen to merge this notion
-back into the existing `Target` machinery:
-- All the backends we know of are dependent on a family of `Target`s. For example, `TensorRT` obviously only applies
-  to CUDA targets, `DNNL` only applies to CPU targets, and so on.
+The paper introduced an explicit representation for 'backends'. In this design we've chosen to merge this notion back
+into the existing `Target` machinery:
+
+- All the backends we know of are dependent on a family of `Target`s. For example, `TensorRT` obviously only applies to
+  CUDA targets, `DNNL` only applies to CPU targets, and so on.
 - So it seems most natural to just extend `TargetKind`s with the ability to specify a particular BYOC toolchain, and
-  allow the user to supply as many `Target`s as needed to cover all the BYOC toolchains they'd like to include in
-  the Collage search.
+  allow the user to supply as many `Target`s as needed to cover all the BYOC toolchains they'd like to include in the
+  Collage search.
 - There's then two subtleties which are easy to handle:
-  - A `Target` which is specific about it's BYOC toolchain should be considered a refinement of the same `Target`
-    without any such detail. 
-  - The user may supply multiple `Target`s for the same `DLDeviceType`. There's a few places in device planning where
-    the `DLDeviceType` to `Target` mapping needs to choose the least-refined `Target`.
+    - A `Target` which is specific about it's BYOC toolchain should be considered a refinement of the same `Target`
+      without any such detail.
+    - The user may supply multiple `Target`s for the same `DLDeviceType`. There's a few places in device planning where
+      the `DLDeviceType` to `Target` mapping needs to choose the least-refined `Target`.
