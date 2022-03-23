@@ -56,7 +56,7 @@ UMA equivalent). This is mostly because Collage is inherently a tuning-based sys
 users who need a stand-alone compiler. But it is also because of challenges with establishing a common pass
 ordering which will work for both TVM and all BYOC toolchains (see Appendix C for more details).
 
-Collage offers four advantages:
+Collage offers three advantages:
 
 - **Latency**: Overall model latency may be reduced compared to TVM native, TVM with a single
   `partition_for_<toolchain>` call, or a non-TVM stand-alone compiler such as TensorRT.
