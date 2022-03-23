@@ -14,47 +14,48 @@ History:
 
 This design doc (with accompanying
 ['v2' prototype implementation](https://github.com/mbs-octoml/mbs-tvm/tree/mbs-collage-sketch))
-shows how to bring tuning to TVM's BYOC partitioning passes. The tuning search explores the choice
-of sub-graphs (aka 'partitions') and toolchains (aka 'backends') so as to minimize the expected model
-inference latency. Both 'graph style' (eg TensorRT) and 'library style' (eg DNNL) BYOC integrations
-are supported. We call the result an 'optimal partitioning'. This new tuning layer complements the tuning
-traditionally done by TVM and other toolchains during lowering. It can also complement any global tuning, for
-example to explore the choice of layout convention or device assignment.
+shows how to bring tuning to TVM's BYOC partitioning passes. The tuning search explores the choice of sub-graphs (aka '
+partitions') and toolchains (aka 'backends') so as to minimize the expected model inference latency. Both 'graph
+style' (eg TensorRT) and 'library style' (eg DNNL) BYOC integrations are supported. We call the result an 'optimal
+partitioning'. This new tuning layer complements the tuning traditionally done by TVM and other toolchains during
+lowering. It can also complement any global tuning, for example to explore the choice of layout convention or device
+assignment.
 
 The approach is based on the [preprint](https://arxiv.org/pdf/2111.00655.pdf):
 
 > *Collage: Automated Integration of Deep Learning Backends*  
 > Byungsoo Jeon, Sunghyun Park, Peiyuan Liao, Sheng Xu, Tianqi Chen, Zhihao Jia
 
-(See Appendix A for a comparison of this proposal and the paper's implementation. See Appendix D for
-TODO items in the 'v2' prototype.)
+(See Appendix A for a comparison of this proposal and the paper's implementation. See Appendix D for TODO items in the '
+v2' prototype.)
 
 This tuning approach contrasts with TVM's existing "greedy" and "manual" approaches to partitioning:
 
 - Greedy: Currently only the largest possible supported sub-graphs are used for partitions, irrespective of their
-  execution time. With Collage many more candidate sub-graphs  are explored, and it is possible for two smaller
+  execution time. With Collage many more candidate sub-graphs are explored, and it is possible for two smaller
   sub-graphs to yield better overall latency than one large sub-graph if they mix toolchains.
 - Manual: Currently the TVM user must commit to a BYOC toolchain and invoke the corresponding
-  `partition_for_<toolchain>` function before the main TVM compilation flow begins. With Collage the choice of
-  toolchain can be automated based on measured latency. Collage will also explore mixing and matching between
-  multiple BYOC toolchains as well as TVM's native backend.
+  `partition_for_<toolchain>` function before the main TVM compilation flow begins. With Collage the choice of toolchain
+  can be automated based on measured latency. Collage will also explore mixing and matching between multiple BYOC
+  toolchains as well as TVM's native backend.
 
 When Collage is enabled it subsumes the existing `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/
 `PartitionGraph` passes embedded within each `partition_for_<toolchain>` function with a single new
 `CollagePartitioner` pass. The pass is guided by the list of available `Target`s and three existing sources:
+
 1. The `"TOpPattern"` attributes provided for every Relay operator and used by TVM's built-in `FuseOps`.
 2. The BYOC `"target.<toolchain>"` operator predicates provided for some operator/toolchain pairs by
    'operator-based' BYOC integrations.
 3. The BYOC operator pattern/predicates (usually) registered in the pattern table by 'pattern-based' BYOC integrations.
 
-Only some boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage (and we will
-make these changes either as part of or in coordination with the UMA project). However Collage may require more
-robustness from the BYOC integrations, see Appendix F.
+Only some boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage (and we will make
+these changes either as part of or in coordination with the UMA project). However Collage may require more robustness
+from the BYOC integrations, see Appendix F.
 
 Note however that we are **not** proposing to deprecate the existing `partition_for_<toolchain>` operations (or their
-UMA equivalent). This is mostly because Collage is inherently a tuning-based system which is not practical for
-users who need a stand-alone compiler. But it is also because of challenges with establishing a common pass
-ordering which will work for both TVM and all BYOC toolchains (see Appendix C for more details).
+UMA equivalent). This is mostly because Collage is inherently a tuning-based system which is not practical for users who
+need a stand-alone compiler. But it is also because of challenges with establishing a common pass ordering which will
+work for both TVM and all BYOC toolchains (see Appendix C for more details).
 
 Collage offers three advantages:
 
@@ -66,7 +67,7 @@ Collage offers three advantages:
   machinery is also reusable for the very similar problem of choosing TVM fusion kernels, which we'll tackle in the
   future).
 
-See Appendix H for some frequently asked questions. 
+See Appendix H for some frequently asked questions.
 
 ## Success Metrics
 
@@ -167,8 +168,8 @@ with tvm.transform.PassContext(config={"relay.fallback_device_type": 2, "relay.c
 (Note that `cudnn` and `cublas` are not yet supported in the 'v2' prototype, see Appendix B.)
 
 After the `CollagePartitioner` pass, the intermediate `"main"` global function could resemble the following
-(though we've modified this "optimal" partitioning by hand for illustration so don't take it as
-representative of actual performance):
+(though we've modified this "optimal" partitioning by hand for illustration so don't take it as representative of actual
+performance):
 
 ```
 fn (%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
@@ -236,36 +237,36 @@ Ideally this optimal partitioning would be understandable to the user, see Appen
 The implementation is mostly under `src/relay/collage/...` (namespace `tvm::relay::collage`), with just a few Python
 helper functions under `python/tvm/relay/collage`.
 
-If the `relay.collage.enable_collage` `PassConfig` attribute is true then a new `CollagePartitioner` pass is
-inserted before all other Relay passes. The result of the pass is:
-- All Relay sub-graphs in all global functions which are to be handed off to a BYOC toolchain are replaced by
-  calls to an inline `"Primitive"` function with `"Compiler"` and `"global_symbol"` attributes.
-- Relay operators, or groups of operators, which are to be translated to particular library or BYOC-supplied
-  function are replaced by calls to an inline `"Composite"` function. (This encoding is supported for both
-  BYOC and external libraries.)
+If the `relay.collage.enable_collage` `PassConfig` attribute is true then a new `CollagePartitioner` pass is inserted
+before all other Relay passes. The result of the pass is:
 
-Note that no `"Primitive"` functions denoting TVM kernels are produced -- the existing `FuseOps` pass is still
-required.
+- All Relay sub-graphs in all global functions which are to be handed off to a BYOC toolchain are replaced by calls to
+  an inline `"Primitive"` function with `"Compiler"` and `"global_symbol"` attributes.
+- Relay operators, or groups of operators, which are to be translated to particular library or BYOC-supplied function
+  are replaced by calls to an inline `"Composite"` function. (This encoding is supported for both BYOC and external
+  libraries.)
+
+Note that no `"Primitive"` functions denoting TVM kernels are produced -- the existing `FuseOps` pass is still required.
 
 The `CollagePartitioner` pass has four phases:
 
-- **Phase 1**: The available `Target`s are scanned to build a list of rules describing how to find possible
-  partitions (see `PartitionSpec` and `PartitionRule` below). Depending on the `Target` the rules may incorporate
-  entries from the BYOC pattern table. (The remaining phases execute on each global function separately.)
-- **Phase 2**: A dataflow graph is constructed for the global function (which is just an `IndexedGraph<Expr>`).
-  The available rules from phase 1 are evaluated on the dataflow graph to yield a (possibly overlapping) set of
-  candidate partitions  for each target (see `CandidatePartition` below). Each candidate efficiently describes a
-  sub-graph of the global function's body without the need to construct any new expressions (see `SubGraph` below).
+- **Phase 1**: The available `Target`s are scanned to build a list of rules describing how to find possible partitions (
+  see `PartitionSpec` and `PartitionRule` below). Depending on the `Target` the rules may incorporate entries from the
+  BYOC pattern table. (The remaining phases execute on each global function separately.)
+- **Phase 2**: A dataflow graph is constructed for the global function (which is just an `IndexedGraph<Expr>`). The
+  available rules from phase 1 are evaluated on the dataflow graph to yield a (possibly overlapping) set of candidate
+  partitions for each target (see `CandidatePartition` below). Each candidate efficiently describes a sub-graph of the
+  global function's body without the need to construct any new expressions (see `SubGraph` below).
 - **Phase 3**: A shortest path is found in the following (implicit and lazily constructed) search graph:
-    - Search Nodes: The set of dataflow nodes which have already been assigned to a candidate partition in all paths
-      to the node.
-    - Search Edge X->Y: A candidate partition can be applied to node X to give node Y. The candidate is disjoint
-      from all dataflow nodes already assigned in X. To avoid an unnecessary search space explosion the candidate
-      must also include the next yet-to-be-assigned dataflow node in X.
-    - Edge cost: The estimated latency of the candidate partition, plus a partition transition penalty. Note that
-      though we need to be able to extract the candidate's sub-graph in order to build a function representing the
-      candidate, we do not yet need to partition the overall function body expression.
-  
+    - Search Nodes: The set of dataflow nodes which have already been assigned to a candidate partition in all paths to
+      the node.
+    - Search Edge X->Y: A candidate partition can be applied to node X to give node Y. The candidate is disjoint from
+      all dataflow nodes already assigned in X. To avoid an unnecessary search space explosion the candidate must also
+      include the next yet-to-be-assigned dataflow node in X.
+    - Edge cost: The estimated latency of the candidate partition, plus a partition transition penalty. Note that though
+      we need to be able to extract the candidate's sub-graph in order to build a function representing the candidate,
+      we do not yet need to partition the overall function body expression.
+
   Other search algorithms are certainly possible, eg the paper uses an evolutionary search to refine the partitioning
   found by the dynamic-programming search. We can easily abstract away the search interface to support multiple
   implementations in the future.
@@ -293,60 +294,58 @@ In the following we introduce the new datatypes, then expand on the phases.
 
 ### SubGraph
 
-A `SubGraph` is an `IndexSet` of the `PostDfsIndex`s of all dataflow nodes 'inside' an arbitrary
-sub-graph of the overall dataflow graph. This and `PartitionRule` below are the core Collage datatypes.
+A `SubGraph` is an `IndexSet` of the `PostDfsIndex`s of all dataflow nodes 'inside' an arbitrary sub-graph of the
+overall dataflow graph. This and `PartitionRule` below are the core Collage datatypes.
 
-Sub-graphs can be used to represent partitions/kernels/composite functions without having to
-pay the cost of constructing or rewriting any expressions. We also allow 'extracting' a
-function to use for measuring a partition/kernel's latency independently from 'rewriting'
-the overall Relay expression since only a tiny subset of candidate partitions will end up being
-needed after Collage has completed its search.
+Sub-graphs can be used to represent partitions/kernels/composite functions without having to pay the cost of
+constructing or rewriting any expressions. We also allow 'extracting' a function to use for measuring a
+partition/kernel's latency independently from 'rewriting' the overall Relay expression since only a tiny subset of
+candidate partitions will end up being needed after Collage has completed its search.
 
-We expect O(thousands) of sub-graphs to be in flight while processing a given model, so are
-mindful of space overhead.
+We expect O(thousands) of sub-graphs to be in flight while processing a given model, so are mindful of space overhead.
 
 A sub-graph classifies every dataflow node of the overall expression as either 'inside' or
-'outside' the sub-graph. Obviously not all such divisions make sense, for example it is not
-valid for an inside node to feed into another inside node via outside nodes. We provide an
-`IsValid` method to check for validity, and `SubGraphConfig` to control which validity rules
-apply (such as maximum depth).
+'outside' the sub-graph. Obviously not all such divisions make sense, for example it is not valid for an inside node to
+feed into another inside node via outside nodes. We provide an
+`IsValid` method to check for validity, and `SubGraphConfig` to control which validity rules apply (such as maximum
+depth).
 
-We generally work with the `DataflowGraph` representation of the overall Relay expression
-rather than the expression itself. We use the post-dfs visit index to uniquely refer to
-expression nodes.
+We generally work with the `DataflowGraph` representation of the overall Relay expression rather than the expression
+itself. We use the post-dfs visit index to uniquely refer to expression nodes.
 
-As well as 'inside' and 'outside' we have four other flavors of dataflow nodes, all uniquely
-determined from the 'inside' nodes:
+As well as 'inside' and 'outside' we have four other flavors of dataflow nodes, all uniquely determined from the '
+inside' nodes:
+
 - 'entry' nodes are those inside with at least one dataflow input outside.
-- 'exit' nodes are  those inside with at least one dataflow output outside, or which
-  are considered 'external' in the underlying dataflow graph (eg because they represent
-  the result of the overall function).
+- 'exit' nodes are those inside with at least one dataflow output outside, or which are considered 'external' in the
+  underlying dataflow graph (eg because they represent the result of the overall function).
 - 'input' nodes are those outside with at least one dataflow output inside.
 - 'output' nodes are those outside with at least one dataflow input inside.
 
 Index sets for these are cached with the sub-graph for performance.
 
-It is valid to have multiple entry nodes (we can bind a parameter for each). It may be valid to
-have multiple exit nodes (we can build a tuple of all such). It may be valid to have exit nodes
-which also contribute to other inside nodes (ie represent a 'tap' on an intermediate result).
- 
+It is valid to have multiple entry nodes (we can bind a parameter for each). It may be valid to have multiple exit
+nodes (we can build a tuple of all such). It may be valid to have exit nodes which also contribute to other inside
+nodes (ie represent a 'tap' on an intermediate result).
+
 Sub-graphs are closed under:
+
 - Disjoint union.
-- Wrapping by a function with given attributes. This can be used to encode "Composite" functions,
-  or to represent a candidate kernel within a "Primitive" function. (By combining 'wrapping' with
-  'union' we can encode, eg, 'this sub-graph should be placed inside a primitive function which
-  itself may have calls to composite functions).
-- Substitution, which allows a sub-graph w.r.t. one dataflow graph to be transformed to
-  match some other (typically smaller) dataflow graph.
- 
-Note that the Relay `PatternPartitoner` goes directly from `Expr` to partitioned `Expr` without stopping
-at any intermediate representation. It may be worth 'promoting' `SubGraph` out of Collage and into the
-standard `DFPattern` suite, we leave that to future work.
+- Wrapping by a function with given attributes. This can be used to encode "Composite" functions, or to represent a
+  candidate kernel within a "Primitive" function. (By combining 'wrapping' with
+  'union' we can encode, eg, 'this sub-graph should be placed inside a primitive function which itself may have calls to
+  composite functions).
+- Substitution, which allows a sub-graph w.r.t. one dataflow graph to be transformed to match some other (typically
+  smaller) dataflow graph.
+
+Note that the Relay `PatternPartitoner` goes directly from `Expr` to partitioned `Expr` without stopping at any
+intermediate representation. It may be worth 'promoting' `SubGraph` out of Collage and into the standard `DFPattern`
+suite, we leave that to future work.
 
 ### CandidatePartition
 
-A `CandidatePartition` pairs a `SubGraph` with a `Target`. All Collage search and measurement is in terms of
-candidate partitions.
+A `CandidatePartition` pairs a `SubGraph` with a `Target`. All Collage search and measurement is in terms of candidate
+partitions.
 
 ### PartitionRule
 
@@ -358,70 +357,62 @@ virtual std::vector<CandidatePartition> AllCandidates(const DataflowGraph& dataf
                                                       const PartitionSpec& spec) const;
 ```
 
-The candidates are allowed to overlap, and ultimately it is the job of the Collage searcher to find a selection
-of candidates which covers the whole Relay expression without overlap.
+The candidates are allowed to overlap, and ultimately it is the job of the Collage searcher to find a selection of
+candidates which covers the whole Relay expression without overlap.
 
-We provide a set of 'base' partition rules which produce candidates from the dataflow graph
-directly. We also provide a set of 'combinator' partition rules which can produce new candidates
-from the results of an arbitrary sub-rule or sub-rules. By mixing these base and combinator
-rules we can express a wide variety of partition strategies and encoding conventions.
+We provide a set of 'base' partition rules which produce candidates from the dataflow graph directly. We also provide a
+set of 'combinator' partition rules which can produce new candidates from the results of an arbitrary sub-rule or
+sub-rules. By mixing these base and combinator rules we can express a wide variety of partition strategies and encoding
+conventions.
 
-There may be many thousands of candidates in flight during the Collage search. We take care to
-defer constructing or rewriting Relay expressions until absolutely necessary. We only pay for
-extracting a function to represent a candidate when we need to measure it's cost. And we only
-pay for rewriting the overall Relay expression to commit to a partitioning when the Collage
-search has completed.
+There may be many thousands of candidates in flight during the Collage search. We take care to defer constructing or
+rewriting Relay expressions until absolutely necessary. We only pay for extracting a function to represent a candidate
+when we need to measure it's cost. And we only pay for rewriting the overall Relay expression to commit to a
+partitioning when the Collage search has completed.
 
 The base rules implemented so far:
-- `DFPatternPartitionRule`: Given a `DFPattern` and expression predicate, produces a candidate
-  for every sub-graph matched by the pattern and predicate. Unlike the `PatternRewriter`,
-  candidates are free to overlap. Used to bring BYOC patterns into the Collage framework.
-- `OpPredicatePartitionRule`: Given an attribute name, produces a candidate for every call
-  to a primitive Relay operator where the operator i) has predicate bound to that attribute
-  which ii) returns true given the call sub-expression. Generally this will result in a
-  singleton sub-graph containing only the call, but it may also pull in constant arguments to
-  the call should they be required. Used to bring BYOC operator predicates into the Collage
-  framework.
-- `OpCallByKindPartitionRule`: Uses the `"TOpPattern"` attribute provided for every Relay
-  operator to produce a candidate for every call to a 'fusable Relay operator'. Used to
-  look ahead to how TVM will fuse sub-graphs.
+
+- `DFPatternPartitionRule`: Given a `DFPattern` and expression predicate, produces a candidate for every sub-graph
+  matched by the pattern and predicate. Unlike the `PatternRewriter`, candidates are free to overlap. Used to bring BYOC
+  patterns into the Collage framework.
+- `OpPredicatePartitionRule`: Given an attribute name, produces a candidate for every call to a primitive Relay operator
+  where the operator i) has predicate bound to that attribute which ii) returns true given the call sub-expression.
+  Generally this will result in a singleton sub-graph containing only the call, but it may also pull in constant
+  arguments to the call should they be required. Used to bring BYOC operator predicates into the Collage framework.
+- `OpCallByKindPartitionRule`: Uses the `"TOpPattern"` attribute provided for every Relay operator to produce a
+  candidate for every call to a 'fusable Relay operator'. Used to look ahead to how TVM will fuse sub-graphs.
 
 The combinator rules implemented so far:
-- `CompositePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped
-  by a `"Composite"` function. The `"Composite"` name is taken from the rule name. Used to indicate
-  Relay operators (or groups of Relay operators) should be mapped to target-specific operators,
-  both for BYOC and TVM external library integrations.
-- `PrimitivePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped
-  by a `"Primitive"` function, possibly with an additional `"Compiler"` attribute. Used to
-  delineate a partition (or kernel).
-- `UnionPartitionRule`: Simply unions all the candidates from all sub-rules together. Used to
-  combine individual `DFPatternPartitionRules`.
-- `CombinePartitionRule`: Given a sub-rule and a list of 'combiner' rules, finds
-  all possible ways of combining the sub-rule's candidates to yield even larger candidates.
-  Note that the sub-rule's candidates may also be directly included in the results. The
-  'combiner' rules allow combining by \p OpPatternKinds, combining the arguments to tuples
-  which themselves are arguments to Relay operator calls, and so on. This rule is intended to
-  mimic the existing TVM `FuseOps` pass, though:
-  i) all candidates are found rather than just the largest, ii) the starting set of candidates
-  can be provided by any other rule, and iii) we rely on `SubGraph` validity checking to weed
-  out infeasible candidates.
-- `OnlyValidPartitionRule`: Given a `SubGraphConfig`, ignores candidates with 'invalid'
-  sub-graphs. Used to limit the maximum candidate depth, the number of independent outputs,
-  and whether intermediate 'taps' are allowed.
+
+- `CompositePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped by a `"Composite"`
+  function. The `"Composite"` name is taken from the rule name. Used to indicate Relay operators (or groups of Relay
+  operators) should be mapped to target-specific operators, both for BYOC and TVM external library integrations.
+- `PrimitivePartitionRule`: Indicates all candidates matched by the sub-rule should be wrapped by a `"Primitive"`
+  function, possibly with an additional `"Compiler"` attribute. Used to delineate a partition (or kernel).
+- `UnionPartitionRule`: Simply unions all the candidates from all sub-rules together. Used to combine
+  individual `DFPatternPartitionRules`.
+- `CombinePartitionRule`: Given a sub-rule and a list of 'combiner' rules, finds all possible ways of combining the
+  sub-rule's candidates to yield even larger candidates. Note that the sub-rule's candidates may also be directly
+  included in the results. The
+  'combiner' rules allow combining by \p OpPatternKinds, combining the arguments to tuples which themselves are
+  arguments to Relay operator calls, and so on. This rule is intended to mimic the existing TVM `FuseOps` pass, though:
+  i) all candidates are found rather than just the largest, ii) the starting set of candidates can be provided by any
+  other rule, and iii) we rely on `SubGraph` validity checking to weed out infeasible candidates.
+- `OnlyValidPartitionRule`: Given a `SubGraphConfig`, ignores candidates with 'invalid' sub-graphs. Used to limit the
+  maximum candidate depth, the number of independent outputs, and whether intermediate 'taps' are allowed.
 - `HostPartitionRule`: Produces candidates for all Relay expressions which could be
-  'left behind' for execution by the host (eg on the VM). This rule lets us simplify the
-  overall Collage search algorithm.
+  'left behind' for execution by the host (eg on the VM). This rule lets us simplify the overall Collage search
+  algorithm.
 
-(Though not yet implemented, we'd like to allow a combinator rule which will union candidate
-based on their 'anchor' operators. This can be used to implement 'vertical' and 'horizontal'
-partition on more primitive candidates. Note that the \p SubGraph machinery supports
-multiple-input and -output sub-graphs and their validation, so horizontal partition is easy
-implement.)
+(Though not yet implemented, we'd like to allow a combinator rule which will union candidate based on their 'anchor'
+operators. This can be used to implement 'vertical' and 'horizontal' partition on more primitive candidates. Note that
+the \p SubGraph machinery supports multiple-input and -output sub-graphs and their validation, so horizontal partition
+is easy implement.)
 
-Here are some typical ways to combine `PartitionRules` for different partition/fusion
-strategies:
+Here are some typical ways to combine `PartitionRules` for different partition/fusion strategies:
+
 - Classic operator-predicate based BYOC with
-  `AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes:
+  `AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes (eg see `tensorrt.py`):
   ```
   PrimitivePartitionRule
     OnlyValidPartitionRule
@@ -429,7 +420,8 @@ strategies:
         OpPredicatePartitionRule
   ```
 
-- Classic pattern-based BYOC with `MergeComposite`/`AnnotateTarget`/`PartitionGraph` passes:
+- Classic pattern-based BYOC with `MergeComposite`/`AnnotateTarget`/`PartitionGraph` passes
+  (eg see `cutlass.py`)`:
   ```
   PrimitivePartitionRule
     OnlyValidPartitionRule
@@ -442,8 +434,8 @@ strategies:
             DFPatternPartitionRule(patternn)
   ```
 
-- "Consider this library implementation for these sub-expressions", using `DFPatterns` to
-   pick out which Relay operators are supported:
+- "Consider this library implementation for these sub-expressions", using `DFPatterns` to pick out which Relay operators
+  are supported (a new scheme):
   ```
   OnlyValidPartitionRule
     CombinePartitionRule (with default TVM combiner rules)
@@ -464,7 +456,7 @@ strategies:
         OpCallByKindPartitionRule
   ```
 
-- "Just fuse what I tell you to fuse", using `DFPatterns` to directly select candidates:
+- "Just fuse what I tell you to fuse", using `DFPatterns` to directly select candidates (a new scheme):
   ```
   PrimitivePartitionRule
     OnlyValidPartitionRule
@@ -482,8 +474,8 @@ A `PartitionSpec` pairs a a `PartitionRule` with one or more `Target`s.
 
 We build on the existing TVM support for heterogeneous devices and targets. The available `Targets` are extracted from
 the compilation configuration (eg using the existing `CompilationConfig` helper class). Each target is inspected to
-decide on how to construct a `PartitionRule`, which will guide Collage in the selection of candidate kernels to explore for
-that target.
+decide on how to construct a `PartitionRule`, which will guide Collage in the selection of candidate kernels to explore
+for that target. (See Appendix G for the requirements which motivated this part of the design.)
 
 - If the `Target` has a `"partition_rule"` attribute, use that directly. This would allow users to directly control
   partitioning/fusion for the target's they care about.
@@ -493,8 +485,8 @@ that target.
 - As above, but if global pattern has no matching entry, assume the `Target` denotes a predicate-based BYOC integration
   to explore (eg `"tensorrt"`). The `PartitonRule` will look for and evaluate predicates with the
   `"target.<compiler>"` attribute on all Relay operators.
-- Otherwise, assume the `Target` denotes a TVM-native target. The `PartitionRule` mimics `FuseOps`, but now
-  generalized to explore multiple candidates so as to leave room for possible BYOC candidates.
+- Otherwise, assume the `Target` denotes a TVM-native target. The `PartitionRule` mimics `FuseOps`, but now generalized
+  to explore multiple candidates so as to leave room for possible BYOC candidates.
 
 Note that to make this approach work we need to allow for multiple `Target`s with the same `DLDeviceKind`. For the VM
 simply switching the `target` argument from dictionary to list and removing some redundant Python preprocessing code was
@@ -508,8 +500,8 @@ fields.
 
 ### Phase 2
 
-Most of the hard work for this phase is carried by the `AllCandidates` implementations of the `PartitionRule`s. The
-main driver simply needs to index all the found `CandidatePartitions` by their minimum 'inside' `PostDfsIndex`
+Most of the hard work for this phase is carried by the `AllCandidates` implementations of the `PartitionRule`s. The main
+driver simply needs to index all the found `CandidatePartitions` by their minimum 'inside' `PostDfsIndex`
 for rapid retrieval during the shortest path search.
 
 ### Phase 3
@@ -524,19 +516,19 @@ We find it most natural to use Dijkstra to find the optimal partitioning. A `Sea
 
 The starting state has no covered nodes. The final state has all nodes covered.
 
-When expanding a state we could choose any `CandidatePartition` collected from phase 2 provided it doesn't overlap
-with the state's covered set. However, a search path applying candidates C then D is equivalent to one applying
-D then C, so we only consider candidates which intersect the next yet-to-be-covered dataflow node. For each such
-candidate we use the `CostEstimator` (with it's assumed cache) to get the candidate's cost, build the successor
-state, and 'relax' the successor state in the usual way. (See Appendix E for more details on `CostEstimator`.)
+When expanding a state we could choose any `CandidatePartition` collected from phase 2 provided it doesn't overlap with
+the state's covered set. However, a search path applying candidates C then D is equivalent to one applying D then C, so
+we only consider candidates which intersect the next yet-to-be-covered dataflow node. For each such candidate we use
+the `CostEstimator` (with it's assumed cache) to get the candidate's cost, build the successor state, and 'relax' the
+successor state in the usual way. (See Appendix E for more details on `CostEstimator`.)
 
 The `HostPartitionRule` is used to allow some dataflow nodes to be 'left behind' for execution by the host.
 
 ### Phase 4
 
-The overall Relay expression is partitioned over all the `CandidatePartition`s on the shortest path 'in parallel'.
-Since all the candidates are expressed using `SubGraph`s w.r.t. the original dataflow graph, we must be careful
-not to invalidate yet-to-be-partitioned candidates as we go. Working backwards in dataflow order avoids this problem.
+The overall Relay expression is partitioned over all the `CandidatePartition`s on the shortest path 'in parallel'. Since
+all the candidates are expressed using `SubGraph`s w.r.t. the original dataflow graph, we must be careful not to
+invalidate yet-to-be-partitioned candidates as we go. Working backwards in dataflow order avoids this problem.
 
 ## Known Limitations
 
@@ -564,16 +556,16 @@ not to invalidate yet-to-be-partitioned candidates as we go. Working backwards i
   `CollagePartitioner`.
 
 - **Higher tuning cost**: Obviously Collage needs to estimate the latency of partitions. For TVM this can trigger
-  turning of schedules for novel kernels, which can require O(thousands) of trials and take O(hours), so we'll be
-  very dependent on cached tuning logs to amortize this cost between models for the same target.
+  turning of schedules for novel kernels, which can require O(thousands) of trials and take O(hours), so we'll be very
+  dependent on cached tuning logs to amortize this cost between models for the same target.
 
 - **Task extraction vs Tuning**: Traditionally TVM has had three phases: i) Task extraction (find the fused sub-graphs
   to tune), ii) Tuning (find a good schedule for those sub-graphs), and iii) Compilation (re-compile the model, now
   retrieving schedules for all the anticipated sub-graphs from the cache.) However the Collage 'v2' prototype collapses
   all these phases. This lets us lazily explore the implied search graph (nodes = partially rewritten models, edges =
   selected of sub-graph and toolchain as a candidate partition, cost = estimated sum of partition costs plus transition
-  penalties), and thus only pay the cost of measuring (and tuning) candidates which could possibly influence the
-  final partitioning.
+  penalties), and thus only pay the cost of measuring (and tuning) candidates which could possibly influence the final
+  partitioning.
 
 - **No non-local optimization**: Though Collage can explore the choice of sub-graph and toolchain, it cannot explore any
   choices which require the arguments and/or result of the sub-graph to be rewritten, or the overall `IRModule` to be
@@ -583,22 +575,22 @@ not to invalidate yet-to-be-partitioned candidates as we go. Working backwards i
     - Choice of device on which to host the kernel (ditto),
     - Choice of quantization scheme,
 
-  To support this efficiently we'd need to abandon the simple-minded but fast `SubGraph` representation we describe
-  here in favor of something like an EGraph representation, which seems like a very large change for TVM.
+  To support this efficiently we'd need to abandon the simple-minded but fast `SubGraph` representation we describe here
+  in favor of something like an EGraph representation, which seems like a very large change for TVM.
 
 - **Dependency management**: Currently BYOC integrations tend to assume they are the only non-TVM toolchain in use. So
   it's possible two toolchains introduce runtime dependencies which can't be satisfied. Collage has no notion of
   dependencies or incompatibilities and may attemt to mix candidate kernels we can't support in prod. It's also possible
   for two BYOC integrations to have incompatible runtimes.
 
-- **Additive cost assumption**: Collage as per this design assumes the cost of running candidate partitions is
-  additive, plus a small transition penalty. However cache effects can dominate measured latency, particularly for
+- **Additive cost assumption**: Collage as per this design assumes the cost of running candidate partitions is additive,
+  plus a small transition penalty. However cache effects can dominate measured latency, particularly for
   'lightweight' kernels. Thus there may be a **additive error** in the final result:
 
   > additive_error = measured_latency(collage_partitioning) - sum_{partition} (estimated_latency(partition) + penalty)
 
-  The evolutionary search explored by the paper can help here since it uses measured end-to-end model latency as
-  its cost function, but we're deferring that to future work.
+  The evolutionary search explored by the paper can help here since it uses measured end-to-end model latency as its
+  cost function, but we're deferring that to future work.
 
 - **Limited search space**: Naively exploring all sub-graphs is O(n!), so we need to constrain the search. The easiest
   approach is just to limit candidates to sub-graphs of just a few operators. This can mean significantly faster
@@ -647,7 +639,7 @@ The 'v1' prototype has nine main parts:
 3. The main fuser/searcher
    [implementation](https://github.com/mbs-octoml/mbs-tvm/blob/52d8780e879a9115b8a93e505bcd3a6c2646c61f/python/collage/optimizer/comp_graph_optimizer.py#L221)
    (for the simpler DP algorithm). This implementation:
-4. Uses both Relay `Pattern` s and its own path-based fusion algorithm to find candidate sub-graphs. 
+4. Uses both Relay `Pattern` s and its own path-based fusion algorithm to find candidate sub-graphs.
 5. Uses the DP algorithm to find the best assignment of fused sub-graphs and backends to cover the whole Relay graph.
 6. Applies the resulting assignment to the `IRModule` using the new `backend` field on every expression.
 7. An evolutionary search algorithm may optionally run after the above, and will attempt to replace ‘op’ kernels
@@ -680,24 +672,23 @@ In comparison to the 'v1' prototype, this design:
    preferences).
 3. Uses the existing convention for `"Primitive"`, `"Composite"` and `"Compiler"` attributes on Relay `Function`s to
    encode partitioning choices.
-4. Does not treat library integrations (eg for `CuDnn`) differently from toolchain integrations (eg for `TensorRT`).
-   See Appendix B for a sketch of the issues.
+4. Does not treat library integrations (eg for `CuDnn`) differently from toolchain integrations (eg for `TensorRT`). See
+   Appendix B for a sketch of the issues.
 5. Supports all of Relay.
 6. Is implemented almost entirely in C++.
 
 However:
 
-6. We have only re-implemented the 'op-level' dynamic-programming based search strategy from the paper. Though the
-   paper reports encouraging results with the 'graph-level' evolutionary-search strategy we leave that to future
-   work.
+6. We have only re-implemented the 'op-level' dynamic-programming based search strategy from the paper. Though the paper
+   reports encouraging results with the 'graph-level' evolutionary-search strategy we leave that to future work.
 
 ## Appendix B: Easier Library Integration
 
 TVM has two very different ways to make external library implementations available for use as (or in) kernels:
 The pattern-based BYOC approach and the TVM `te.extern` approach.
 
-The pattern-based approach allows library implementations to match with more than one Relay operator, such as for
-biased convolution with an activation function. For example, for
+The pattern-based approach allows library implementations to match with more than one Relay operator, such as for biased
+convolution with an activation function. For example, for
 [DNNL](https://oneapi-src.github.io/oneDNN/v1.3/index.html) the global pattern table is extended
 in `python/tvm/relay/op/contrib/dnnl.py`, and the pattern labels encode the intended corresponding DNNL functions. The
 user is responsible for partitioning using the usual `MergeComposite`/`AnnotateTarget`/`PartitionGraph`
@@ -712,118 +703,121 @@ library function must go into a library-specific kernel (though kernels may grou
 The `te.extern` approach only allows library implementations which are 1:1 with Relay operators. However the library may
 be used as part of a larger TVM-generated kernel, and the usual TVM tuning machinery may choose to use the library based
 on overall kernel performance measured during TVM tuning. For example, `batch_matmul` can be implemented using
-[CuBLAS](https://developer.nvidia.com/cublas) via the strategy `batch_matmul` in `python/tvm/contrib/cublas.py`,
-which is made available to the operator's `OpStrategy` using `batch_matmul_stategy_cuda` in
+[CuBLAS](https://developer.nvidia.com/cublas) via the strategy `batch_matmul` in `python/tvm/contrib/cublas.py`, which
+is made available to the operator's `OpStrategy` using `batch_matmul_stategy_cuda` in
 `python/tvm/relay/op/strategy/cuda.py` when `cublas` appears in the `Target`s `libs` attribute. That strategy simply
 calls the `PackedFunc` registered as `tvm.contrib.cublas.batch_matmul` and implemented in
 `src/runtime/contrib/cublas/cublas.cc` as part of the TVM runtime.
 
-The `te.extern` approach also supports integrating 'micro-kernels' which may be invoked as part of the TVM schedule
-for some larger Relay operator.
+The `te.extern` approach also supports integrating 'micro-kernels' which may be invoked as part of the TVM schedule for
+some larger Relay operator.
 
 Collage as presented can work with either approach. For the pattern-based BYOC approach Collage doesn't need to know
 what's going on under the BYOC integration hood, it only needs to see a `Target` with the appropriate
-`compiler` attribute. For the `te.extern` approach Collage similarly doesn't need to know that the TVM partition
-may result in a kernel who's schedule includes a call to the linked library provided the `Target` has the appropriate
+`compiler` attribute. For the `te.extern` approach Collage similarly doesn't need to know that the TVM partition may
+result in a kernel who's schedule includes a call to the linked library provided the `Target` has the appropriate
 `libs` attribute.
 
-However, we'd to make library integration with Collage as seamless as possible since we expect it to be the common
-case. The requirements are roughly:
+However, we'd to make library integration with Collage as seamless as possible since we expect it to be the common case.
+The requirements are roughly:
+
 - Support library functions which match sub-graphs as well as single Relay operators.
 - Allow library calls from within TVM-generated kernels.
 - Avoid the boilerplate needed for full BYOC integrations, but retain the familiar BYOC pattern-based mechanism.
 - Express the choice of external library in the same way we express other partitioning choices.
 
 One possibility is:
+
 - Like the `te.extern` approach, libraries can be made available to the TVM runtime via registered `PackedFunc`s.
-- Like the pattern-based BYOC approach, labelled patterns can be supplied which indicate how Relay operators could
-  be mapped to registered `PackedFunc`s.
-- Like the BYOC custom lowering approach, a distinguished compiler name controls when the library is available
-  and causes lowering to go via a different path.
-- But unlike the BYOC custom lowering approach, the rewrite to an external library call is made available in TE
-  or TIR form so that it can be incorporated into larger TVM kernels.
+- Like the pattern-based BYOC approach, labelled patterns can be supplied which indicate how Relay operators could be
+  mapped to registered `PackedFunc`s.
+- Like the BYOC custom lowering approach, a distinguished compiler name controls when the library is available and
+  causes lowering to go via a different path.
+- But unlike the BYOC custom lowering approach, the rewrite to an external library call is made available in TE or TIR
+  form so that it can be incorporated into larger TVM kernels.
 
 We'll follow up on this separately, but mention it here since it motivates why we've tried to handle "Composite"
 patterns fairly generally.
 
 ## Appendix C: When to run Collage?
 
-The current TVM convention is for BYOC integrations to supply a `partition_for_<toolchain>` function which can
-be called by the user on the original input model, ie before **any** Relay passes are run.
+There's a few cross-cutting issues when it comes to when Collage should run in the compilation flow:
 
-Many `partition_for_<toolchain>` functions run their own 'preamble' passes before the standard 
-`MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes. The preamble passes are sometimes
-just generic Relay passes such as `FoldConstant`. But some partitioning functions impose specific global rewrites,
-such as for layout. All the BYOC op patterns and op predicates are thus written expecting the Relay model in 'vanilla'
-form with only those preamble passes applied.
+- The current TVM convention is for BYOC integrations to supply a `partition_for_<toolchain>` function which can be
+  called by the user on the original input model, ie before **any** Relay passes are run.
+- Many `partition_for_<toolchain>` functions run their own 'preamble' passes before the standard
+  `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes. The preamble passes are sometimes
+  just generic Relay passes such as `FoldConstant`. But some partitioning functions impose specific global rewrites,
+  such as for layout. All the BYOC op patterns and op predicates are thus written expecting the Relay model in 'vanilla'
+  form with only those preamble passes applied.
+- There's no reason to expect the preamble passes are compositional in any sensible way between different BYOC
+  integrations.
+- Some BYOC integrations also supply additional passes which are expected to be run after partitioning and lowering, for
+  example to finish tuning or compilation.
+- The standard Relay pass prefix includes many passes which are either target dependent (for example to
+  'legalize' quantized version of ops depending on the intended target), or which prepare the model for Relay fusion and
+  subsequent lowering. These passes are all run before `FuseOps`. Those passes are not universally applicable to all
+  BYOC integrations, and BYOC patterns are not guaranteed to be invariant over them.
+- Relay's default `FuseOps` is currently hard-coded to greedily find the largest possible kernels using fixed
+  `OpPatternKind` based rules. Those rules are intended to predict exactly what TVM's scheduling can support. There's
+  interest in bringing customization (eg limiting fusion patterns to directly match hardware supported primitives,
+  supporting custom 'horizontal' and 'vertical' fusion) and search (to reduce the strong coupling of fusion with
+  lowering) to `FuseOps`, which all looks very similar to customization and search Collage brings to partitioning.
+- Finally(!), Collage should obviously explore candidate partitions which both TVM and the BYOC toolchains can do well
+  on. That encourages large partitions with fusion opportunities. But a naive search over all O(n!) possibilities is
+  also obviously not feasible. This means Collage should limit its search to candidates which more or less correspond to
+  the kernels each backend would choose using their own fusion rules. This in turn requires Collage's partitioning rules
+  to roughly match the backend fusion rules.
 
-There's no reason to expect the preamble passes are compositional in any sensible way between different BYOC
-integrations.
+This puts us in a bit of a pickle since there's no obvious single point in the compilation flow for Collage:
 
-Some BYOC integrations also supply additional passes which are expected to be run after partitioning and lowering,
-for example to finish tuning or compilation.
-
-The standard Relay pass prefix includes many passes which are either target dependent (for example to
-'legalize' quantized version of ops depending on the intended target), or which prepare the model for Relay fusion
-and subsequent lowering. These passes are all run before `FuseOps`. Those passes are not universally applicable to
-all BYOC integrations, and BYOC patterns are not guaranteed to be invariant over them.
-
-Finally, Relay's default `FuseOps` is currently hard-coded to greedily find the largest possible kernels using fixed 
-`OpPatternKind` based rules. Those rules are intended to predict exactly what TVM's scheduling can support. There's
-strong pressure to bring both customization (eg target-dependent restrictions, custom horizontal fusion, custom vertical
-fusion) and search to `FuseOps`. That all looks so similar to partitioning that it's tempting to simply collapse
-TVM kernal search with Collage-style partition search. (And indeed, this is exactly what we tried in this RFC's first
-draft).
-
-This puts us in a bit of a pickle since there's no obvious point in the compilation flow to insert the Collage search:
-
-1. We could run before any Relay passes at all, just as `partition_for_<toolchain>` functions are run today.
-   However there's no opportunity to apply any BYOC preamble passes which may be needed before patterns are used.
+1. We could run before any Relay passes at all, just as `partition_for_<toolchain>` functions are run today. However
+   there's no opportunity to apply any BYOC preamble passes which may be needed before patterns are used.
 2. We could run just after the BYOC preamble passes. However that's prematurely committing to a particular BYOC
    integration, and there's no way to detect when two BYOC integrations have incompatible preambles.
-3. We could run just before (or instead of) `FuseOps` to bring search and customization to TVM fusion. However,
-   by that stage too many TVM-specific optimizations have been applied for the BYOC integrations to work.
+3. We could run instead of `FuseOps` to collapse partitioning with fusion. However, by that stage too many
+   TVM-specific optimizations have been applied for the BYOC integrations to work.
 
-Our compromise is to i) run Collage at the very beginning of compilation (ie option 1), ii) require the user 
-manually apply global passes which may assist particular BYOC integrations (such as to choose a particularly favorable
-layout), and iii) leave `FuseOps` unchanged.
+Our compromise is to i) run Collage at the very beginning of compilation (ie option 1), ii) require the user manually
+apply global passes which may assist particular BYOC integrations (such as to choose a particularly favorable layout),
+and iii) leave `FuseOps` unchanged. (Note the first draft of the RFC instead chose option 3.)
 
 In more detail, here's a taxonomy of pass instances and how we can handle them in Collage:
 
 - **BYOC global** (eg `ConvertLayout`): These passes are currently run in the preamble of some of the
   `partition_for_<toolchain>` functions to apply a global rewrite to improve efficiency for the intended target.
-  - Under Collage, these passes should be made available as a new `optimize_for_<toolchain>` function. The user
-  (or some top-level search outside of TVM) can apply this function in the same way they currently apply
-  `partition_for_<toolchain>`.
-  - Ideally this would also be a well-known UMA extension point.
-- **BYOC partitioning** (`MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` or a subset
-  thereof): These passes are currently run after the premable of the `partition_for_<toolchain>` function to
-  effect the desired partitioning and composite function labelling.
-  - Under Collage, these passes are subsumed by `CollagePartitioner`.
-  - They will also be called automatically by the UMA 'partitioner'.
-- **BYOC lowering** (eg `Function->runtime::Module` function registered as `relay.ext.<toolchain>`). These passes
-  invoke the BYOC-specific compilation toolchain.
-  - Under Collage, the standard `TELower` pass will continue to invoke these functions depending on partitioning
-    annotations. Collage will also need to support the other per-target compilation overrides.
-- **BYOC post-lowering** (eg `tune_cutlass_kernels`): These follow-on passes are supplied by some BYOC integrations
-  to further prepare the `runtime::Module` after lowering.
-  - Under Collage, these passes need to be folded back into the generic BYOC lowering extension point.
+    - Under Collage, these passes should be made available as a new `optimize_for_<toolchain>` function. The user
+      (or some top-level search outside of TVM) can apply this function in the same way they currently apply
+      `partition_for_<toolchain>`.
+    - Ideally this would also be a well-known UMA extension point.
+- **BYOC partitioning** (`MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` or a subset thereof):
+  These passes are currently run after the premable of the `partition_for_<toolchain>` function to effect the desired
+  partitioning and composite function labelling.
+    - Under Collage, these passes are subsumed by `CollagePartitioner`.
+    - They will also be called automatically by the UMA 'partitioner'.
+- **BYOC lowering** (eg `Function->runtime::Module` function registered as `relay.ext.<toolchain>`). These passes invoke
+  the BYOC-specific compilation toolchain.
+    - Under Collage, the standard `TELower` pass will continue to invoke these functions depending on partitioning
+      annotations. Collage will also need to support the other per-target compilation overrides.
+- **BYOC post-lowering** (eg `tune_cutlass_kernels`): These follow-on passes are supplied by some BYOC integrations to
+  further prepare the `runtime::Module` after lowering.
+    - Under Collage, these passes need to be folded back into the generic BYOC lowering extension point.
 - **Safe global** (eg `FoldConstant`): These passes are run within the standard Relay pass prefix, but may also be
   included in the BYOC preamble. However the pass is universally applicable to all BYOC and TVM toolchains.
-  - Under Collage this 'safe' prefix of passes can be run before `CollagePartitioner`. If any BYOC
-    predicates/patterns are not invariant to these safe passes then we'll need to generalize them. Note that
-    currently this pass set is empty. 
-- **Target specific** (eg `qnn::transform::Legalize`): These passes are also within the standard Relay pass prefix.
-  They apply per-operator or other rewrites which may be target-dependent. Clearly the target must already be known.
+    - Under Collage this 'safe' prefix of passes can be run before `CollagePartitioner`. If any BYOC predicates/patterns
+      are not invariant to these safe passes then we'll need to generalize them. Note that currently this pass set is
+      empty.
+- **Target specific** (eg `qnn::transform::Legalize`): These passes are also within the standard Relay pass prefix. They
+  apply per-operator or other rewrites which may be target-dependent. Clearly the target must already be known.
   Technically they should be run after `PlanDevices` to support heterogeneous execution this is not currently the case
   (and a few are disabled in the heterogeneous case).
-  - Under Collage these passes are run after `PlanDevices` (which may use `on_device` annotations to enforce some
-    target constraints) and `CollagePartitioner` (which will choose targets for all partitions subject to any existing
-    constraints). But they are only run on non-BYOC partitions, ie on everything other than `"Primitive"`
-    functions with a `"Compiler"` attribute.
-- **Lowering specific** (eg `CanonicalizeOps`): These passes apply optimizations preparing for `FuseOps` and
-  subsequent TVM lowering. They are also within the standard Relay pass prefix. 
-  - Under Collage, same as for the target specific passes above.
+    - Under Collage these passes are run after `PlanDevices` (which may use `on_device` annotations to enforce some
+      target constraints) and `CollagePartitioner` (which will choose targets for all partitions subject to any existing
+      constraints). But they are only run on non-BYOC partitions, ie on everything other than `"Primitive"`
+      functions with a `"Compiler"` attribute.
+- **Lowering specific** (eg `CanonicalizeOps`): These passes apply optimizations preparing for `FuseOps` and subsequent
+  TVM lowering. They are also within the standard Relay pass prefix.
+    - Under Collage, same as for the target specific passes above.
 
 ## Appendix D: TODO items in the 'v2' prototype before proceeding
 
@@ -843,6 +837,8 @@ In more detail, here's a taxonomy of pass instances and how we can handle them i
   candidates within that sub-graph since almost certainly the maximal candidates will be best. Somehow prune the
   candidates to implement that.
 - If needed, build indexes in `CombinePartitionRule` to avoid O(n^2) iteration over candidates.
+- Reconcile with the 'RFC10' style BYOC extension methods -- we should support them all but for simplicity have just
+  focussed on the traditional "Compiler" annotation.
 
 ## Appendix E: Robust candidate kernel latency measurement
 
@@ -872,9 +868,8 @@ TVM's `tvm.runtime.vm.VirtualMachine`s `benchmark` helper. The following needs t
   variance.
 - For TVM-native targets, we would like the `Estimate` call to perform any TVM tuning required for a novel candidate
   kernel.
-- Collage needs an estimate of the cost of transitioning between partitions (or kernels). Ideally that estimate would
-  be based on measurement rather than hard coded.
-
+- Collage needs an estimate of the cost of transitioning between partitions (or kernels). Ideally that estimate would be
+  based on measurement rather than hard coded.
 
 ## Appendix F: Robust BYOC integrations for targets of interest
 
@@ -889,8 +884,8 @@ Overall any BYOC toolchain which could be supported by Collage needs to be broug
 - The translation scheme should give the BYOC toolchain the best chance to do well. In particular, if Collage reports
   toolchain X 'is better' than toolchain Y for a candidate sub-graph we want to have confidence that's not just because
   toolchain Y has been hobbled by a poor translation, API misuse, or other 'holding it wrong' issue.
-- Where feasible, using `partition_for_<toolchain>` (ie using TVM but not Collage) should not be worse than using
-  the toolchain directly (ie not using TVM at all).
+- Where feasible, using `partition_for_<toolchain>` (ie using TVM but not Collage) should not be worse than using the
+  toolchain directly (ie not using TVM at all).
 
 Our current focus is on TensorRT, CUTLASS, CuDnn and CuBlas.
 
@@ -900,27 +895,44 @@ A [netron](https://netron.app/) style visualization for Relay which clearly show
 kernels would be very valuable. The paper prototype produces such a visualization but we've lost that functionality in
 the transition to 'v2'.
 
-
 ## Appendix H: FAQ
 
-- **Are you deprecating `FuseOps`?** No. `FuseOps` will be run along with all the other Relay passes on the 
-  TVM partitions (ie all Relay expressions not partitioned onto a BYOC backend).
+- **Are you deprecating `FuseOps`?** No. `FuseOps` will be run along with all the other Relay passes on the TVM
+  partitions (ie all Relay expressions not partitioned onto a BYOC backend).
 - **Are you deprecating the BYOC `partition_for_<toolchain>` functions?** No. Collage does not yet have a way to handle
-  any global passes invoked before partitioning in those functions. Those functions are still the best approach
-  for users who cannot tolerate long search/tuning times.
+  any global passes invoked before partitioning in those functions. Those functions are still the best approach for
+  users who cannot tolerate long search/tuning times.
 - **Can I use Collage for optimizing layout? Device placement? Quantization strategy?** No. Collage only explores
-  partitionings, and cannot currently explore rewrites. Though Collage could allow sub-graphs to be rewritten as
-  part of a partitioning choice (eg to insert `device_copy` nodes on inputs and outputs), there's little utility to
-  doing so since Collage won't be able to measure the effect of those rewrites on the overall model latency after
-  further downstream passes (eg to collapse unnecessary `device_copy` nodes). These sorts of global optimization
-  problems can be tackled by additional analysis passes before `CollagePartitioner`.
-- **Won't this increase tuning time?** Yes. Collage will explore significantly more candidate partitions, and for
-  the TVM backend the resulting kernels will themselves require schedule tuning.
-- **Does this clash with the UMA proposal?** No. Though Collage takes over partitioning, it can still greatly
-  benefit from the UMA proposal to better organize all the BYOC extension points. Any changes made by the UMA
-  project should be easy to account for in Collage.
+  partitionings, and cannot currently explore rewrites. Though Collage could allow sub-graphs to be rewritten as part of
+  a partitioning choice (eg to insert `device_copy` nodes on inputs and outputs), there's little utility to doing so
+  since Collage won't be able to measure the effect of those rewrites on the overall model latency after further
+  downstream passes (eg to collapse unnecessary `device_copy` nodes). These sorts of global optimization problems can be
+  tackled by additional analysis passes before `CollagePartitioner`.
+- **Won't this increase tuning time?** Yes. Collage will explore significantly more candidate partitions, and for the
+  TVM backend the resulting kernels will themselves require schedule tuning.
+- **Does this clash with the UMA proposal?** No. Though Collage takes over partitioning, it can still greatly benefit
+  from the UMA proposal to better organize all the BYOC extension points. Any changes made by the UMA project should be
+  easy to account for in Collage.
 - **Why replace the existing `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/
   `PartitionGraph` passes?** Those passes don't allow us to represent the search space over all partitionings.
-- **Why not just build on `DFPattern`s instead of introducing the PartitionRule family?** We actually started in
-  that direction but found the complexity overwhelming. We believe it's best to keep `DFPattern`s focussed on the
-  simple and common case of deterministically matching specific sub-expressions.
+- **Why not just build on `DFPattern`s instead of introducing the PartitionRule family?** We actually started in that
+  direction but found the complexity overwhelming. We believe it's best to keep `DFPattern`s focussed on the simple and
+  common case of deterministically matching specific sub-expressions.
+- **Why should partitioning have anything to do with fusion?** For efficiency Collage should only explore candidate
+  partitions which roughly match kernel boundaries. This means Collage's partitioning rules need to roughly predict
+  the fusion rules of each backend, TVM included.
+
+## Appendix G: Representing Collage 'backends'
+
+The paper introduced an explicit representation for 'backends'. In this design we've chosen to merge this notion
+back into the existing `Target` machinery:
+- All the backends we know of are dependent on a family of `Target`s. For example, `TensorRT` obviously only applies
+  to CUDA targets, `DNNL` only applies to CPU targets, and so on.
+- So it seems most natural to just extend `TargetKind`s with the ability to specify a particular BYOC toolchain, and
+  allow the user to supply as many `Target`s as needed to cover all the BYOC toolchains they'd like to include in
+  the Collage search.
+- There's then two subtleties which are easy to handle:
+  - A `Target` which is specific about it's BYOC toolchain should be considered a refinement of the same `Target`
+    without any such detail. 
+  - The user may supply multiple `Target`s for the same `DLDeviceType`. There's a few places in device planning where
+    the `DLDeviceType` to `Target` mapping needs to choose the least-refined `Target`.
