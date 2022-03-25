@@ -1,16 +1,15 @@
-# Design Doc: Collage [Draft 0.8]
-
 ```
-Feature Name: Collage
+Feature Name: Collage [Draft 0.81]
 Start Date: Mar 2022
 Authors: Mark Shields (mbs@octoml.ai)
-RFC PR: <tbd>
-GitHub Issue: <tbd>
+RFC PR: https://github.com/apache/tvm-rfcs/pull/62
 
 History:
 - v0.7: First draft.
 - v0.8: Rework to emphasise 'partitioning' (quite early in pipeline) instead of 'fusion' (quite late in pipeline). 
 ```
+
+# Summary
 
 This design doc (with accompanying
 ['v2' prototype implementation](https://github.com/mbs-octoml/mbs-tvm/tree/mbs-collage-sketch))
@@ -29,6 +28,32 @@ The approach is based on the [preprint](https://arxiv.org/pdf/2111.00655.pdf):
 (See Appendix A for a comparison of this proposal and the paper's implementation. See Appendix D for TODO items in the '
 v2' prototype.)
 
+When Collage is enabled it subsumes the existing `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/
+`PartitionGraph` passes embedded within each `partition_for_<toolchain>` function with a single new
+`CollagePartitioner` pass. The pass is guided by the list of available `Target`s and three existing sources:
+
+1. The `"TOpPattern"` attributes provided for every Relay operator and used by TVM's built-in `FuseOps`.
+2. The BYOC `"target.<toolchain>"` operator predicates provided for some operator/toolchain pairs by
+   'operator-based' BYOC integrations.
+   TODO(mbs): Consider removing predicate based BYOC integrations once TensorRT has been transitioned to be
+   predicate based.
+3. The BYOC operator pattern/predicates (usually) registered in the pattern table by 'pattern-based' BYOC integrations.
+
+The pass is run as early in the compilation flow as possible (see Appendix C).
+
+Only some boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage (patterns must
+be registered in the standard pattern table, 'preamble' passes need to be split out as per Appendix C, and any
+mandatory post lowering helpers must be folded into the custom lowering function. We'll make sure these changes are
+part of or coordinated with the UMA project). However Collage may require more robustness from the BYOC integrations,
+see Appendix F.
+
+Note however that we are **not** proposing to deprecate the existing `partition_for_<toolchain>` operations (or their
+UMA equivalent). This is mostly because Collage is inherently a tuning-based system which is not practical for users who
+need a stand-alone compiler. But it is also because of challenges with establishing a common pass ordering which will
+work for both TVM and all BYOC toolchains (see Appendix C for more details).
+
+# Motivation
+
 This tuning approach contrasts with TVM's existing "greedy" and "manual" approaches to partitioning:
 
 - Greedy: Currently only the largest possible supported sub-graphs are used for partitions, irrespective of their
@@ -39,23 +64,6 @@ This tuning approach contrasts with TVM's existing "greedy" and "manual" approac
   can be automated based on measured latency. Collage will also explore mixing and matching between multiple BYOC
   toolchains as well as TVM's native backend.
 
-When Collage is enabled it subsumes the existing `MergeComposite`/`AnnotateTarget`/`MergeCompilerRegions`/
-`PartitionGraph` passes embedded within each `partition_for_<toolchain>` function with a single new
-`CollagePartitioner` pass. The pass is guided by the list of available `Target`s and three existing sources:
-
-1. The `"TOpPattern"` attributes provided for every Relay operator and used by TVM's built-in `FuseOps`.
-2. The BYOC `"target.<toolchain>"` operator predicates provided for some operator/toolchain pairs by
-   'operator-based' BYOC integrations.
-3. The BYOC operator pattern/predicates (usually) registered in the pattern table by 'pattern-based' BYOC integrations.
-
-Only some boilerplate aspects of existing BYOC integrations need to be adjusted to support Collage (and we will make
-these changes either as part of or in coordination with the UMA project). However Collage may require more robustness
-from the BYOC integrations, see Appendix F.
-
-Note however that we are **not** proposing to deprecate the existing `partition_for_<toolchain>` operations (or their
-UMA equivalent). This is mostly because Collage is inherently a tuning-based system which is not practical for users who
-need a stand-alone compiler. But it is also because of challenges with establishing a common pass ordering which will
-work for both TVM and all BYOC toolchains (see Appendix C for more details).
 
 Collage offers three advantages:
 
@@ -69,7 +77,7 @@ Collage offers three advantages:
 
 See Appendix H for some frequently asked questions.
 
-## Success Metrics
+# Success Metrics
 
 1. Collage offers at least a 10% latency improvement for a selection of standard ONNX models and NVIDIA hardware using
    targets which include the CuDNN and CuBlas libraries, the CUTLASS library (with tuning, via BYOC), the TensorRT
@@ -79,7 +87,7 @@ See Appendix H for some frequently asked questions.
 3. Collage with a `Target` list enabling just one BYOC toolchain is never worse than using the the existing
    `partition_for_<toolchain>` function directly.
 
-## Project Milestones
+# Project Milestones
 
 - [Done] M0: Port paper prototype to recent TVM main and validate paper results.
 - [Done] M1: Internal design doc.
@@ -90,7 +98,7 @@ See Appendix H for some frequently asked questions.
 - [OctoML internal] M6: Estimator integrated into OctoML platform, validation against OctoML test suite.
 - [OctoML internal] M7: Productionization for OctoML.
 
-## Check-in plan
+# Check-in plan
 
 Though the 'v2' prototype is in a personal branch we'd like to transition to main ASAP and rely on directory/namespace
 separation, maintaining backwards compat, and a new `PassConfig` flag to isolate all Collage changes from the rest of
@@ -113,26 +121,19 @@ TVM. A rough PR progression is:
     - `GatherPartitionSpecs` helper for bridging the existing BYOC world with the Collage `PartitionRule` world.
     - The `CollagePartitioner` driver pass itself.
 
-## Related Work
+# Guide-level explanation
 
-- The [Cascading Scheduler](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0037-arm-ethosu-cascading-scheduler.md)
-  combines i) dynamic-programming to find an optimal grouping of TE sub-expressions, ii) an analytic model of cost to
-  guide the search, and iii) cascading scheduling of the TE sub-expressions so as to reduce memory high-watermark. By
-  contrast Collage i) also uses dynamic-programming, but to find an optimal grouping of Relay sub-expressions, ii)
-  uses (very much slower!) measurement to guide the search and iii) has no influence over how either TVM or BYOC
-  toolchains actually lower the sub-graphs given to them.
-- The [Universal modular Accelerator Interface](https://github.com/apache/tvm-rfcs/pull/60) proposal adds a layer on top
-  of the existing and separate TVM BYOC, operator strategy, operator scheduling, target-specific passes and
-  target-specific code generation extension points. Collage currently relies only on the global pattern registry and
-  global `relay.ext.<toolchain>` function to integrate with BYOC integrations, but this is easy to rework should UMA
-  change the source of truth.
+Collage allows the choice and partitioning for BYOC toolchains to be determined automatically
+so as to minimize overall (expected) model execution latency.
 
-## Example
+To compile with Collage it's necessary to set a `PassContext` flag, and include
+'Collage aware' `Targets` in the build's `target` argument.
 
-We start with `mod` bound to [MNIST](https://github.com/onnx/models/tree/main/vision/classification/mnist):
+
+For example, assume `mod` is bound to [MNIST](https://github.com/onnx/models/tree/main/vision/classification/mnist):
 
 ```
-fn (%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
+def @main(%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
   %0 = nn.pad(%x, 0f, pad_width=[[0, 0], [0, 0], [2, 2], [2, 2]]);
   %1 = nn.conv2d(%0, meta[relay.Constant][0] /*Tensor[(8, 1, 5, 5), float32]*/,
                  padding=[0, 0, 0, 0], channels=8, kernel_size=[5, 5]);
@@ -151,7 +152,8 @@ fn (%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
 }
 ```
 
-We can compile this with Collage enabled for a variety of NVIDIA toolchains/libraries as follows:
+We can compile this with Collage enabled for a variety of NVIDIA toolchains/libraries with
+the following fragment:
 
 ```
 with tvm.transform.PassContext(config={"relay.fallback_device_type": 2, "relay.collage.enable_collage": True}):
@@ -172,7 +174,7 @@ After the `CollagePartitioner` pass, the intermediate `"main"` global function c
 performance):
 
 ```
-fn (%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
+def @main(%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
   # Operators left behind in the function body are intended for TVM.
   # The usual Relay passes may rewrite them, then FuseOps will push them
   # into "Primitive" functions (without any "Compiler" attribute) ready
@@ -230,9 +232,10 @@ fn (%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
 }
 ```
 
-Ideally this optimal partitioning would be understandable to the user, see Appendix G.
+The remainder of the compilation will respect the partitioning found by Collage without
+any further user involvement.
 
-## Design
+# Reference-level explanation
 
 The implementation is mostly under `src/relay/collage/...` (namespace `tvm::relay::collage`), with just a few Python
 helper functions under `python/tvm/relay/collage`.
@@ -245,6 +248,9 @@ before all other Relay passes. The result of the pass is:
 - Relay operators, or groups of operators, which are to be translated to particular library or BYOC-supplied function
   are replaced by calls to an inline `"Composite"` function. (This encoding is supported for both BYOC and external
   libraries.)
+
+TODO(mbs): We need to also support
+[RFC10](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0010-target-registered-compiler-flow-customisation.md) style BYOC extensions in the partitioning encoding.
 
 Note that no `"Primitive"` functions denoting TVM kernels are produced -- the existing `FuseOps` pass is still required.
 
@@ -367,6 +373,8 @@ We currently have three distinct flavors of partitions:
   offload, and those are grouped into a `"Primitive"` Relay function with a `"Compiler"` attribute.
 - For operator-based BYOC integrations, per-operator predicates indicate operators to offload, and again those are
   grouped into a `"Primitive"` Relay function with a `"Compiler"` attribute.
+  TODO(mbs): Consider removing predicate based BYOC integrations once TensorRT has been transitioned to be
+  predicate based.
 - For TVM, obviously all of Relay can go into a single partition, however for search efficiency the partitions should
   roughly mimic the Relay `FuseOps`. That pass uses the `"TOpPattern"` (of type `OPPatternKind`) attribute on all Relay
   operators, and rules for when operators of one kind can be folded into another (typically by moving scalar ops from
@@ -412,6 +420,8 @@ The base rules are:
   call sub-expression. Generally this will result in a singleton sub-graph containing only the call, but it may also
   pull in constant arguments to the call should they be required. Used to bring BYOC operator predicates into the
   Collage framework.
+  TODO(mbs): Consider removing predicate based BYOC integrations once TensorRT has been transitioned to be
+  predicate based.
 - `OpCallByKindPartitionRule`: Uses the `"TOpPattern"` attribute provided for every Relay operator to produce a
   candidate for every call to a 'fusable Relay operator'. Used to select the operators which `FuseOps` will consider
   parts of kernels.
@@ -435,8 +445,8 @@ The combinator rules are:
 - `OnlyValidPartitionRule`: Given a `SubGraphConfig`, ignores candidates with 'invalid' sub-graphs. Used to limit the
   maximum candidate depth, the number of independent outputs, and whether intermediate 'taps' are allowed.
 - `HostPartitionRule`: Produces candidates for all Relay expressions which could be
-  'left behind' for execution by the host (eg on the VM). This rule lets us simplify the overall Collage search
-  algorithm.
+  'left behind' for execution by the host (eg on the VM). This rule lets us move special case handling out of the
+  core search algorithm and into a simple rule.
 
 Here are some typical ways to combine `PartitionRules` for different partition flavors:
 
@@ -448,6 +458,8 @@ Here are some typical ways to combine `PartitionRules` for different partition f
       CombinePartitionRule (with a join-anything combiner rule)
         OpPredicatePartitionRule
   ```
+  TODO(mbs): Consider removing predicate based BYOC integrations once TensorRT has been transitioned to be
+  predicate based.
 
 - Classic pattern-based BYOC with `MergeComposite`/`AnnotateTarget`/`PartitionGraph` passes
   (eg see `cutlass.py`)`:
@@ -554,9 +566,10 @@ for rapid retrieval during the shortest path search.
 
 ### Phase 3
 
-We find it most natural to use Dijkstra to find the optimal partitioning. A `SearchState` is:
+We find it most natural to use Dijkstra to find the optimal partitioning. A `SearchState` is a node in the search
+graph, and contains:
 
-- An `IndexSet` of the dataflow nodes already 'covered' by candidates on the best path to this state. This is the
+- An `IndexSet` of the dataflow nodes already 'covered' by candidates on every path to this state. This is the
   identifying key for the state.
 - The predecessor `SearchState` in the best path to this state.
 - The `Cost` of the best path to this state. This is the order for the Dijkstra priority queue.
@@ -574,11 +587,11 @@ The `HostPartitionRule` is used to allow some dataflow nodes to be 'left behind'
 
 ### Phase 4
 
-The overall Relay expression is partitioned over all the `CandidatePartition`s on the shortest path 'in parallel'. Since
-all the candidates are expressed using `SubGraph`s w.r.t. the original dataflow graph, we must be careful not to
+The overall Relay expression is partitioned over all the `CandidatePartition`s on the lowest cost path 'in parallel'.
+Since all the candidates are expressed using `SubGraph`s w.r.t. the original dataflow graph, we must be careful not to
 invalidate yet-to-be-partitioned candidates as we go. Working backwards in dataflow order avoids this problem.
 
-## Known Limitations
+# Drawbacks
 
 - **Some BYOC boilerplate changes required**: TVM's current BYOC integration API only requires the 'lowering/codegen'
   function to be registered to a well-known global function name. Everything else is up to the BYOC author.
@@ -668,7 +681,21 @@ invalidate yet-to-be-partitioned candidates as we go. Working backwards in dataf
   making the partition explicit enjoys both faster compilation and can incorporate global optimization passes which
   Collage cannot currently account for (eg enforcing a particular layout).
 
-## Appendix A: Differences between the paper's implementation and this proposal
+# Prior art
+
+- The [Cascading Scheduler](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0037-arm-ethosu-cascading-scheduler.md)
+  combines i) dynamic-programming to find an optimal grouping of TE sub-expressions, ii) an analytic model of cost to
+  guide the search, and iii) cascading scheduling of the TE sub-expressions so as to reduce memory high-watermark. By
+  contrast Collage i) also uses dynamic-programming, but to find an optimal grouping of Relay sub-expressions, ii)
+  uses (very much slower!) measurement to guide the search and iii) has no influence over how either TVM or BYOC
+  toolchains actually lower the sub-graphs given to them.
+- The [Universal modular Accelerator Interface](https://github.com/apache/tvm-rfcs/pull/60) proposal adds a layer on top
+  of the existing and separate TVM BYOC, operator strategy, operator scheduling, target-specific passes and
+  target-specific code generation extension points. Collage currently relies only on the global pattern registry and
+  global `relay.ext.<toolchain>` function to integrate with BYOC integrations, but this is easy to rework should UMA
+  change the source of truth.
+
+# Appendix A: Differences between the paper's implementation and this proposal
 
 The results of the paper were derived in a [branch](https://github.com/cmu-catalyst/collage) from
 [TVM](https://github.com/apache/tvm) at `461d06eb5cfc7954f1983779acd05c47cea269f1`. We ported/rebased that code onto
@@ -730,7 +757,7 @@ However:
 6. We have only re-implemented the 'op-level' dynamic-programming based search strategy from the paper. Though the paper
    reports encouraging results with the 'graph-level' evolutionary-search strategy we leave that to future work.
 
-## Appendix B: Easier Library Integration
+# Appendix B: Easier Library Integration
 
 TVM has two very different ways to make external library implementations available for use as (or in) kernels:
 The pattern-based BYOC approach and the TVM `te.extern` approach.
@@ -787,7 +814,7 @@ One possibility is:
 We'll follow up on this separately, but mention it here since it motivates why we've tried to handle "Composite"
 patterns fairly generally.
 
-## Appendix C: When to run Collage?
+# Appendix C: When to run Collage?
 
 There's a few cross-cutting issues when it comes to when Collage should run in the compilation flow:
 
@@ -867,11 +894,12 @@ In more detail, here's a taxonomy of pass instances and how we can handle them i
   TVM lowering. They are also within the standard Relay pass prefix.
     - Under Collage, same as for the target specific passes above.
 
-## Appendix D: TODO items in the 'v2' prototype before proceeding
+# Appendix D: TODO items in the 'v2' prototype before proceeding
 
 - Implement the penalty for transitioning execution between partitions.
 - Bring in `cudnn` and `cublas` to support measurement (ideally as Appendix B, but probably as heavyweight BYOC
   integration pending better support).
+- Support RFC10-style integrations in the partitioning rules / sub-graph realization.
 - Implement TVM-tuning during Collage search.
 - Cross-check measurements against some of the 'v1' models.
 - Bring up on `GPT2` and other 'larger' models.
@@ -888,7 +916,7 @@ In more detail, here's a taxonomy of pass instances and how we can handle them i
 - Reconcile with the 'RFC10' style BYOC extension methods -- we should support them all but for simplicity have just
   focussed on the traditional "Compiler" annotation.
 
-## Appendix E: Robust candidate kernel latency measurement
+# Appendix E: Robust candidate kernel latency measurement
 
 Collage requires an implementation of a `CostEstimator`:
 
@@ -919,7 +947,7 @@ TVM's `tvm.runtime.vm.VirtualMachine`s `benchmark` helper. The following needs t
 - Collage needs an estimate of the cost of transitioning between partitions (or kernels). Ideally that estimate would be
   based on measurement rather than hard coded.
 
-## Appendix F: Robust BYOC integrations for targets of interest
+# Appendix F: Robust BYOC integrations for targets of interest
 
 Overall any BYOC toolchain which could be supported by Collage needs to be brought to a high standard:
 
@@ -937,13 +965,13 @@ Overall any BYOC toolchain which could be supported by Collage needs to be broug
 
 Our current focus is on TensorRT, CUTLASS, CuDnn and CuBlas.
 
-## Appendix G: Visualization
+# Appendix G: Visualization
 
 A [netron](https://netron.app/) style visualization for Relay which clearly shows the partitioning and cost for all the
 kernels would be very valuable. The paper prototype produces such a visualization but we've lost that functionality in
 the transition to 'v2'.
 
-## Appendix H: FAQ
+# Appendix H: FAQ
 
 - **Are you deprecating `FuseOps`?** No. `FuseOps` will be run along with all the other Relay passes on the TVM
   partitions (ie all Relay expressions not partitioned onto a BYOC backend).
@@ -970,7 +998,7 @@ the transition to 'v2'.
   partitions which roughly match kernel boundaries. This means Collage's partitioning rules need to roughly predict the
   fusion rules of each backend, TVM included.
 
-## Appendix G: Representing Collage 'backends'
+# Appendix G: Representing Collage 'backends'
 
 The paper introduced an explicit representation for 'backends'. In this design we've chosen to merge this notion back
 into the existing `Target` machinery:
