@@ -85,7 +85,9 @@ See Appendix H for some frequently asked questions.
 2. Collage does not require new per-target or per-model patterns or rules to be implemented independently of the BYOC
    integrations.
 3. Collage with a `Target` list enabling just one BYOC toolchain is never worse than using the the existing
-   `partition_for_<toolchain>` function directly.
+   `partition_for_<toolchain>` function directly. (Since partitioning for multiple toolchains in sequence should never
+   improve the result for any single toolchain we consider just the single BYOC case.)
+
 
 # Project Milestones
 
@@ -263,20 +265,25 @@ The `CollagePartitioner` pass has four phases:
   available rules from phase 1 are evaluated on the dataflow graph to yield a (possibly overlapping) set of candidate
   partitions for each target (see `CandidatePartition` below). Each candidate efficiently describes a sub-graph of the
   global function's body without the need to construct any new expressions (see `SubGraph` below).
-- **Phase 3**: A shortest path is found in the following (implicit and lazily constructed) search graph:
-    - Search Nodes: The set of dataflow nodes which have already been assigned to a candidate partition in all paths to
-      the node.
-    - Search Edge X->Y: A candidate partition can be applied to node X to give node Y. The candidate is disjoint from
-      all dataflow nodes already assigned in X. To avoid an unnecessary search space explosion the candidate must also
-      include the next yet-to-be-assigned dataflow node in X.
-    - Edge cost: The estimated latency of the candidate partition, plus a partition transition penalty. Note that though
-      we need to be able to extract the candidate's sub-graph in order to build a function representing the candidate,
-      we do not yet need to partition the overall function body expression.
+- **Phase 3**: A least cost path is found in the following (implicit and lazily constructed) search graph:
+  - Search Node: Each node represents the set of 'covered' dataflow nodes which have been assigned to a
+    candidate partition on every path to the node from the starting node.
+  - Starting node: The search node with empty 'covered' set.
+  - Ending node: The search node with every dataflow node in the 'covered' set.
+  - Search Edge X->Y: A candidate partition P does not overlap X's 'covered' nodes. Y's 'covered' nodes are
+    those of X union P. To avoid an unnecessary search space explosion the candidate must also include the
+    next yet-to-be-covered dataflow node in X.
+  - Edge cost: The estimated latency of the candidate partition, plus a partition transition penalty. Note
+    that though we need to be able to extract the candidate's sub-graph in order to build a function
+    representing the candidate to measure with, we do not yet need to partition the overall function body
+    expression.
 
   Other search algorithms are certainly possible, eg the paper uses an evolutionary search to refine the partitioning
   found by the dynamic-programming search. We can easily abstract away the search interface to support multiple
   implementations in the future.
-- **Phase 4**: The function body is partitioned according to the candidate kernels on the shortest path.
+- **Phase 4**: The function body is partitioned according to the candidate kernels on the shortest path. This phase
+  can be run independently of the first three so that additional inspection or optimization may be applied to
+  the intmediate optimal partitioning.
 
 In the following we introduce the new datatypes, then expand on the phases.
 
@@ -301,7 +308,10 @@ In the following we introduce the new datatypes, then expand on the phases.
 ### SubGraph
 
 A `SubGraph` is an `IndexSet` of the `PostDfsIndex`s of all dataflow nodes 'inside' an arbitrary sub-graph of the
-overall dataflow graph. This and `PartitionRule` below are the core Collage datatypes.
+overall dataflow graph. This and `PartitionRule` below are the core Collage datatypes. The following illustrates
+the dataflow graph, indexes and one sub-graph for 'mini' MNIST (MNIST with the second layer removed):
+
+![dataflow graphs and sub-graphs](assets/0062/dataflow_graphs_and_sub_graphs.png)
 
 Sub-graphs can be used to represent partitions/kernels/composite functions without having to pay the cost of
 constructing or rewriting any expressions. We also allow 'extracting' a function to use for measuring a
@@ -396,6 +406,7 @@ An obvious question is whether all partition rules should be expressed with `DFP
 the `DFPattern` library itself. Indeed, though it does not appear to be used in prod, the `DominatorPattern` is
 an attempt to use `DFPattern`s to subsume the existing `FuseOps` machinery. We actually went down this path but
 decided to back out:
+- We'd need a new pattern combinator to associate predicates with sub-patterns.
 - Since we are interested in searching over possibly overlapping candidate partitions we'd need the `DFPattern`
   machinery to all enumeration over all matching sub-expressions. That would require a rewrite of the
   `DFPatternMatcher`.
@@ -404,11 +415,17 @@ decided to back out:
   or cognitive overhead for those common cases.
 
 That pushed us to the present design, which builds on `DFPatterns`, but introduces new 'base' and 'combinator'
-partition rules which can be combined to match the desired partition flavors. The 'base' rules produce candidates
-from the dataflow graph directly (eg all sub-graphs matching a given `DFPattern`). The 'combinator' rules 
-combine the candidates found by one or more sub-rules into a new set of candidates (eg by indicating the 
-sub-candidates should be wrapped by a `"Composite"` function, or touching sub-candidates should be unioned
-together).
+partition rules which can be combined to match the desired partition flavors:
+- The 'base' rules produce candidates from the dataflow graph directly. Eg we have a base rule to produce
+  all sub-graphs matching a given `DFPattern`.
+- The 'combinator' rules combine the candidates found by one or more sub-rules into a new set of
+  candidates. The sub-rule(s) can be 'base' or 'candidate' rules. We call the candidates produced by
+  a sub-rule 'sub-candidates'. Eg we have a combinator rule which wraps all sub-candidates in a
+  `"Composite"` function (when the overall expression is rewritten).
+
+The following illustrates some base and combinator patterns on the earlier mini MNIST dataflow graph:
+
+![partition rules](assets/0062/partition_rules.png)
 
 The base rules are:
 
@@ -448,7 +465,8 @@ The combinator rules are:
   'left behind' for execution by the host (eg on the VM). This rule lets us move special case handling out of the
   core search algorithm and into a simple rule.
 
-Here are some typical ways to combine `PartitionRules` for different partition flavors:
+Here are some typical ways to combine `PartitionRules` for different partition flavors. (These combinations
+may be generated during phase 1 by inspection of the `Target` and BYOC registration -- see 'Phase 1' below.)
 
 - Classic operator-predicate based BYOC with
   `AnnotateTarget`/`MergeCompilerRegions`/`PartitionGraph` passes (eg see `tensorrt.py`):
@@ -575,7 +593,10 @@ graph, and contains:
 - The `Cost` of the best path to this state. This is the order for the Dijkstra priority queue.
 - The `CandidatePartition` for the transition from the best predecessor to this state.
 
-The starting state has no covered nodes. The final state has all nodes covered.
+The starting state has no covered nodes. The final state has all nodes covered. The following is an example search
+graph fragment for the mini MNIST example: 
+
+![search graph](assets/0062/search_graph.png)
 
 When expanding a state we could choose any `CandidatePartition` collected from phase 2 provided it doesn't overlap with
 the state's covered set. However, a search path applying candidates C then D is equivalent to one applying D then C, so
@@ -584,6 +605,11 @@ the `CostEstimator` (with it's assumed cache) to get the candidate's cost, build
 successor state in the usual way. (See Appendix E for more details on `CostEstimator`.)
 
 The `HostPartitionRule` is used to allow some dataflow nodes to be 'left behind' for execution by the host.
+
+The result at this stage is an `Array<CandidatePartition>`, which can be materialized and restored using the standard
+TVM object graph machinery if desired. An example least-cost path for the mini MNIST example could be the following:
+
+![optimal placement](assets/0062/optimal_placement.png)
 
 ### Phase 4
 
