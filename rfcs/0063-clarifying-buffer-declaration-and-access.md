@@ -25,8 +25,10 @@ proposed in this RFC.
 
 **What’s a buffer?**
 
-Buffer is a compile-time object that groups runtime objects(data pointer and shape variables)
-structurally. A Buffer needs to be declared and allocated before it can be used.
+Buffer is a compile-time representation of contiguous block of memory. Since a Buffer is typically
+used as backing storage for a `TensorType`, it includes relevant information from that `TensorType`
+which can be sufficiently generalized to an array, such as data type and shape information.
+A Buffer needs to be declared and allocated before it can be used.
 
 **Declaration of buffer**
 
@@ -190,7 +192,8 @@ used to rewrite the buffer to a vector type. (VectorBufferRewrite rewrites the b
 
 Buffer information before flattening are necessary during compilation. They specify the calling
 convention of `PrimFunc` and are translated to assertions of buffer shapes, strides, etc. in
-runtime.
+runtime. `preflattened_buffer_map` was introduced in https://github.com/apache/tvm/pull/9727 to
+save these information after buffer flattening.
 
 During the lowering process, although buffer accesses inside `PrimFunc` are flattened to match
 physical buffer dimensions, the calling convention of the `PrimFunc` are kept unchanged - It still
