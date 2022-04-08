@@ -32,8 +32,9 @@ structurally. A Buffer needs to be declared and allocated before it can be used.
 
 Buffer can be declared in the following ways:
 
-- Inside the `buffer_map` of `PrimFunc`. TIR's type system does not accommodate rich array types, instead representing them as `T.handle` (typically emitted as `void*`). The `buffer_map` specifies how to interpret such `T.handle` when using it as a basis for array accesses.
-interpreted as a buffer inside the `PrimFunc`. `T.handle` represents an opaque pointer (`void *`).
+- Inside the `buffer_map` of `PrimFunc`. TIR's type system does not accommodate rich array types,
+instead representing them as `T.handle` (typically emitted as `void*`). The `buffer_map` specifies
+how to interpret such `T.handle` when using it as a basis for array accesses.
 - `T.alloc_buffer` is used `S-TIR` to create and allocate a buffer.
 - `T.buffer_decl` can be used to create a buffer alias by specifying the underlying data variable to
 reuse the data from another buffer. It can also be used to reinterpret the data type of the buffer.
@@ -60,10 +61,15 @@ reinterpreted with a different shape or data type using `T.decl_buffer`.
 
 **Explicit `DeclBuffer` IR construct**
 
-`T.buffer_decl` is not an explicit statement in TIR - There is no such node in TIR.
+`T.decl_buffer` is not an explicit statement in TIR - There is no such node in TIR.
+`T.decl_buffer` returns either:
+- A Buffer node whose data member points to the aliased Buffer.
+- A Buffer node whose data member is a new pointer-type Var (the var is expected to be initialized
+via tir::Allocate elsewhere)"
+
 The current behavior of `TVMScriptPrinter` is to implicitly print a `T.buffer_decl` at the beginning
 of `PrimFunc` for any undefined buffers. The implicit behavior can be error-prone. In light of the
-migration, we should consider an explicit `DeclBuffer` as part of the IR. This will be furthur
+migration, we should consider an explicit `DeclBuffer` as part of the IR. This will be further
 discussed in a separate RFC.
 
 **Buffer Aliasing**
@@ -84,8 +90,9 @@ imposes a cost for buffer aliasing both to compile times and development complex
 **Discussion: When it is safe to transform a buffer**
 
 We would like to discuss some examples of when it is safe to transform a buffer w.r.t. aliasing rules:
-
-(1) reshape, (2) layout transform (e.g. swap indices), (3) compact. 
+- (1) reshape
+- (2) layout transform (e.g. swap indices)
+- (3) compact.
 
 (1) is fine under aliasing as long as the low level memory is shared. (2) and (3) would need more
 cares. (2) requires all the aliases be changed together. (3) requires to compute the compact buffer
@@ -96,8 +103,8 @@ rewrite their shapes together.
 
 Previously we used `Load` and `Store` to represent low-level buffer accesses. `Load` and `Store`
 consist of data variable, data type and index, which can be directly translated to pointer cast and
-accesses in runtime. Note that data type given to `Load` / `Store` can be different from the Buffer's data
-variable type. For example,
+accesses in runtime. Note that data type given to `Load` / `Store` can be different from the
+Buffer's data variable type. For example,
 
 ```python
 A = T.buffer_decl(shape=(16,), dtype='float')
@@ -112,9 +119,10 @@ can be translated to
 
 in C codegen. 
 
-However, `BufferLoad` and `BufferStore` themselves can not reinterpret a buffer to a different shape or
-data type. They always return the data type specified on underlying buffer object. This is the fundamental difference between
-`Load/Store` and `BufferLoad/BufferStore` that we need to deal with carefully. 
+However, `BufferLoad` and `BufferStore` themselves can not reinterpret a buffer to a different shape
+or data type. They always return the data type specified on underlying buffer object. This is the
+fundamental difference between `Load/Store` and `BufferLoad/BufferStore` that we need to deal with
+carefully.
 
 Vectorized access is achieved by using `Ramp` as index in `Load/Store`. Vectorized buffer access
 via `BufferLoad`/`BufferStore` can be achieved either by using a scalar index to access a buffer
@@ -229,4 +237,5 @@ Therefore we should be able to have a unified method called `T.buffer_decl` in b
 TVMScript.
 - There are several way for buffer definition, `T.buffer_decl, T.match_buffer, T.alloc_buffer`.
 - `BufferLoad/BufferStore` can be generalized to allow `Ramp` as part of the index.
-- `buffer_decl` is going to be used to declare flattened Buffer aliases, and  `preflattened_buffer_map` will be removed.
+- `buffer_decl` is going to be used to declare flattened Buffer aliases, and
+`preflattened_buffer_map` will be removed.
