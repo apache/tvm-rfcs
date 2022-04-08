@@ -129,8 +129,8 @@ via `BufferLoad`/`BufferStore` can be achieved either by using a scalar index to
 that has a vectorized type, or by using `Ramp` as an index into a buffer that has a scalar type.
 For N-D buffer indices, it is possible that `Ramp` being used in multiple dimensions
 (e.g. `A[Ramp(...), ..., Ramp(...)]` ). In this case the number of lanes of the data type of such
-value is the product of each `Ramp`. We may want to limit `Ramp` to only the last dimension as
-multiple `Ramp` creates additional complexity.
+value is the product of each `Ramp`. We limit `Ramp` to only the last dimension as multiple `Ramp`
+creates additional complexity.
 
 Different combinations of buffer type and index type (scalar vs. vector) are clarified in
 
