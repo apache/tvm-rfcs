@@ -206,7 +206,7 @@ def fn(X: T.Buffer([2, 3], "float32"):
     X_flattened[i] = ....
 ```
 
-#Pass Checklist
+# Pass Checklist
 
 Here are a list of TIR passes that can be impacted significantly when migrating from `Load/Store` to
 `BufferLoad/BufferStore`.
