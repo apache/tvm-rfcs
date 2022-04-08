@@ -32,7 +32,7 @@ structurally. A Buffer needs to be declared and allocated before it can be used.
 
 Buffer can be declared in the following ways:
 
-- Buffer map of `PrimFunc`. This specifies how opaque parameters of type `T.handle` should be
+- Inside the `buffer_map` of `PrimFunc`. TIR's type system does not accommodate rich array types, instead representing them as `T.handle` (typically emitted as `void*`). The `buffer_map` specifies how to interpret such `T.handle` when using it as a basis for array accesses.
 interpreted as a buffer inside the `PrimFunc`. `T.handle` represents an opaque pointer (`void *`).
 - `T.alloc_buffer` is used `S-TIR` to create and allocate a buffer.
 - `T.buffer_decl` can be used to create a buffer alias by specifying the underlying data variable to
@@ -54,9 +54,9 @@ def buffer_alloc():
 
 **Allocation of buffer**
 
-In low-level TIR, `Allocate` is used to allocate a data variable with given shapes. `Allocate`
-doesn’t operate on the buffer-level. The result of `Allocate` is a data variable, which may be
-reinterpreted with a different shape or data type in buffer declaration.
+In low-level TIR, `tir::Allocate` is used to allocate a data variable with given shapes. `tir::Allocate`
+returns a data variable of type `T.handle` (since TIR's type system does not accommodate rich arrays), which may be
+reinterpreted with a different shape or data type using `T.decl_buffer`.
 
 **Explicit `DeclBuffer` IR construct**
 
@@ -69,7 +69,7 @@ discussed in a separate RFC.
 **Buffer Aliasing**
 
 `T.buffer_decl` creates a buffer alias if the underlying data variable (`.data` field) overlaps with
-another buffer. Buffer created via `alloc_buffer` always do not alias. Buffer aliases do not need
+another buffer. Buffer created via `T.alloc_buffer` always do not alias. Buffer aliases do not need
 `Allocate` to create the data variable. Each data variable can be allocated via `Allocate` once.
 If a transformation would produce multiple allocations of the same buffer var (e.g. unrolling a loop
 that contains an allocation), the transform should update the allocations to be unique using
@@ -96,7 +96,7 @@ rewrite their shapes together.
 
 Previously we used `Load` and `Store` to represent low-level buffer accesses. `Load` and `Store`
 consist of data variable, data type and index, which can be directly translated to pointer cast and
-accesses in runtime. Note that data type in `Load` / `Store` can be different from the actual data
+accesses in runtime. Note that data type given to `Load` / `Store` can be different from the Buffer's data
 variable type. For example,
 
 ```python
@@ -112,8 +112,8 @@ can be translated to
 
 in C codegen. 
 
-`BufferLoad` and `BufferStore` themselves can not reinterpret a buffer to a different shape or
-data type. They rely on the underlying buffer object. This is the fundamental difference between
+However, `BufferLoad` and `BufferStore` themselves can not reinterpret a buffer to a different shape or
+data type. They always return the data type specified on underlying buffer object. This is the fundamental difference between
 `Load/Store` and `BufferLoad/BufferStore` that we need to deal with carefully. 
 
 Vectorized access is achieved by using `Ramp` as index in `Load/Store`. Vectorized buffer access
@@ -168,13 +168,13 @@ def nd_vector_load_from_scalar_buffer(A: T.Buffer[(64,64), "float32"]):
     assert A[0, T.ramp(0, 1, 4)].dtype == "float32x4"
 ```
 
-In rare cases, vector index can be used to access a vector buffer. We may leave this usage as
-undefinedUnless we have a clear use case.
+In rare cases, vector index can be used to access a vector buffer. We leave this usage as
+undefined until we have a clear use case.
 
 **VectorBufferRewrite**
 
 In some backend like SPIR-V where runtime pointer casts are not available, even between types that
-differ only in the number of lanes (e.g. `float16` and `float16x4.`) `VectorTypeRewriter` will be
+differ only in the number of lanes (e.g. `float16` and `float16x4.`), `VectorTypeRewriter` will be
 used to rewrite the buffer to a vector type. (VectorBufferRewrite rewrites the buffer from
 `vector_load_from_scalar_buffer` into `scalar_load_from_vector_buffer` in the above example).
 
@@ -229,4 +229,4 @@ Therefore we should be able to have a unified method called `T.buffer_decl` in b
 TVMScript.
 - There are several way for buffer definition, `T.buffer_decl, T.match_buffer, T.alloc_buffer`.
 - `BufferLoad/BufferStore` can be generalized to allow `Ramp` as part of the index.
-- `buffer_decl` can be an alternative of `preflattened_buffer_map`.
+- `buffer_decl` is going to be used to declare flattened Buffer aliases, and  `preflattened_buffer_map` will be removed.
