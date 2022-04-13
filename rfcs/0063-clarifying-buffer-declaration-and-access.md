@@ -59,12 +59,12 @@ def buffer_alloc():
 
 In low-level TIR, `tir::Allocate` is used to allocate a data variable with given shapes. `tir::Allocate`
 returns a data variable of type `T.handle` (since TIR's type system does not accommodate rich arrays), which may be
-reinterpreted with a different shape or data type using `T.decl_buffer`.
+reinterpreted with a different shape or data type using `T.buffer_decl`.
 
 **Explicit `DeclBuffer` IR construct**
 
-`T.decl_buffer` is not an explicit statement in TIR - There is no such node in TIR.
-`T.decl_buffer` returns either:
+`T.buffer_decl` is not an explicit statement in TIR - There is no such node in TIR.
+`T.buffer_decl` returns either:
 - A Buffer node whose data member points to the aliased Buffer.
 - A Buffer node whose data member is a new pointer-type Var (the var is expected to be initialized
 via tir::Allocate elsewhere)"
@@ -78,10 +78,10 @@ discussed in a separate RFC.
 
 `T.buffer_decl` creates a buffer alias if the underlying data variable (`.data` field) overlaps with
 another buffer. Buffer created via `T.alloc_buffer` always do not alias. Buffer aliases do not need
-`Allocate` to create the data variable. Each data variable can be allocated via `Allocate` once.
-If a transformation would produce multiple allocations of the same buffer var (e.g. unrolling a loop
-that contains an allocation), the transform should update the allocations to be unique using
-`tvm::tir::ConvertSSA`
+`Allocate` to create the data variable -- they may simply reuse the data variable from the Buffer
+being aliased. If a transformation would produce multiple allocations of the same buffer var
+(e.g. unrolling a loop that contains an allocation), the transform should update the allocations to
+be unique using `tvm::tir::ConvertSSA`.
 
 Buffers should not alias each other unless necessary, because aliased buffers increase complexity
 for TIR transformations.  Passes that rewrite buffers should clearly indicate how aliased buffers
@@ -92,11 +92,17 @@ imposes a cost for buffer aliasing both to compile times and development complex
 **Discussion: When it is safe to transform a buffer**
 
 We would like to discuss some examples of when it is safe to transform a buffer w.r.t. aliasing rules:
-- (1) reshape
-- (2) layout transform (e.g. swap indices)
-- (3) compact.
+1. reshape
+2. layout transform (e.g. swap indices)
+3. compact.
 
-(1) is fine under aliasing as long as the low level memory is shared. (2) and (3) would need more
+(1) is fine under aliasing as long as the low level memory is shared. This is because buffer alias
+here is used to reinterpret a buffer, which only changes the way we access the buffer. As long as
+there are no other buffer transformations or analysis applied to this buffer, it is safe to use the
+alias.
+
+On the other hand, any transformations or analysis applied on a buffer should be clear how to handle
+buffer aliases correctly. (2) and (3) are such examples, they would need more
 cares. (2) requires all the aliases be changed together. (3) requires to compute the compact buffer
 shape and then rewrite the buffer shape. This need us to take all alias into consideration and then
 rewrite their shapes together.
@@ -204,7 +210,7 @@ For example, after flattening, the TIR will look like
 
 ```python
 def fn(X: T.Buffer([2, 3], "float32"):
-  X_flattened = T.decl_buffer(X.data, [6], "float32")
+  X_flattened = T.buffer_decl(X.data, [6], "float32")
   for i in grid(6):
     X_flattened[i] = ....
 ```
@@ -234,11 +240,11 @@ declared and then `BufferLoad` should be used  to access values of these paramet
 declarations / accesses follow the new convention here.
 
 # Conclusion and Key takeaways
-- `buffer_decl` creates buffer alias, it is important to consider implications and use
-`buffer_decl` properly. Passes that transform buffers should consider how to buffer alias.
+- `T.buffer_decl` creates buffer alias, it is important to consider implications and use
+`T.buffer_decl` properly. Passes that transform buffers should consider how to buffer alias.
 Therefore we should be able to have a unified method called `T.buffer_decl` in both TIR and
 TVMScript.
 - There are several way for buffer definition, `T.buffer_decl, T.match_buffer, T.alloc_buffer`.
 - `BufferLoad/BufferStore` can be generalized to allow `Ramp` as part of the index.
-- `buffer_decl` is going to be used to declare flattened Buffer aliases, and
+- `T.buffer_decl` is going to be used to declare flattened Buffer aliases, and
 `preflattened_buffer_map` will be removed.
