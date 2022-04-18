@@ -28,6 +28,13 @@ tradeoffs/issues in applying this change.
   TVM codebase. This implicit behavior is confusing when debugging and
   requires us to maintain a consistent state between two different repos.
 
+Users can always use the tophub context explicitly like so:
+
+```python
+with autotvm.tophub.context(target):
+  ...
+```
+
 # Drawbacks
 [drawbacks]: #drawbacks
 
