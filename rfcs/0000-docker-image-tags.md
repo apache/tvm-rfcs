@@ -13,7 +13,7 @@ In the current format used to identify our Docker images, it is impossible to li
 
 # Guide-level explanation
 
-For years we have been using a patern to version our CI Docker images, which is composed by v0.INCREMENTAL_NUMBER, e.g. tlcpack/ci_cpu:v0.80. Every time an image is updated, we bump the minor number, just as a way to release a new version.
+For years we have been using a pattern to version our CI Docker images, which is composed by v0.INCREMENTAL_NUMBER, e.g. tlcpack/ci_cpu:v0.80. Every time an image is updated, we bump the minor number, just as a way to release a new version.
 
 As the project is growing and given we recently have been improving the Docker images building process, it is time to consider using a more meaningful tagging scheme, so that it is easier to identify what is included in the images being used in our CI.
 
