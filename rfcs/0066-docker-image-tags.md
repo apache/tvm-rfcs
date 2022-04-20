@@ -1,6 +1,6 @@
 - Feature Name: docker_image_tag_format
 - Start Date: 2022-04-08
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0066](https://github.com/apache/tvm-rfcs/pull/66)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
 
 # Summary
@@ -26,7 +26,7 @@ None of these questions can be answered by our current numbering scheme, and to 
 
 # Reference-level explanation
 
-As an improvement to the current situation, this RFC proposes the adption of a tagging scheme currently used in the `tlcpackstaging` (https://hub.docker.com/u/tlcpackstaging) repository, composed by:
+As an improvement to the current situation, this RFC proposes the adoption of a tagging scheme currently used in the `tlcpackstaging` (https://hub.docker.com/u/tlcpackstaging) repository, composed by:
 
 * a timestamp YYYYMMDD-HHMMSS
 * the last short git hash added in that image
@@ -37,7 +37,7 @@ The advantage with the proposed scheme, is that we can just look back on our own
 
 # Drawbacks
 
-Pointing to "the previous image" is obvious today, because it is just "the current version minus one". To revert the image in the proposed tagging scheme, we will need to adapt this process and use git history to discover which was the previous version in the repository. However, reverting images is quite rare so it should be something the will consume lots of time very often.
+Pointing to "the previous image" is obvious today, because it is just "the current version minus one". To revert the image in the proposed tagging scheme, we will need to adapt this process and use git history to discover which was the previous version in the repository. However, revert is quite rare but it will consume lots of time very often.
 
 # Rationale and alternatives
 
