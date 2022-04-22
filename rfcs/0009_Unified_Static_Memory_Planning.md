@@ -643,7 +643,7 @@ __tvm_main__ = primfn(input1: handle, input2: handle, output1: handle, output2: 
 
 ```
 
-Through out the USMP lowering, the allocate node with such special annotations will maintained as a Map\<String, PoolAllocation>, where the key indicates the name of the I/O tensor while PoolAllocation captures the pool and the offset it was assigned in the USMP.
+Through out the USMP lowering, the allocate node with such special annotations will be maintained as a `Map<String, PoolAllocation>`, where the key indicates the name of the I/O tensor while `PoolAllocation` captures the pool and the offset it was assigned in the USMP.
 
 The above metadata will be used to produce the `tvmgen_<model_name>_map_inputs` and `tvmgen\_<model_name>_map_outputs` functions to metadata sources (See the guide-level explanation of U4)
 
