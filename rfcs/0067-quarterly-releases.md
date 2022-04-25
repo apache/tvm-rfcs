@@ -10,27 +10,34 @@ Releases are essential to the usage of TVM, especially now that are beginning to
 
 
 # Guide-level explanation
-TVM has [release process documentation](https://tvm.apache.org/docs/contribute/release_process.html). This RFC proposes that the release candidate vote thread be abolished in favor of a mechanical schedule where releases happen roughly every three months. A release branch will be cut, evaluated for a period of two weeks, then a release published. Publishing a release entails:
+TVM has [release process documentation](https://tvm.apache.org/docs/contribute/release_process.html). This RFC proposes that a release candidate vote thread sent on a schedule roughly every three months. A release branch will be cut, evaluated for a period of two weeks, evaluated by the PMC, then a release published. Publishing a release entails:
 
 * Gathering and organizing release notes since the last release
 * Posting a source code release on GitHub
 * Uploading the source code to the Apache SVN repository
 * Uploading binary packages to tlcpack
 * Uploading binary packages to PyPi
+* Getting an approval vote from the PMC
 
 # Reference-level explanation
 
 Prior to a release a new, lightweight vote would instead be used to nominate a release manager, a committer who will be responsible for guiding along the release process. Releases will roughly match the quarterly [calendar dates](https://en.wikipedia.org/wiki/Calendar_year#Quarters) shifted two weeks earlier (Q1: mid March, Q2: mid June, Q3: mid September, Q4: mid December). The release manager will have final say on all dates and consideration should be given for their personal schedule. The timeline will be as follows:
 * Three weeks prior to the release
     * The release manager will cut a release branch and create a new tag
+    * The release manager will audit the licenses of all project dependencies to ensure they are compatible with Apache
     * The release manager will open a GitHub issue announcing the release branch cut and target date for the release and state that any further inclusions in the release must be manually cherry-picked
     * The release manager will create a PR targeted to merge into the release branch with the necessary changes to make a release (i.e. changing version numbers)
     * Contributors that wish changes to be cherry-picked should comment on the announcement issue with the relevant PRs and commits and their reasoning. The release manager has final say on which changes should be included but should aim to be inclusive at this stage
     * The release manager begins gathering release notes
 
-* One week prior to release
+* Two weeks prior to release
     * Cherry picks become limited to critical changes only
     * The release manager begins building binaries and testing them against TVM's test suite
+    * The release manager sends the release notes and plan to the PMC for approval (feedback thread will be open for one week)
+    * The release manager performs another license audit of all project dependencies to ensure they are compatible with Apache
+
+* One week prior to release
+    * The release manager sends the release and binaries to the PMC for an approval vote (thread open for one week). If rejected the building and test process must be started anew and repeated until the PMC approves.
 
 * Day of the release
     * The release manager publishes the relevant binaries
@@ -38,6 +45,12 @@ Prior to a release a new, lightweight vote would instead be used to nominate a r
     * The release manager makes a GitHub release and updates an in-repo file `RELEASE.md` on both `main` and the release branch with the release notes
 
 Much of this can be automated via GitHub Actions on the apache/tvm repo. Eventually (though maybe not for the upcoming release) these will handle all the building, testing, and publishing of releases so the job of the release manager will become simpler over time.
+
+The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release.
+
+This RFC will not go into effect until we resolve the API around `relay.build` since that may introduce significant churn in the community. See [the discussion](https://discuss.tvm.apache.org/t/pre-rfc-compilation-configuration-representation/11372) for details.
+
+Even with this RFC the ultimate decision to releases rests with the community. If no one wants to do a release, then it will be skipped or delayed until the community agrees and a release manager can be selected.
 
 # Prior Work
 
