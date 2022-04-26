@@ -33,11 +33,11 @@ Prior to a release a new, lightweight vote would instead be used to nominate a r
 * Two weeks prior to release
     * Cherry picks become limited to critical changes only
     * The release manager begins building binaries and testing them against TVM's test suite
-    * The release manager sends the release notes and plan to the PMC for approval (feedback thread will be open for one week)
+    * The release manager sends the release notes and plan to a vote thread for approval (feedback thread will be open for one week)
     * The release manager performs another license audit of all project dependencies to ensure they are compatible with Apache
 
 * One week prior to release
-    * The release manager sends the release and binaries to the PMC for an approval vote (thread open for one week). If rejected the building and test process must be started anew and repeated until the PMC approves.
+    * The release manager sends the release and binaries to a vote thread for approval (thread open for one week). If rejected the building and test process must be started anew and repeated until the PMC approves.
 
 * Day of the release
     * The release manager publishes the relevant binaries
@@ -46,7 +46,7 @@ Prior to a release a new, lightweight vote would instead be used to nominate a r
 
 Much of this can be automated via GitHub Actions on the apache/tvm repo. Eventually (though maybe not for the upcoming release) these will handle all the building, testing, and publishing of releases so the job of the release manager will become simpler over time.
 
-The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release.
+The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release. The release manager will be responsible for maintaining the release until the next release, which mainly entails putting up a patch release if necessary. The release manager may also delegate this responsibility to another party if both agree.
 
 This RFC will not go into effect until we resolve the API around `relay.build` since that may introduce significant churn in the community. See [the discussion](https://discuss.tvm.apache.org/t/pre-rfc-compilation-configuration-representation/11372) for details.
 
