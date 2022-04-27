@@ -22,6 +22,7 @@ TVM has [release process documentation](https://tvm.apache.org/docs/contribute/r
 # Reference-level explanation
 
 Prior to a release a new, lightweight vote would instead be used to nominate a release manager, a committer who will be responsible for guiding along the release process. Releases will roughly match the quarterly [calendar dates](https://en.wikipedia.org/wiki/Calendar_year#Quarters) shifted two weeks earlier (Q1: mid March, Q2: mid June, Q3: mid September, Q4: mid December). The release manager will have final say on all dates and consideration should be given for their personal schedule. The timeline will be as follows:
+
 * Three weeks prior to the release
     * The release manager will cut a release branch and create a new tag
     * The release manager will audit the licenses of all project dependencies to ensure they are compatible with Apache
@@ -48,7 +49,7 @@ Much of this can be automated via GitHub Actions on the apache/tvm repo. Eventua
 
 The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release. The release manager will be responsible for maintaining the release until the next release, which mainly entails putting up a patch release if necessary. The release manager may also delegate this responsibility to another party if both agree.
 
-This RFC will not go into effect until we resolve the API around `relay.build` since that may introduce significant churn in the community. See [the discussion](https://discuss.tvm.apache.org/t/pre-rfc-compilation-configuration-representation/11372) for details.
+Developers are heavily encouraged to use feature flags and Python API conventions (i.e. prefixing unstable or private APIs with an underscore) to enable in-progress features. It is important both for users to be able to access new or experimental behavior but also that they can get a stable interface, so these kinds of changes should be hidden behind opt-in flags.
 
 Even with this RFC the ultimate decision to releases rests with the community. If no one wants to do a release, then it will be skipped or delayed until the community agrees and a release manager can be selected.
 
