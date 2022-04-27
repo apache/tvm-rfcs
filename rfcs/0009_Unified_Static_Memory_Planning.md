@@ -349,6 +349,108 @@ tvmc compile my_model.tflite --executor=aot --output-format=mlf --target=c
          TVMExecute(&my_model, &inputs, &outputs, &context);
     }
 ```
+
+## U4 : User wants to write/read directly to the workspace buffer
+
+This usecase allows the space used by I/O tensors to be re-used by the inference.
+
+### TVMC
+```
+    tvmc compile my_model.tflite 
+    --executor=aot 
+    --target=c
+    --workspace-pools=sram
+    --pass-config tir.usmp.enable=1
+    --pass-config tir.usmp.use_workspace_io=1
+
+```
+### Codegen'd Artifacts
+```
+    //Codegen'd artifacts in metadata.c (lib0.c)
+    
+    int32_t tvmgen_my_model_run(
+        tvmgen_my_model_workspace_pools* workspace_pools, 
+    ){
+         return my_model_main(workspace_pools.sram);
+    }
+
+    // Returns a handle pointing to space inside the
+    // workspace pool where input should be stored
+ 
+    tvmgen_my_model_inputs tvmgen_my_model_map_inputs(
+        tvmgen_my_model_workspace_pools* workspace_pools
+    ) {
+        tvmgen_my_model_inputs = {
+            .input0 = &workspace_pools->sram[<INPUT0_OFFSET>],
+        };
+        return tvmgen_my_model_inputs;
+    }
+ 
+    // Returns a handle pointing to space inside the
+    // workspace pool where output is stored
+    
+    tvmgen_my_model_outputs  tvmgen_my_model_map_outputs(
+        tvmgen_my_model_workspace_pools* workspace_pools
+    ) {
+        tvmgen_my_model_outputs = {
+            .output0 = &workspace_pools->sram[<OUTPUT0_OFFSET>],
+        };
+        return tvmgen_my_model_outputs;
+    }
+```
+```
+// metadata.h
+
+    #define TVM_MY_MODEL_SRAM_WORKSPACE_BUFFER_SIZE xxxx
+
+    typedef struct {
+       uint8_t* sram;
+    }  tvmgen_my_model_workspace_pools;
+
+    typedef struct {
+       uint8_t* input0;
+    }  tvmgen_my_model_inputs;
+
+    typedef struct {
+       uint8_t* output0;
+    }  tvmgen_my_model_outputs;
+
+    tvmgen_my_model_inputs tvmgen_my_model_map_inputs(
+        tvmgen_my_model_workspace_pools* workspace_pools
+    );
+
+    tvmgen_my_model_outputs  tvmgen_my_model_map_outputs(
+        tvmgen_my_model_workspace_pools* workspace_pools
+    );
+```
+### User Application
+```
+    // The User Application model;
+        __attribute__((section( "SRAM" ), aligned( 16 )))  static uint8_t workspace_buffer_sram[TVM_MY_MODEL_SRAM_WORKSPACE_BUFFER_SIZE];
+
+    int main(...) {
+         ...
+         tvmgen_my_model_workspace_pools workspaces = {
+             .sram = &workspace_buffer_sram,
+         };
+         tvmgen_my_model_inputs inputs = 
+         tvmgen_my_model_map_inputs(&workspaces);
+         tvmgen_my_model_outputs outputs = 
+         tvmgen_my_model_map_outputs(&workspaces);
+
+         // Generate input tensor by passing the handle
+         // E.g. this could be a driver writing directly to
+         // the workspace buffer
+         GenerateInput(inputs.input0)
+
+         tvmgen_my_model_run(&workspaces);
+
+         // A consumer can obtain the data through 
+         // accessing the updated struct outputs
+         // that points inside the workspace.
+         ReadInferenceOutput(outputs.output0);
+    }
+```
 # Reference-level explanation
 
 ## Overview
@@ -500,6 +602,52 @@ This actual pass would traverse full TIR program and construct BufferInfo object
        <compute>
        ...
 ```
+
+## The optional lowering changes to support U4
+
+After Step 1, the I/O tensors will be bound as allocate nodes with special annotation to keep track of the offsets within workspace pools. As an e.g. :
+
+### Pre U4 IR transformation
+
+```
+__tvm_main__ = primfn(input1: handle, input2: handle, output1: handle, output2: handle) -> ()
+  attr = {"global_symbol": "__tvm_main__", "runner_function": True}
+  buffers = {output1_buffer_var: Buffer(output1_buffer_var_1: Pointer(global int16), int16, [452], []),
+             output2_buffer_var: Buffer(output2_buffer_var_1: Pointer(global int16), int16, [452], []),
+             input2_buffer_var: Buffer(input2_buffer_var_1: Pointer(global uint8), uint8, [150528], []),
+             input1_buffer_var: Buffer(input1_buffer_var_1: Pointer(global uint8), uint8, [150528], [])}
+  buffer_map = {input2: input2_buffer_var, input1: input1_buffer_var, output2: output2_buffer_var, output1: output1_buffer_var} {
+  @tir.call_extern("tvmgen_default_fused_cast_subtract", input1_buffer_var_1, @tir.lookup_param("p0", dtype=handle), output1_buffer_var_1, dtype=int32)
+  @tir.call_extern("tvmgen_default_fused_cast_subtract", input2_buffer_var_1, @tir.lookup_param("p1", dtype=handle), output2_buffer_var_1, dtype=int32)
+}
+```
+
+### Post U4 IR transformation
+
+```
+@__tvm_main__ = primfn() -> ()
+  attr = {"global_symbol": "__tvm_main__", "runner_function": True}
+  buffers = {output2_buffer_var: Buffer(output2_buffer_var_1: Pointer(global int16), int16, [452], []),
+             output1_buffer_var: Buffer(output1_buffer_var_1: Pointer(global int16), int16, [452], []),
+             input2_buffer_var: Buffer(input2_buffer_var_1: Pointer(global uint8), uint8, [150528], []),
+             input1_buffer_var: Buffer(input1_buffer_var_1: Pointer(global uint8), uint8, [150528], [])}
+  buffer_map = {output1: handle: output1_buffer_var, input1: handle: input1_buffer_var, input2: handle: input2_buffer_var, output2: handle: output2_buffer_var} {
+  allocate(output2_buffer_var_1, int16, [452]), storage_scope = global, annotations = {"output_tensor": "output2"});
+  allocate(output1_buffer_var_1, int16, [452]), storage_scope = global, annotations = {"output_tensor": "output1"});
+  allocate(input2_buffer_var_1, uint8, [150528]), storage_scope = global, annotations = {"input_tensor": "input2"});
+  allocate(input1_buffer_var_1, uint8, [150528]), storage_scope = global, annotations = {"input_tensor": "input1"}) {
+    @tir.call_extern("tvmgen_default_fused_cast_subtract", input1_buffer_var_1, @tir.lookup_param("p0", dtype=handle), output1_buffer_var_1, dtype=int32)
+    @tir.call_extern("tvmgen_default_fused_cast_subtract", input2_buffer_var_1, @tir.lookup_param("p1", dtype=handle), output2_buffer_var_1, dtype=int32)
+  }
+}
+
+```
+
+Through out the USMP lowering, the allocate node with such special annotations will be maintained as a `Map<String, PoolAllocation>`, where the key indicates the name of the I/O tensor while `PoolAllocation` captures the pool and the offset it was assigned in the USMP.
+
+The above metadata will be used to produce the `tvmgen_<model_name>_map_inputs` and `tvmgen\_<model_name>_map_outputs` functions to metadata sources (See the guide-level explanation of U4)
+
+
 # Code Structure
 
 * src/tir/usmp/analysis/ -- this is where analysis passes of USMP will live
@@ -516,3 +664,5 @@ NOTE : to support tir.constants generally, we'll be enhancing the bound relay.co
 # Drawbacks
 
 * The relay "main" function that describes the call order to operator PrimFuncs has to be described in TIR to be able to integrate the USMP into the respective executor codegen. However, we dont view this as a major problem as the relay "main" function could easily be lowered to TIR.
+
+* The U4 usecase will only be supported with [Embedded C Runtime Interface](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951/14). This is mainly because the nature of the requirement is associated with embedded usecases. However, the USMP changes here should be complimentary to support other runtime interfaces such as Module-based Model Runtime Interface's set_input and set_output in future.
