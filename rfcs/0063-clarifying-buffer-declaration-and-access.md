@@ -66,8 +66,7 @@ reinterpreted with a different shape or data type using `T.buffer_decl`.
 
 **Explicit `DeclBuffer` IR construct**
 
-`T.buffer_decl` is not an explicit statement in TIR - There is no such node in TIR.
-`T.buffer_decl` returns either:
+`T.buffer_decl` doesn't correspond to a TIR node. Instead, `T.buffer_decl` returns either:
 - A Buffer node whose data member points to the aliased Buffer.
 - A Buffer node whose data member is a new pointer-type Var (the var is expected to be initialized
 via tir::Allocate elsewhere)"
@@ -87,10 +86,12 @@ being aliased. If a transformation would produce multiple allocations of the sam
 be unique using `tvm::tir::ConvertSSA`.
 
 Buffers should not alias each other unless necessary, because aliased buffers increase complexity
-for TIR transformations.  Passes that rewrite buffers should clearly indicate how aliased buffers
-are handled.  For example, when changing the underlying layout of stored elements in a buffer, all
-buffer aliases must also be updated.  While buffer aliasing is typically free at runtime, this
-imposes a cost for buffer aliasing both to compile times and development complexity. 
+for TIR transformations. Passes that rewrite buffers should clearly indicate how aliased buffers
+are handled. For example, when changing the underlying layout of stored elements in a buffer, all
+buffer aliases must also be updated. Currently, we don't have analysis for buffer aliasing.
+This is a future developement task if buffer aliasing is used broadly. Therefore, while buffer
+aliasing is typically free at runtime, this imposes a cost for buffer aliasing both to compile times
+and development complexity. 
 
 **Discussion: When it is safe to transform a buffer**
 
