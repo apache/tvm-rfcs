@@ -55,6 +55,9 @@ def buffer_alloc():
     Allocate(A.data, [16], "float32")
 ```
 
+In the future, we will consider renaming `T.buffer_decl` to `T.decl_buffer` to make it name a verb
+phase that is consistent with the existing ones like `T.alloc_buffer`, `T.match_buffer`. 
+
 **Allocation of buffer**
 
 In low-level TIR, `tir::Allocate` is used to allocate a data variable with given shapes. `tir::Allocate`
