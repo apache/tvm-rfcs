@@ -57,7 +57,7 @@ A CI script will be created that passes the following terms to blocklint in the 
 
 It doesn't seem practical to pass gender specific pronouns in the blocklist since these seem to generate many false positives. Instead we propose that the use of gender-specific pronouns when gender is irrelevant or unknown be monitored during code reviews.
 
-Since it is not possible to always replace non-inclusive terms e.g. in the case of references to third party tools, a list of files to skip during linting will be passed in the skiplist parameter to blocklint.
+Since it is not possible to always replace non-inclusive terms e.g. in the case of references to third party tools, a list of files to skip during linting will be passed in the skiplist parameter to blocklint. In addition, blocklint can be instructed to ignore a particular occurrence of a blocked word, by including a comment "blocklint: pragma" on the same line. Some examples of this use can be seen in the [pragma tests for blocklint](https://github.com/PrincetonUniversity/blocklint/blob/master/tests/sample_files/test_pragma.cc).
 
 # Drawbacks
 [drawbacks]: #drawbacks
