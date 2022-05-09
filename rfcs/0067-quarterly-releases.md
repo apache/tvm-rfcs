@@ -33,7 +33,7 @@ Prior to a release a new, lightweight vote would instead be used to nominate a r
 
 * Two weeks prior to release
     * Cherry picks become limited to critical changes only
-    * The release manager begins building binaries and testing them against TVM's test suite
+    * The release manager begins building binaries and testing them against TVM's test suite and running on relevant hardware
     * The release manager sends the release notes and plan to a vote thread for approval (feedback thread will be open for one week)
     * The release manager performs another license audit of all project dependencies to ensure they are compatible with Apache
 
@@ -41,9 +41,9 @@ Prior to a release a new, lightweight vote would instead be used to nominate a r
     * The release manager sends the release and binaries to a vote thread for approval (thread open for one week). If rejected the building and test process must be started anew and repeated until the PMC approves.
 
 * Day of the release
-    * The release manager publishes the relevant binaries
+    * The release manager publishes the relevant binaries, including the source `.tar` to Apache
     * The release manager closes the release issue
-    * The release manager makes a GitHub release and updates an in-repo file `RELEASE.md` on both `main` and the release branch with the release notes
+    * The release manager makes a GitHub release via a tag and updates an in-repo file `RELEASE.md` on both `main` and the release branch with the release notes
 
 Much of this can be automated via GitHub Actions on the apache/tvm repo. Eventually (though maybe not for the upcoming release) these will handle all the building, testing, and publishing of releases so the job of the release manager will become simpler over time.
 
