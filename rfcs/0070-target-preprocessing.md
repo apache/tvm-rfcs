@@ -31,7 +31,7 @@ These new preprocessors will be illustrated using examples targeting TVM for Arm
 
 ## Architecture Pre-processing
 ```c++
-Target("c")
+TVM_REGISTER_TARGET_KIND("c", kDLCPU)
     .set_arch_preprocessor(MyArchPreprocessor)
 ```
 
@@ -52,7 +52,7 @@ my_target.arch.has_dsp // true
 ## Keys Pre-processing
 
 ```c++
-Target("c")
+TVM_REGISTER_TARGET_KIND("c", kDLCPU)
     .set_keys_preprocessor(MyKeysPreprocessor)
 ```
 
@@ -194,10 +194,19 @@ This means re-processing `Target` whenever a specific attribute is required but 
 # Prior art
 [prior-art]: #prior-art
 
+Taking the example of LLVM, it follows a similar methodology, resulting in a `Features` vector:
+* `clang` uses `mtriple` to determine the correct parser to use for the various other options: https://github.com/llvm/llvm-project/blob/2f04e703bff3d9858f53225fa7c780b240c3e247/clang/lib/Driver/ToolChains/Clang.cpp#L324
+* `clang` uses the LLVM parsers to determine available features for a given set of `Target` parameters such as `mcpu` and `mtune`: https://github.com/llvm/llvm-project/blob/43d758b142bbdf94a1c55dc0950637ae74f825b9/clang/lib/Driver/ToolChains/Arch/AArch64.cpp
+* LLVM implements the `Features` parsers: https://github.com/llvm/llvm-project/blob/09c2b7c35af8c4bad39f03e9f60df8bd07323028/llvm/lib/Support/AArch64TargetParser.cpp
+* The parser is tested in insolation: https://github.com/llvm/llvm-project/blob/09c2b7c35af8c4bad39f03e9f60df8bd07323028/llvm/unittests/Support/TargetParserTest.cpp
+
+You can see similar definitions within GCC: 
+* Pre-processes the CLI arguments to add more specific flags: https://github.com/gcc-mirror/gcc/blob/16e2427f50c208dfe07d07f18009969502c25dc8/gcc/config/aarch64/driver-aarch64.c#L246
+* Extensions are defined here: https://github.com/gcc-mirror/gcc/blob/16e2427f50c208dfe07d07f18009969502c25dc8/gcc/config/aarch64/aarch64-option-extensions.def
+
+This RFC builds upon the following existing TVM RFCs:
 * This follows the original Target Specification RFC: https://discuss.tvm.apache.org/t/rfc-tvm-target-specification/6844
 * Pre-processor definitions follow the pattern set out in Target Hooks: https://github.com/apache/tvm-rfcs/blob/main/rfcs/0010-target-registered-compiler-flow-customisation.md
-* LLVM applies similar processing steps, using defined tables, for example: https://github.com/llvm/llvm-project/blob/7dddf12f448d7ed7e2e35a4de69b53bd140f12c0/llvm/lib/Target/ARM/ARM.td
-* GCC applies similar processing steps, using defined tables, for example: https://github.com/gcc-mirror/gcc/blob/16e2427f50c208dfe07d07f18009969502c25dc8/gcc/config/arm/arm-cpus.in
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
