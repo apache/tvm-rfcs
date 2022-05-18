@@ -13,7 +13,7 @@
 
 **Roadmap Maintainers: `denise-k, hypercubestart, MasterJH5574, YuchenJin, ZihengJiang`**
 
-**Roadmap Description:** This roadmap is intended to track the efforts of the Relay Next (Relax) project, which is an exploratory evolution of Relay IR to expand expressibility, performance, and portability for modern machine learning workloads. For more details, please see the discuss forum post [here](https://discuss.tvm.apache.org/t/relax-co-designing-high-level-abstraction-towards-tvm-unity/12496/4), the TVM Community Meeting from 04/20/2022 [here](https://www.youtube.com/watch?v=2aYWGOYmDFY), the TVMCon 2021 talk [here](https://www.youtube.com/watch?v=xVbkjJDMexo), and the project repository [here](https://github.com/tlc-pack/relax).
+**Roadmap Description:** This roadmap is intended to track the efforts of the Relay Next (Relax) project, which is an exploratory evolution of Relay IR to expand expressibility, performance, and portability for modern machine learning workloads. **This roadmap will specifically focus on RFCs, Tracking Issues and PRs relevant to the integration of Relax into TVM.** For more details on Relax, please see the discuss forum post [here](https://discuss.tvm.apache.org/t/relax-co-designing-high-level-abstraction-towards-tvm-unity/12496/4), the TVM Community Meeting from 04/20/2022 [here](https://www.youtube.com/watch?v=2aYWGOYmDFY), the TVMCon 2021 talk [here](https://www.youtube.com/watch?v=xVbkjJDMexo), and the project repository [here](https://github.com/tlc-pack/relax).
 
 # Scope
 
@@ -21,17 +21,17 @@
 
 Tasks in this roadmap are intended to track the Relax project. The roadmap items within the Relax project may fall into one of several categories:
 
-- **Design Principles:** The Relax community has had extensive design discussions and built consensus on a set of core design principles for the Relax project. As the project evolves, more of these design discussions will be surfaced to the Relax community, and they should be listed on the Relax roadmap so that the broader TVM community can provide their inputs.
-- **Core Infrastructure:** Relax aims to evolve Relay IR to enable core capabilities such as cross-IR interactions in TVM, first-class dynamic shape support and optimization, and customizable compilation pipelines. The Relax community is eager to consult the broader TVM community on these efforts, and the proposed roadmap is a concrete way of doing this.
-- **Outcome-Based:** Relax development follows a ‘vertical’ approach, in which certain outcomes (e.g. end-to-end performance parity with Relay on a static ResNet50 model) are used as initial proofpoints for larger efforts involving core infrastructure changes. These proofpoints empower the Relax and TVM community to build confidence in Relax’s design decisions.
+- **Technical RFCs:** The Relax community has had extensive design discussions and built consensus on a set of core design principles for the Relax project. As the project evolves, more of these design discussions will be surfaced to the TVM community, and relevant design discussions should be posted as **Technical RFCs** to TVM's [discuss forum](https://discuss.tvm.apache.org) and [RFC repo](https://github.com/apache/tvm-rfcs), then subsequently listed on the Relax roadmap to provide visibility to the broader TVM community so that they can provide their inputs.
+- **Tracking Issues:** Relax aims to evolve Relay IR to enable core capabilities such as cross-IR interactions in TVM, first-class dynamic shape support and optimization, and customizable compilation pipelines. As these efforts reach maturity, the Relax community intends to contribute these capabilities back to TVM. As such, after the relevant **Technical RFCs** are accepted by the TVM community, the Relax roadmap maintainers will create **Tracking Issues** relevant to each feature being integrated into TVM mainline.
+- **Outcome-Based:** Relax development follows a ‘vertical’ approach, in which certain outcomes (e.g. end-to-end performance parity with Relay on a static ResNet50 model) are used as initial proofpoints for the TVM community to build confidence in upstreaming and integrating Relax to TVM mainline.
 
 **Is the proposed roadmap intended to represent a perpetually ongoing set of efforts, or is there an end goal which will close/finalize the roadmap?**
 
-Relax is currently an exploratory project in the early phases of development. This proposed roadmap is intended to track the Relax project as it evolves. As the project matures, the Relax community will continue to consult and build consensus with the broader TVM community on the future of Relax. The community may then decide to finalize the Relax roadmap and track Relax efforts in the TVM Graph Computations and High-Level Optimizations roadmap.
+Relax is currently an exploratory project in the early phases of development. This proposed roadmap is intended to track the Relax project as it pertains to TVM. As the project matures, the Relax community will continue to consult and build consensus with the broader TVM community on the future integration of Relax into TVM. After the Relax project is fully integrated into TVM, the TVM community may then decide to finalize the Relax roadmap and track Relax efforts in the TVM Graph Computations and High-Level Optimizations roadmap.
 
 **Does the proposed roadmap have any scope overlaps with any existing roadmaps? If so, please list them.**
 
-The proposed roadmap is most closely related to the TVM Graph Computations and High-Level Optimizations roadmap, which tracks ongoing work related to Relay in TVM mainline. However, the scope remains separate since Relay and Relax are currently being developed separately.
+The proposed roadmap is most closely related to the TVM Graph Computations and High-Level Optimizations roadmap, which tracks ongoing work related to Relay in TVM mainline. However, the scope remains separate since Relax will initially have many more tasks related to upstreaming and integration back into TVM mainline.
 
 # Themes
 
