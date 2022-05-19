@@ -184,14 +184,22 @@ with tvm.transform.PassContext(
     module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
 ```
 
+### Pass Phases
+
+UMA allows users to register passes in different stages of the compilation pipeline called pass phases. They are motivated by the existing [TIR pass phases](https://tvm.apache.org/docs/how_to/extend_tvm/low_level_custom_pass.html?highlight=phase#glue-to-lowering) and provide new users with some orientation as to where they should put their custom passes in the entire compilation process. To be more expressive, pass phases are named enums of type `PassPhase`, e.g., `PassPhase.PRE_PARTITIONING`, `PassPhase.POST_PARTITIONING`. This makes them easier to extend and more intuitive to use than an int-based representation.
+
+Passes are divided into relay and TIR passes and can be registered as such (`_register_relay_pass`, `_register_tir_pass`). Each pass gets registered for a specific pass phase and the order of registration defines the order of exection within the same phase.
+
+Future versions of UMA could also provide a finer interface for where to register a pass by providing the passes dependencies, e.g., `_register_relay_pass(MyPass, before=PassA, after=(PassB, PassC))`. However, this would first require pass dependencies to be implemented in the TVM core since UMA only tries to wrap around existing TVM APIs. 
+
 ### UMA Target Hooks
 
-UMA uses target hooks (RFC #0010) to perform the lowering of the partitioned, accelerator specific functions from relay to TIR and TIR to runtime. To register the hooks from the python side, a global function `RegisterTarget` is registered on the C++ side and used during the backend registration.
+UMA uses target hooks (RFC [#0010](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0010-target-registered-compiler-flow-customisation.md)) to perform the lowering of the partitioned, accelerator specific functions from relay to TIR and TIR to runtime. To register the hooks from the python side, a global function `RegisterTarget` is registered on the C++ side and used during backend registration. To allow customization of the target, it is possible to pass target-specific attribute options which are registered in the UMABackend.
 
-```cpp
+```cpp   
 TVM_REGISTER_GLOBAL("relay.backend.contrib.uma.RegisterTarget")
-    .set_body_typed([](String target_name){
-        ::tvm::TargetKindRegEntry::RegisterOrGet(target_name)
+    .set_body_typed([](String target_name, Map<String, ObjectRef> attr_options){
+        auto target_kind = ::tvm::TargetKindRegEntry::RegisterOrGet(target_name)
         .set_name()
         .set_device_type(kDLCPU)
         .add_attr_option<Array<String>>("keys")
@@ -203,16 +211,52 @@ TVM_REGISTER_GLOBAL("relay.backend.contrib.uma.RegisterTarget")
         .add_attr_option<Integer>("from_device")
         .set_attr<FTVMRelayToTIR>("RelayToTIR", relay::contrib::uma::RelayToTIR(target_name))
         .set_attr<FTVMTIRToRuntime>("TIRToRuntime", relay::contrib::uma::TIRToRuntime);
+
+        for (auto &attr_option : attr_options) {
+          try {
+            target_kind.add_attr_option<String>(attr_option.first, Downcast<String>(attr_option.second));
+            continue;
+          } catch (...) {}
+          try {
+            target_kind.add_attr_option<Bool>(attr_option.first, Downcast<Bool>(attr_option.second));
+            continue;
+          } catch (...) {}
+          try {
+            target_kind.add_attr_option<Integer>(attr_option.first, Downcast<Integer>(attr_option.second));
+            continue;
+          } catch (...) {
+            LOG(FATAL) << "Attribute option of type " << attr_option.second->GetTypeKey() 
+                       << " can not be added. Only String, Integer, or Bool are supported.";
+          }
+        }
     });
 ```
+
+Future versions of UMA could support further customization of the target. One option that has been discussed is the possibility to also allow registration of target preprocessors (e.g., `.add_attrs_preprocessor(Preprocessor)`). A motivation for it in described in this [RFC](https://github.com/apache/tvm-rfcs/blob/1901b7361891fc7235b3bb8e80c89130cfe2c91d/rfcs/0070-target-preprocessing.md).
 
 ### UMABackend References
 
 UMA should function as an easy to use API, that also helps new users gain orientation in the codebase. To this end, all API functions are typed and documented with examples of their use and required input.
 
+#### `_register_target_attr`
+```python
+_register_target_attr(self, name: str, default: Optional[Union[str, int, bool]] = "") -> None
+```
+
+|Parameter|Description|
+|---------|-----------|
+|name|The name of the target attribute.|
+|default|A default value for the attribute. If none is provided, the attribute will be treated as a string.|
+
+Example usage:
+```python
+self._register_target_attr("attrA", default=0)
+self._register_target_attr("attrB", default=False)
+```
+
 #### `_register_relay_pass`
 ```python
-_register_relay_pass(self, phase: int, relay_pass: tvm.transform.Pass) -> None
+_register_relay_pass(self, phase: PassPhase, relay_pass: tvm.transform.Pass) -> None
 ```
 
 |Parameter|Description|
@@ -281,7 +325,7 @@ def custom_conv1d_strategy(attrs, inputs, out_type, target):
 
 #### `_register_tir_pass`
 ```python
-_register_tir_pass(self, phase: int, tir_pass: tvm.tir.transform.PrimFuncPass) -> None
+_register_tir_pass(self, phase: PassPhase, tir_pass: tvm.tir.transform.PrimFuncPass) -> None
 ```
 
 |Parameter|Description|
