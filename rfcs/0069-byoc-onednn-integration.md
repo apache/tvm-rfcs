@@ -40,16 +40,16 @@ Compilation config
 Runtime config
 - 20 warm-up and 100 batches
 
-![Figure 1 latency scenario](https://github.com/crazydemo/tvm-rfcs/blob/main/rfcs/assets/latest/latency.png)
+![Figure 1 latency scenario](assets/latest/latency.png)
 
-![Figure 2 Throughput scenario](https://github.com/crazydemo/tvm-rfcs/blob/main/rfcs/assets/latest/throughput.png) 
+![Figure 2 Throughput scenario](assets/latest/throughput.png) 
 
-![Figure 3 Real-time scenario](https://github.com/crazydemo/tvm-rfcs/blob/main/rfcs/assets/latest/real-time.png)
+![Figure 3 Real-time scenario](assets/latest/real-time.png)
 
 # Reference-level explanation
 This proposal aims to provide a new approach to integrate oneDNN into TVM via DNNL JSON codegen/runtime by applying the following adjustments to tackle the aforementioned issues: 
 - Register a new “alter_op_layout” function for dnnl to get the optimal layouts for dnnl ops with a new layout auto-query function in Relay.
-- Add a custom pass to rewrite “Conv-Add-Add- ReLu” pattern into “Conv-Add- ReLu” to better handle the pattern comes from BatchNorm Folding (“Conv-bias_add-BN-ReLu”).
+- Add a `simplifyConsecuitiveAdd` pattern in `simplify_expr` pass. So that, `FoldConstant` pass able to fuse pattern `conv-add-add-relu` (comes from `conv-bias_add-bn-relu`) into `conv-add-relu`.
 - Add a new pattern “Conv-Add-Sum-ReLu” for the fusion.
 - Remove the unnecessary memory copy in “dnnl_json_runtime.cc” with pointer assignment only.
 
