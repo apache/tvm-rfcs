@@ -51,10 +51,12 @@ Developers are heavily encouraged to use feature flags and Python API convention
 
 Even with this RFC the ultimate decision to releases rests with the community. If no one wants to do a release, then it will be skipped or delayed until the community agrees and a release manager can be selected.
 
+When publishing a new release, the release manager should also check the previous release version's branch to see if any commits have been added since the last release and publish a new minor version if so.
+
 ## Versioning
 The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release. The release manager will be responsible for maintaining the release until the next release, which mainly entails putting up a patch release if necessary. The release manager may also delegate this responsibility to another party if both agree.
 
-Releases will be supported and get patch updates so long as that minor version is the most recent. For example, version 0.N.0 will get patches until version 0.(N + 1).0 is released. Critical patch fixes may also be backported to older releases at the community and release manager's descretion. The release manager is responsible for patch releases as well, though they may delegate to another if they so choose.
+Releases will be supported and get patch updates so long as that minor version is the most recent. For example, version 0.N.0 will get patches until version 0.(N + 1).0 is released. Critical patch fixes may also be backported to older releases at the community and release manager's descretion. The release manager is responsible for patch releases for bug fixes as well, though they may delegate to another if they so choose.
 
 # Prior Work
 
