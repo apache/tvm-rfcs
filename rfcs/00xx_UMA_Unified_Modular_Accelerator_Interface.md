@@ -117,18 +117,20 @@ A custom accelerator is added by inheriting the `UMABackend`. New elements (e.g.
 class UltraTrailBackend(UMABackend):
     def __init__(self):
         super(UltraTrailBackend, self).__init__()
+	
+	# Target configuration
+        self._register_target_attr("dimension", default=8)
 
         # Relay to Relay function registration
         self._register_pattern("conv1d_relu", conv1d_relu_pattern())
 
-        self._register_relay_pass(1, ConfigGenerator())
-        self._register_relay_pass(2, BufferScopeAnnotator())
+        self._register_relay_pass(PassPhase.POST_PARTITIONING, ConfigGenerator())
+        self._register_relay_pass(PassPhase.POST_PARTITIONING, BufferScopeAnnotator())
 
         # Relay to TIR function registration
         self._register_operator_strategy("nn.conv1d", custom_conv1d_strategy)
 
-        self._register_tir_pass(0, CodegenGenerateConfig())
-        self._register_tir_pass(0, CodegenGenerateExternCalls())
+        self._register_tir_pass(PassPhase.TIR_PHASE_0, CodegenGenerateExternCalls())
 
         # TIR to runtime function registration
         self._register_codegen(format="c", includes=gen_includes, replace_call_extern=None)
@@ -266,7 +268,7 @@ _register_relay_pass(self, phase: PassPhase, relay_pass: tvm.transform.Pass) -> 
 
 Example usage:
 ```python
-self._register_relay_pass(0, MyPassA)
+self._register_relay_pass(PassPhase.RELAY_PASS_PHASE, MyPassA)
 
 # Where a relay pass can look like this:
 @tvm.ir.transform.module_pass(opt_level=0)
@@ -335,7 +337,7 @@ _register_tir_pass(self, phase: PassPhase, tir_pass: tvm.tir.transform.PrimFuncP
 
 Example usage:
 ```python
-self._register_tir_pass(0, MyPassA)
+self._register_tir_pass(PassPhase.TIR_PASS_PHASE, MyPassA)
 
 # Where a TIR pass can look like this:
 @tvm.tir.transform.prim_func_pass(opt_level=0)
