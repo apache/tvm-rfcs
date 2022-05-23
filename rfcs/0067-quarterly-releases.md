@@ -21,7 +21,7 @@ TVM has [release process documentation](https://tvm.apache.org/docs/contribute/r
 
 # Reference-level explanation
 
-Prior to a release a new, lightweight vote would instead be used to nominate a release manager, a committer who will be responsible for guiding along the release process. Releases will roughly match the quarterly [calendar dates](https://en.wikipedia.org/wiki/Calendar_year#Quarters) shifted two weeks earlier (Q1: mid March, Q2: mid June, Q3: mid September, Q4: mid December). The release manager will have final say on all dates and consideration should be given for their personal schedule. The timeline will be as follows:
+Prior to a release a new, lightweight vote would instead be used to nominate a release manager, a committer who will be responsible for guiding along the release process. Releases will be published roughly every three months, with one in January, April, July and October. The release manager will have final say on all dates and consideration should be given for their personal schedule. The timeline will be as follows:
 
 * Three weeks prior to the release
     * The release manager will cut a release branch and create a new tag
@@ -56,7 +56,7 @@ When publishing a new release, the release manager should also check the previou
 ## Versioning
 The release manager will use the release notes and discussions with developers to determine the next version number. Releases will continue the current versioning scheme of `major.minor.patch`, with a typical release involving a bump of the minor release version. Patch versions will be used for follow up releases onto a quarterly release, but not for the next quarter's release. The release manager will be responsible for maintaining the release until the next release, which mainly entails putting up a patch release if necessary. The release manager may also delegate this responsibility to another party if both agree.
 
-Releases will be supported and get patch updates so long as that minor version is the most recent. For example, version 0.N.0 will get patches until version 0.(N + 1).0 is released. Critical patch fixes may also be backported to older releases at the community and release manager's descretion. The release manager is responsible for patch releases for bug fixes as well, though they may delegate to another if they so choose.
+Releases will be supported and get patch updates so long as that minor version is the most recent. For example, version 0.N.0 will get patches until version 0.(N + 1).0 is released. Critical patch fixes may also be backported to older releases at the community and release manager's descretion. The release manager is responsible for patch releases for bug fixes as well, though they may delegate to another if they so choose. When asking for support on forums, one of the first steps for users should be to reproduce their bug on most recently nightly build of TVM.
 
 # Prior Work
 
