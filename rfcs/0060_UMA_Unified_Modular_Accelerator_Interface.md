@@ -8,7 +8,7 @@
       Philipp van Kempen @philippvk, Rafael Stahl @r.stahl, Daniel Müller-Gritschneder - Technical University of Munich
 	  Johannes Partzsch - TU Dresden
 	  Andrew Stevens - Infineon Technologies
-    RFC PR: TBD
+    RFC PR: https://github.com/apache/tvm-rfcs/pull/60
     GitHub Tracking Issue: https://github.com/apache/tvm/issues/11260
 
 ## Summary
