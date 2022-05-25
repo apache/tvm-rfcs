@@ -73,7 +73,7 @@ Accelerator support or optimization functions **outside** the scope of UMA are:
 The figure below describes the UMA interface from a top level. An *Accelerator Partitioner* which is a specialization of the *UMA Partitioner* takes the Relay graph and matches for supported and unsupported operators. Unsupported operators are processed with the default TVM flow. Supported operator are processed with **UMA Pipeline**.
 In the following the tasks and the functionality of each block in the figure below is described:
 
-![](assests/0060/uma_toplevel.png)
+![](assets/0060/uma_toplevel.png)
 
 UMA Partitioner: 
 * Register relay passes
@@ -84,7 +84,7 @@ UMA Partitioner:
 
 The figure below described the *UMA Pipeline*. The blocks are described below:
 
-![](assests/0060/uma_pipeline.png)
+![](assets/0060/uma_pipeline.png)
 
 UMA Pipelining:
 * Consists of UMALower and UMACodgen, which implement the target hook Relay-to-TIR and TIR-to-Runtime (proposed in [TVM-RFC0010])
