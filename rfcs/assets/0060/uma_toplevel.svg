@@ -45,10 +45,10 @@
      fit-margin-right="0"
      fit-margin-bottom="0"
      inkscape:zoom="1.0482005"
-     inkscape:cx="588.90869"
+     inkscape:cx="419.09385"
      inkscape:cy="167.16933"
-     inkscape:window-width="1916"
-     inkscape:window-height="946"
+     inkscape:window-width="1904"
+     inkscape:window-height="892"
      inkscape:window-x="0"
      inkscape:window-y="31"
      inkscape:window-maximized="1"
@@ -799,19 +799,21 @@
        id="path62709" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
+       style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;line-height:125%;font-family:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458299"
        x="133.63939"
        y="261.50671"
-       id="text62715"><tspan
+       id="text62715"
+       inkscape:export-xdpi="96"
+       inkscape:export-ydpi="96"><tspan
          sodipodi:role="line"
          x="133.63939"
          y="261.50671"
          id="tspan62713"
-         style="stroke-width:0.264583"><tspan
+         style="stroke-width:0.26458299"><tspan
            dx="0"
            dy="0"
-           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;font-family:Arial;fill:#000000;stroke-width:0.264583"
-           id="tspan62711">Accelerator  A</tspan></tspan></text>
+           style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23332977px;font-family:Arial;fill:#000000;stroke-width:0.26458299"
+           id="tspan62711">Accelerator  B</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:400;font-size:4.23333px;line-height:125%;font-family:Arial;text-align:start;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.264583"
