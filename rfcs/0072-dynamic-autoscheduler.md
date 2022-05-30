@@ -56,18 +56,27 @@ this RFC to MetaSchedule (AutoTIR), because it provides more systematic
 interface and cleaner integration path with less hacks.
 
 To provide an example of additional information users are required to feed the
-system:
+system (see https://github.com/UofT-EcoSystem/DietCode/tree/MLSys2022_AE for a
+PoC design):
 
 ```python
 # A symbolic shape constraint
 T = tir.ShapeVar('T’)
+I = tir.ShapeVar('I')
+H = tir.ShapeVar('H')
 # The candidate values of `T`
-T_vals = list(range(1, 128))
+T_vals = range(1, 128)
+wkl_insts = []
+for t in T_vals:
+  wkl_insts.append((t, 768, 768))
+  wkl_insts.append((t, 768, 3072))
+  wkl_insts.append((t, 3072, 768))
+
 
 task = Task(func=Dense,
-            args=(16*T, 768, 2304),
-            shape_vars=(T,),
-            wkl_insts=(T_vals,)
+            args=(16*T, I, H),
+            shape_vars=(T, I, H),
+            wkl_insts=wkl_insts
             wkl_inst_weights=([1. for _ in T_vals],))
 ```
 
@@ -87,6 +96,9 @@ Here is an overview of the DietCode framework design.
 
 <img src="https://raw.githubusercontent.com/UofT-EcoSystem/DietCode/main/docs/figures/DietCode.jpg" width="61.8%" />
 
+- We accept the shape variables and the workload instances from the programmer.
+  In the case when they are not detected, the auto-scheduler treats the workload
+  as static and applies and current workflow on it.
 - We construct **a shape-generic search space that consists of micro-kernels**,
   an incomplete program that carries out a tile of the complete computation, to
   efficiently support dynamic-shape workloads. 
@@ -110,6 +122,27 @@ Here is an overview of the DietCode framework design.
   *f*<sub>adapt</sub> is a simple term that can be evaluated using the core
   occupancy and the padding ratio (in other words, it does not require feature
   extraction from the schedules).
+- We generate one kernel per workload instance and use the scikit-learn
+  framework to train a decision tree dispatcher to map the workload instance to
+  its corresponding kernel. The decision tree will be output in predicate-only
+  format for efficient runtime dispatching and embedded as part of the host
+  code. As an example, one possible auto-scheduling outcome can look like the
+  following:
+  ```C++
+  __global__ void default_function0(float* X, float* W, float* Y) {...}
+  __global__ void default_function1(float* X, float* W, float* Y) {...}
+  __global__ void default_function2(float* X, float* W, float* Y) {...}
+
+  // host code
+  if (T < 16)
+    call(default_function0)
+  else if (T < 64)
+    call(default_function1)
+  else
+    call(default_function2)
+  ```
+  Because everything can be included in a single `PackedFunc` object, the
+  workflow is fully compatible with the Relay workflow.
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -197,7 +230,7 @@ corresponds to a PR with unit tests of roughly several hundred lines.
 - [ ] Code Generation Support
   - Local Padding
   - Loop Partitioning
-- [ ] Auto-Scheduler
+- [ ] Meta-Scheduler
   - Frontend Interface
   - Sketch Generation
   - Random Annotations
@@ -205,3 +238,10 @@ corresponds to a PR with unit tests of roughly several hundred lines.
   - Micro-Kernel Cost Model
   - Evolutionary Search
 - [ ] Decision-Tree Dispatching
+
+When testing, we will be following the same testing procedure with the
+meta-scheduler. We do not require any extra hardware platforms. Our plan is to
+use a dynamic-shape workload (i.e., dense from BERT and conv2d from ResNet-50)
+and compare its performance numbers with those delivered by the meta-scheduler
+on static-shape workloads. The performance difference is expected to be smaller
+than 5%.
