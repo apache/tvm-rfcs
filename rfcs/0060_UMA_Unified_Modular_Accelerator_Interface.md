@@ -140,6 +140,29 @@ class UltraTrailBackend(UMABackend):
         return "ultra_trail"
 ```
 
+### Using a Custom Backend
+
+A new custom backend is created by implementing the `UMABackend` as shown in the [previous section](#adding-a-new-custom-accelerator). To use the backend it simply needs to be registered using `backend.register()`. Once a `UMABackend` is registered, it hooks into the usual `relay.build` process to create the code for the target accelerator.
+```
+# Load model
+mod, params = relay.frontend.from_pytorch(scripted_model, [("input_data", input_shape)])
+
+# Register a UMA backend
+ut_backend = UltraTrailBackend()
+ut_backend.register()
+mod = ut_backend.partition(mod)
+
+# Relay build (AOT C target)
+TARGET = tvm.target.Target("c")
+RUNTIME = tvm.relay.backend.Runtime("crt")
+EXECUTOR = tvm.relay.backend.Executor("aot", {"unpacked-api": True})
+
+with tvm.transform.PassContext(
+    opt_level=3, config={"tir.disable_vectorize": True}, disabled_pass=["AlterOpLayout"]
+):
+    module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
+```
+
 ## Reference-level explanation 
 
 ### File and class structure and Snippets as example for integration
@@ -161,29 +184,6 @@ UMA provides a fully python-based API. The API is structured as shown below. The
 │   └── strategies.py
 └── accelerator_B
     └── ...
-```
-
-### UMABackend class
-
-A new custom backend is created by implementing the `UMABackend` as shown in the [Guide-level explanation](#adding-a-new-custom-accelerator). To use the backend it simply needs to be registered using `backend.register()`. Once a `UMABackend` is registered, it hooks into the usual `relay.build` process to create the code for the target accelerator.
-```
-# Load model
-mod, params = relay.frontend.from_pytorch(scripted_model, [("input_data", input_shape)])
-
-# Register a UMA backend
-ut_backend = UltraTrailBackend()
-ut_backend.register()
-mod = ut_backend.partition(mod)
-
-# Relay build (AOT C target)
-TARGET = tvm.target.Target("c")
-RUNTIME = tvm.relay.backend.Runtime("crt")
-EXECUTOR = tvm.relay.backend.Executor("aot", {"unpacked-api": True})
-
-with tvm.transform.PassContext(
-    opt_level=3, config={"tir.disable_vectorize": True}, disabled_pass=["AlterOpLayout"]
-):
-    module = relay.build(mod, target=TARGET, runtime=RUNTIME, executor=EXECUTOR, params=params)
 ```
 
 ### Pass Phases
