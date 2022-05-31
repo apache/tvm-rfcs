@@ -454,6 +454,74 @@ to the existing printer.
 
 N/A
 
+# Rationale and alternatives
+[rationale-and-alternatives]: #rationale-and-alternatives
+
+Compared to the existing way of printing TVMScript in single stage, introducing
+two-stage printing will certainly increase the amount of code that needs to be
+written. However, we believe two-stage printing is the right choice because it
+reduces the complexity in the printing logic of each IR dialect by removing
+unneccessary details about the target language syntax and string operations.
+Therefore, it's more scalable if we want to support printing multiple kinds of
+IR (TIR, Relax, and any potential third-party IRs in the future).
+
+For example, printing buffer region (like `A[1:10, 2]`) in the current printer looks like
+
+```cpp
+Doc TVMScriptPrinter::PrintBufferRegion(const BufferRegionNode* op) {
+  Doc doc;
+  if (op->region.size() == 0) {
+    doc << Print(op->buffer) << "[()]";
+  } else {
+    doc << Print(op->buffer) << "[";
+    for (size_t i = 0; i < op->region.size(); ++i) {
+      if (i != 0) doc << ", ";
+      const auto& range = op->region[i];
+      if (!is_one(range->extent)) {
+        doc << Print(range->min) << " : " << Print(ana_.Simplify(range->min + range->extent));
+      } else {
+        doc << Print(range->min);
+      }
+    }
+    doc << "]";
+  }
+  return doc;
+}
+```
+
+while in the unified printer with two-stage printing
+
+```cpp
+ExprDoc PrintBufferRegion(tir::BufferRegion buffer_region, IRDocsifier p) {
+  Array<Doc> indices;
+
+  for (const Range& range : buffer_region->region) {
+    if (tir::is_one(range->extent)) {
+      indices.push_back(p->AsExprDoc(range->min));
+    } else {
+      indices.push_back(p->AsExprDoc(range));
+    }
+  }
+
+  return p->AsExprDoc(buffer_region->buffer)->Index(indices);
+}
+```
+
+The latter one is much simpler because it's free from the noisy code on how to
+print the script in valid index syntax in Python. 
+
+Assume the printer needs to support `k` IRs, and it takes `m` time to develop
+the logic around IR semantics and `n` time to develop the logic around target
+language syntax. It will take `k*(m+n)` time if we use single-stage printing
+and `km + n` time if we adopt two-stage printing. We believe the cost of
+extending the Doc class will be paid off as soon as `k` is larger than one,
+based on our PoC on using two-stage printing for TIR.
+
+Additionally, with two-stage printing we can change the output language from
+Python to other languages easily. Although we will still focus on TVMScript in
+Python in the foreseeable future, having such flexibilty is a nice additional
+benefit.
+
 # Prior art
 [prior-art]: #prior-art
 
