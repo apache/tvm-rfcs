@@ -3,7 +3,7 @@
            [Wuwei Lin](https://github.com/vinx13/),
            [Junru Shao](https://github.com/junrushao1994)
 - Start Date: 2022-06-06
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0077](https://github.com/apache/tvm-rfcs/pull/0077)
 - GitHub Issue: TBD
 
 # Table of contents
