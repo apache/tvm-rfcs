@@ -1,5 +1,6 @@
 - Feature Name: Layout Transformation Padding Roadmap
-- Authors: [Lunderberg](https://github.com/Lunderberg/),
+- Authors: [Eric Lunderberg](https://github.com/Lunderberg/),
+           [Chris Sullivan](https://github.com/csullivan),
            [Wuwei Lin](https://github.com/vinx13/),
            [Junru Shao](https://github.com/junrushao1994)
 - Start Date: 2022-06-06
