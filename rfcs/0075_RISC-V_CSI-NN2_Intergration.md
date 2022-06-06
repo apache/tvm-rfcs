@@ -78,8 +78,13 @@ PS: If you are interested in XuanTie C906 processor, [the D1 development board]
   ```
 
 - Running RPC service on device.
-
-- Connect the device and run.
+  
+  ```bash
+  cd build-rv
+  ./tvm_rpc server --host=172.16.202.11(your device ip) --port=9090
+  # or using QEMU
+  qemu-riscv64 -cpu c906fdv -L /path/to/csi-nn2/tools/gcc-toolchain/sysroot/ ./tvm_rpc server --host=127.0.0.1 --port=9090
+  ```
 
 # Reference-level explanation
 
