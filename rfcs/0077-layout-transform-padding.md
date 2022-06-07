@@ -18,7 +18,7 @@
 - [Reference-level explanation](#reference-level-explanation)
   - [TIR Changes](#tir-changes)
     - [Buffer Annotation of Padding Predicate/Constraint Pairs](#buffer-annotation-of-padding-predicateconstraint-pairs)
-    - [New TIR Op, `tir::builtin::arbitrary`](#new-tir-op-tirbuiltinarbitrary)
+    - [New TIR Op, `tir::builtin::undef`](#new-tir-op-tirbuiltinundef)
     - [Buffer Annotation of Layout Transforms](#buffer-annotation-of-layout-transforms)
   - [Transformations/Metaschedule Primitives](#transformationsmetaschedule-primitives)
     - [Enhancement - transform_layout](#enhancement---transform_layout)
@@ -32,7 +32,7 @@
     - [Utility - Merge Adjacent Loops](#utility---merge-adjacent-loops)
     - [New Primitive - Remove Branching Through Overcompute](#new-primitive---remove-branching-through-overcompute)
     - [New Primitive - Remove Overcompute Through Branching](#new-primitive---remove-overcompute-through-branching)
-    - [New Lowering Transform - Remove T.Arbitrary](#new-lowering-transform---remove-tarbitrary)
+    - [New Lowering Transform - Remove T.Undef](#new-lowering-transform---remove-tundef)
   - [Implementation options](#implementation-options)
     - [Never write to transformation padding](#never-write-to-transformation-padding)
     - [Never read from transformation padding](#never-read-from-transformation-padding)
@@ -188,9 +188,9 @@ sched[B].transform_layout(transform, pad_value=lambda io,ii: None)
 sched[B].transform_layout(transform, pad_value=0.0)
 sched[B].transform_layout(transform, pad_value=lambda io,ii: 0.0)
 
-# Padding is introduced, and contains arbitrary values.
-sched[B].transform_layout(transform, pad_value=tir.arbitrary(dtype="float32"))
-sched[B].transform_layout(transform, pad_value=lambda io,ii: tir.arbitrary(dtype="float32"))
+# Padding is introduced, and contains undefined values.
+sched[B].transform_layout(transform, pad_value=tir.undef(dtype="float32"))
+sched[B].transform_layout(transform, pad_value=lambda io,ii: tir.undef(dtype="float32"))
 
 # Padding is introduced, and wraps to the beginning of the array.
 sched[B].transform_layout(transform, pad_value=lambda io,ii: B[0, (io-14)%4])
@@ -309,15 +309,36 @@ determined based on the transformation, and is true for any index
 corresponding to the transformation padding.  The `value` field is
 defined by the user input in `pad_value`
 
-### New TIR Op, `tir::builtin::arbitrary`
+### New TIR Op, `tir::builtin::undef`
 
 A placeholder that represents a valid, but arbitrary value.  This is
-primarily used to allow simplifications in a producer.  See [section
-on element-wise
+intended for use as `BufferConstraintNode::value`, to indicate that it
+is legal to access the address, but that no further constraints are
+placed on the value present in the buffer.  This is primarily used to
+allow simplifications in a producer, as any partial computations
+written to this space (e.g. by vectorized operations) may be left
+as-is.
+
+
+* Multiplication of `0 * undef` may be simplified to zero, for both
+  integer and floating-point types.
+
+* A pure expression that uses `undef` can be simplified to `undef`.
+
+* `undef` may not occur in the indices used to access a buffer.
+
+* Two separate invocations instances of `undef` may not be assumed to
+  be identical.  For example, the expression `undef - undef` may not
+  be simplified to zero.  If this behavior is desired, the `undef` may
+  be assigned in a `tir::LetStmt`,
+
+* Storing a value of `undef` to a buffer is a no-op, and is removed
+  during lowering.  (See [section on
+  `tir.transform.RemoveUndefStore`](#new-lowering-transform-remove-tundef).)
+
+See [section on element-wise
 transformations](#apply-operator-element-wise-over-the-transformation-padding)
-for example usage, and [section on
-`tir.transform.RemoveArbitraryStore`](#new-lowering-transform-remove-tarbitrary)
-for its removal.
+for example usage.
 
 
 ### Buffer Annotation of Layout Transforms
@@ -1263,15 +1284,15 @@ def func(
 ```
 
 
-### New Lowering Transform - Remove T.Arbitrary
+### New Lowering Transform - Remove T.Undef
 
 This introduces a new lowering pass
-`tir.transform.RemoveArbitraryStore`, which occurs at the start of
+`tir.transform.RemoveStoreUndef`, which occurs at the start of
 phase 1.  For all `BufferStore` nodes, if the value being written
-contains `T.arbitrary()`, replace the store with a no-op.
+contains `T.undef()`, replace the store with a no-op.
 
 After this pass, the `PrimFunc` should not contain any calls to the
-builtin `T.arbitrary()`.
+builtin `T.undef()`.
 
 
 ## Implementation options
@@ -2175,14 +2196,14 @@ def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(14,), "int32"]):
         B[i] = 2 * A[i]
 
 
-# sched.transform_layout(A, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.arbitrary())
+# sched.transform_layout(A, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.undef())
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(14,), "int32"]):
     for i in T.serial(14):
         B[i] = 2 * A[i // 4, i % 4]
 
 
-# sched.transform_layout(B, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.arbitrary())
+# sched.transform_layout(B, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.undef())
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for i in T.serial(14):
@@ -2190,7 +2211,7 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 
 
 # sched.sequential_buffer_access(B)
@@ -2202,14 +2223,14 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 
 
 # sched.remove_branching_through_overcompute()
 #
 # If 4*io+ii >= 14, then io==3 and ii>=2.  Therefore, in the if/else
 # below, the else block only writes to indices that are later
-# overwritten by T.arbitrary().
+# overwritten by T.undef().
 #
 # if 0 <= 4 * io + ii < 14:
 #     B[io, ii] = 2 * A[io, ii]
@@ -2225,16 +2246,16 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 
-# tir.transform.RemoveArbitraryStore
+# tir.transform.RemoveStoreUndef
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io, ii in T.grid(4, 4):
         B[io, ii] = 2 * A[io, ii]
 ```
 
-This uses the `T.arbitrary()` placeholder to determine that the
+This uses the `T.undef()` placeholder to determine that the
 overcompute can be performed without impacting any desired output,
 followed by removing these placeholders.
 
@@ -2259,7 +2280,7 @@ def func(A: T.Buffer[(14, 60), "int32"], B: T.Buffer[(14,), "int32"]):
 ```
 
 ```python
-# First transformation of A, reads on `io==3 and ii>=2` are valid, but return arbitrary value.
+# First transformation of A, reads on `io==3 and ii>=2` are valid, but return undefined value.
 # sched.transform_layout(
 #     A,
 #     lambda i, j: [i // 4, i % 4, j],
@@ -2291,7 +2312,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(14,), "int32"]):
 # sched.transform(
 #     B,
 #     lambda i: [i // 4, i % 4],
-#     pad_value=lambda io, ii: tir.arbitrary(),
+#     pad_value=lambda io, ii: tir.undef(),
 # )
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
@@ -2302,7 +2323,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 
 # sched.sequential_buffer_access(A)
 @T.prim_func
@@ -2316,7 +2337,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 
 # sched.remove_branching_through_overcompute()
 @T.prim_func
@@ -2328,11 +2349,11 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii in T.grid(4,4):
         if io==3 and ii>=2:
-            B[io,ii] = T.arbitrary()
+            B[io,ii] = T.undef()
 ```
 
 ```python
-# tir.transform.RemoveArbitraryStores()
+# tir.transform.RemoveStoreUndef()
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io, ii in T.grid(4, 4):
@@ -2344,7 +2365,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
 In this example, `A` has different pading values stored along the `i`
 and `j` dimensions.  Because padding along `jo` and `ji` has zeros,
 the `B[io,ii] = B[io,ii] + 0` can be reduced to a no-op.  Because
-padding along `io` and `ii` is later overwritten by `T.arbitrary()`,
+padding along `io` and `ii` is later overwritten by `T.undef()`,
 the `B[io,ii] = 0` and `B[io,ii] = B[io,ii] + A[io,ii,jo,ji]` are
 overwritten, and therefore can be inserted as a no-op.
 
@@ -2411,7 +2432,7 @@ no-ops, in order to prove that a branch can be removed.
 
   Deciding against this option, for two main reasons.  First, some
   implementation styles can only be used if constraints are met for
-  both the input and output buffers (e.g. [propagating arbitrary
+  both the input and output buffers (e.g. [propagating undef
   values from input padding to output padding](#apply-operator-
   element-wise-over-the-transformation-padding)), which makes it
   unclear which `layout_transform` should rewrite the access pattern.
@@ -2422,20 +2443,11 @@ no-ops, in order to prove that a branch can be removed.
 # Prior art
 [prior-art]: #prior-art
 
-Discuss prior art, both the good and the bad, in relation to this proposal.
-A few examples of what this can include are:
-
-- Does this feature exist in other ML compilers or languages and discuss the experience their community has had?
-- For community proposals: Is this done by some other community and what were their experiences with it?
-- For other teams: What lessons can we learn from what other communities have done here?
-- Papers: Are there any published papers or great posts that discuss this?
-  If you have some relevant papers to refer to, this can serve as a more detailed theoretical background.
-
-If there is no prior art, that is fine - your ideas are interesting to us whether they are
-  brand new or if it is an adaptation from other languages.
-
-Note that while precedent set by other languages is some motivation, it does not on its own motivate an RFC.
-Please also take into consideration that TVM intentionally diverges from other compilers.
+- The `tir::builtin::undef` has similar semantics to [LLVM's
+  `undef`](https://llvm.org/docs/LangRef.html#undefvalues).  The
+  primary use by TVM is described "A store of an undefined value can
+  be assumed to not have any effect; we can assume that the value is
+  overwritten with bits that happen to match what was already there."
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
