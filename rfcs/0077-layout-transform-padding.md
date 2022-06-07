@@ -23,7 +23,7 @@
   - [Transformations/Metaschedule Primitives](#transformationsmetaschedule-primitives)
     - [Enhancement - transform_layout](#enhancement---transform_layout)
     - [New Primitive - Add buffer constraint](#new-primitive---add-buffer-constraint)
-    - [New Primitive - Reorder Loops According to Buffer](#new-primitive---reorder-loops-according-to-buffer)
+    - [New Utility - Reorder Loops According to Buffer](#new-utility---reorder-loops-according-to-buffer)
     - [Enhancement - Predicate for DomainTouched](#enhancement---predicate-for-domaintouched)
     - [Enhancement - Remove No Op](#enhancement---remove-no-op)
     - [Enhancement - Simplify](#enhancement---simplify)
@@ -391,7 +391,7 @@ default implementation should not perform these simplification yet, as
 this form is useful for [merging
 loopnests](#utility-merge-adjacent-loops) after [rewriting for
 sequential buffer
-access](#new-primitive-reorder-loops-according-to-buffer).
+access](#new-utility-reorder-loops-according-to-buffer).
 
 In TE, the producer is the stage that outputs the transformed tensor.
 In TIR, the producer is the block that writes to all values of the
@@ -407,13 +407,18 @@ an existing buffer, and can be used independently of
 default value for out-of-bounds reads (e.g. texture memory clamping on
 a GPU).
 
-### New Primitive - Reorder Loops According to Buffer
+### New Utility - Reorder Loops According to Buffer
 
 By default in S-TIR, `transform_layout` modifies the underlying layout
 of a buffer, but does not re-order loops that iterate over the buffer.
-A new S-TIR transformation `Schedule.sequential_buffer_access` should
-be introduced, which rewrites iteration loops according to the access
-pattern of a buffer.
+The loop iterators can be re-written using split/fuse/reorder, but
+doing so requires the user to manually translate the layout
+transformation into the appropriate sequence of schedule primitives.
+
+A new utility method `Schedule.sequential_buffer_access` should be
+introduced, which generates and applies the sequence of
+split/fuse/reorder schedule primitives such that the loop iterators are
+rewritten for sequential access of a specific buffer.
 
 ```python
 # Original function
@@ -444,12 +449,7 @@ This transformation is similar to what can be done using
 split/fuse/reorder, but has two key differences.  First, it presents a
 simpler user experience, as a transformed buffer can be accessed
 sequentially without needing to duplicate the information in the
-transformation.  Second, specifying the metaschedule primitive in
-terms of the transformed buffer may be beneficial for automatic
-optimization.  In the current form, where the layout transformations
-and loop transformations are specified independently, an optimizer may
-become stuck in a local minimum, unable to vary the data layout
-without breaking the sequential data access.
+transformation.
 
 Similar to `Schedule.split`, if the loop extents do not evenly divide
 the transformation being applied, this primitive must introduce
@@ -650,8 +650,8 @@ def conv1d_cumsum(
                 B[i // 4, i % 4] = B[i // 4, i % 4] + F[f] * A[(i + f) // 4, (i + f) % 4]
 ```
 
-This is not required for the TE interface, as the loopnest of an
-output is automatically rewritten to a row-major traversal.
+This utility is not required for the TE interface, as the loopnest of
+an output tensor is automatically rewritten to a row-major traversal.
 
 
 ### Enhancement - Predicate for DomainTouched
@@ -2439,6 +2439,12 @@ no-ops, in order to prove that a branch can be removed.
   Second, enumerating these access patterns for all possible input and
   output buffers would be non-trivial, especially for operators with
   multiple input buffers, each of which may have a different layout.
+  
+- Should `Schedule.sequential_buffer_access` be an independent
+  schedule primitive, rather than a wrapper around existing
+  primitives?
+  
+  No.  The separate primitives are expected to be irreducible.
 
 # Prior art
 [prior-art]: #prior-art
