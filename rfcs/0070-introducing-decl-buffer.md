@@ -2,7 +2,7 @@
 - Author: Wuwei Lin (@vinx13), Eric Lunderberg (@Lunderberg)
 - Start Date: 2022-05-04
 - RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/70)
-- GitHub Issue: TBD
+- GitHub Issue: https://github.com/apache/tvm/issues/11627
 
 # Summary
 [summary]: #summary
@@ -207,4 +207,6 @@ is to assume the aliasing buffer is valid, and rely on codegen to handle buffer 
 With explicit `DeclBuffer` statement in TIR, we can introduce analysis passes for buffer aliasing.
 This will help the existing TIR passes to explicitly examine whether their assumption on buffer
 aliasing are satisfied.
+
+After this RFC, in the lowered TIR, we need to use two separate statements, `T.allocate` and `T.decl_buffer` to allocate a buffer data pointer and then declare the buffer. In the future, we can consider providing syntax sugar to allow `T.allocate` to return a buffer. This would require some investigation how we should achieve TVMScript - TIR bidirectional translation.
 
