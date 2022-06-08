@@ -138,6 +138,12 @@ def elemwise(A: T.Buffer[(16, 16), "float32"], C: T.Buffer[(16, 16), "float32"])
         C_flattened[i * 16 + j] = A[i * 16 + j]
 ```
 
+Specifically, the updated flow of buffer flattening using `DeclBuffer` will be:
+1. Before `FlattenBuffer/StorageFlatten`: Buffers are declared in the `buffer_map`, and are not flattened. Buffer access is done using N-d unflattened indices.
+2. After `FlattenBuffer/StorageFlatten`, but before `MakePackedAPI`: Buffers are declared in the `buffer_map`, and are not flattened. Buffer access is done through a buffer alias explicitly created via `DeclBuffer`, where the alias shares the same data pointer, but has a flattened shape and is accessed with flattened indices.
+3. After `MakePackedAPI`: The `buffer_map` is empty. Declarations of flattened buffers are done using the handles extracted using `tvm_struct_get`. 
+It will use explicit `DeclBuffer` to mark the use of the `T.handle` in the function parameters. These flattened buffers are accessed with flattened indices.
+
 ## TVM script updates
 * `T.allocate` will return data variable instead of a buffer. If the subsequent program need to access
 the data variable as a buffer, it should use `T.decl_buffer` to declare the buffer.
