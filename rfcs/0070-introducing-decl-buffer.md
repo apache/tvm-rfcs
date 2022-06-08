@@ -27,7 +27,7 @@ def buffer_alias(A: T.Buffer[(16,), "float"]):
 However, `T.buffer_decl` doesn’t translate to a node in AST. The AST will be
 ```
 PrimFunc {
-  buffer_map: {A: Buffer[(16,), "float"},
+  buffer_map: {A_data: Buffer(data=A_data, ...)},
   body: Evaluate {
     BufferLoad {
       buffer: Buffer(data = A.data, [4], "float32x4")  # implicit creation of new buffer
@@ -74,19 +74,21 @@ The intermediate buffer inside `PrimFunc` can be declared and allocated in the f
 
 ```
 Allocate {
-  data: A_data(Var(name=...))
-  extent: ...
+  data: A_data{Var(data = ..., )},
+  extent: ...,
   body: DeclBuffer {
-    buffer: A(data=A_data, dtype=..., shape=...),
+    buffer: Buffer(data=A_data, dtype=..., shape=...),
     body: {
       ...
     }
   }
 }
 ```
-
-Alternatively, a buffer can be declared first and then allocated. In this case, any usage of the
-buffer before it is allocated is not allowed.
+This can also be represented in TVMScript:
+```
+A_data = T.allocate(shape=..., dtype=...)
+A = T.decl_buffer(data=A_data)
+```
 
 ## Declaration of buffer alias
 Buffer declared in `DeclBuffer` can reuse data variable from another buffer. This creates a buffer
