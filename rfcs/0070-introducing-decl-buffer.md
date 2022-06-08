@@ -143,6 +143,15 @@ def elemwise(A: T.Buffer[(16, 16), "float32"], C: T.Buffer[(16, 16), "float32"])
 the data variable as a buffer, it should use `T.decl_buffer` to declare the buffer.
 * `T.buffer_decl` will be renamed to `T.decl_buffer`.
 
+## TIR validation
+With `DeclBuffer` introduced, we can implement utilities for TIR validation. It will enforce that:
+* No implicit buffer declaration. In lowered TIR, buffers must be defined explicitly via `DeclBuffer`.
+* No undefined buffer. Buffer in `DeclBuffer` must have been allocated, that is, the data variable
+of the buffer must be from the function parameters, `AllocateNode`, alias of other buffers, or from
+the return value of other functions (*).
+
+(*) Note: After `MakePackedAPI`, the backing buffers are the return value of `@tir.tvm_struct_get`. 
+It could also be an entirely separate function call, such as `data: T.Ptr[T.int32] = T.call_extern("device_specific_malloc", 1024, dtype="handle")`.
 ## Engineering plan
 This RFC introduces a TIR change that may require significant refactor to the existing codebase.
 It can be decomposed into three parts to reduce a pull request size.
