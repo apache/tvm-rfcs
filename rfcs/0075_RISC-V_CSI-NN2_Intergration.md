@@ -25,7 +25,7 @@ PS: If you are interested in XuanTie C906 processor, [the D1 development board]
     
     ```cmake
     set(USE_OPENMP gnu)
-    set(USE_CSINN /path/to/csi-nn2)
+    set(USE_CSINN /path/to/csi-nn2/install)
     set(USE_CSINN_DEVICE_RUNTIME X86)
     ```
   
@@ -68,7 +68,7 @@ PS: If you are interested in XuanTie C906 processor, [the D1 development board]
   csinn_module = csinn.partition_for_csinn(module)
   
   # Build the Relay graph.
-  with tvm.target.Target("llvm -mtriple=riscv64-unknown-linux-gnu -mcpu=sifive-u74 -mabi=lp64d"):
+  with tvm.target.Target("llvm -mtriple=riscv64-unknown-linux-gnu -mcpu=generic-rv64 -mabi=lp64d -mattr=+64bit,+m,+a,+f,+d,+c"):
       factory = tvm.relay.build(csinn_module)
   
   # Export the module
@@ -80,6 +80,7 @@ PS: If you are interested in XuanTie C906 processor, [the D1 development board]
 - Running RPC service on device.
   
   ```bash
+  # on your device
   cd build-rv
   ./tvm_rpc server --host=172.16.202.11(your device ip) --port=9090
   # or using QEMU
