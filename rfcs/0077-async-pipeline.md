@@ -2,12 +2,14 @@
 - Start Date: (2022-06-17)
 
 # Summary
-This RFC proposes two TIR intrinsics and an additional annotation to the TIR software pipeline transform, to express asynchrony within **the device code**.
+This RFC proposes two TIR intrinsics and an additional annotation to the TIR software pipeline transform, to express asynchrony **within the device code**.
 Asynchrony is prevalent on the host (runtime) side, and this proposal is the first step toward bringing the notion of an asynchronous operation in the
 generated code.
 
 The most important component we should agree on is the model of synchronization: Coming up with a design that is general enough to be useful for diverse backends, while making sure that the chosen design can be translated to a low-level synchronization model of a particular backend, is highly non-trivial.
-The approach described in this document is motivated by a use case for NVIDIA GPUs, but we took some cares so that the design can be adopted by other backends. The proposed model may have diverged from conventional ones, but we believe that this is a good for the TIR software pipeline specifically.
+The approach described in this document is motivated by a use case for NVIDIA GPUs, but we took some cares so that the design can be adopted by other backends. For example, if a backend has an asynchronous DMA engine, vector and compute unit, we can specify that each of them runs asynchronously in different stages in a pipeline, with necessary synchronization between them.
+
+The proposed model may have diverged from conventional ones, but we believe that this is a good for the TIR software pipeline specifically.
 
 # Asynchronous stage in a software pipeline
 
@@ -23,7 +25,7 @@ for i in range(16):
     C[i] = B[0] + 1
 ```
 
-the goal is to overlap the execution of two statements in the loop body, by letting the two statements operate on different iterations of a loop. This way, the second statement would no longer depend on the completion of the first statement in the same iteration.
+the goal is to overlap the execution of two statements in the loop body, by letting the two statements operate on different iterations of the loop. This way, the second statement would no longer depend on the completion of the first statement in the same iteration.
 
 The TIR software pipeline transform enables such transformation at the TIR level. We annotate the loop in the above program to specify, for each statement in the loop, the “stage” and the “order” in the pipeline:
 
@@ -50,11 +52,11 @@ for i in range(15):
 C[15] = B[1] + 1
 ```
 
-The two statements in the body can potentially run in parallel, if the underlying HW support out-of-order execution.
+The two statements in the body can potentially run in parallel, if the underlying HW supports out-of-order execution.
 
 ### Making parallelism more explicit: Asynchronous pipeline
 
-What’s currently available today is, after all, a “software” pipeline: whether or not independent statements actually run in parallel is up to the underlying HW, and programmers have little control over it. Moreover, for in-order processors like Hexagon DSP, this transformation alone wouldn’t help.
+What’s currently available today is, after all, a “software” pipeline: whether or not independent statements actually run in parallel is up to the underlying HW, and programmers have little control over it. Moreover, for in-order processors like Hexagon DSP, this transformation alone would not help.
 
 The goal of this work is to support HW-backed asynchrony in the pipeline. Asynchronous data movement is becoming increasingly important in GPU computing, and NPUs typically have multiple kinds of asynchronous units (DMA copy, vector & matrix compute etc). To exploit such hardware features, it’s essential that we express all kinds of available asynchronies in the IR.
 
@@ -104,18 +106,18 @@ Semantics of the proposed intrinsics is as follows. “stage” refers to the sa
 
 They directly correspond to the async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
 
-The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_stage` and `async_wait_stage` takes a “stage” parameter.
+The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_stage` and `async_wait_stage` take a “stage” parameter.
 
 ### `wait(in-flight-count)` vs `wait(finished-count)`
 
  It would be more intuitive if the semantics of `wait(N)` was “Wait until the oldest N async operations have completed”. But that would make translation to the corresponding PTX instruction more complicated, since we additionally need to keep track of the “number of async operations in-flight” at each synchronization point, and make that an additional argument to `async_wait_stage` so that we can do subtraction during translation of `async_wait_stage` to `cp.async`.
 
-One of the pros of `wait(in-flight-count)` semantics is that, it is trivial to let all in-flight async operations to complete: `wait(0)`. The alternative semantics would require, again, a precise tracking of the number of async operations in-flight at the desired sync point.
+One of the pros of `wait(in-flight-count)` semantics is that, it is trivial to let all in-flight async operations to complete: `wait(0)`. The alternative semantics would require, again, precise tracking of the number of async operations in-flight at the desired sync point.
 
 
 ### More examples
 
-**Three stages of compute, where the first two stages are async**. The second stage is both async producer and consumer. This example demonstrates the use of the “stage” parameter. Note that there is no distinction of asynchronous copy or compute.
+**Three stages of compute, where the first two stages are async**. The second stage is both an async producer and consumer. This example demonstrates the use of the “stage” parameter. Note that there is no distinction of asynchronous copy or compute.
 
 ```python
 B = alloc([1])
@@ -353,7 +355,7 @@ for k0 in range(125):
    ...
 ```
 
-(Actually, the first wait `async_wait_stage(0, 3)` is redundant, since `async_wait_stage(0, 2)` in the previous iteration makes sure that there is only two in-flight ops, and we only issue one more async op in the current iteration before `async_wait_stage(0, 3)`, i.e. the number of in-flight ops is already three.)
+(Actually, the first wait `async_wait_stage(0, 3)` is redundant, since `async_wait_stage(0, 2)` in the previous iteration makes sure that there are only two in-flight ops, and we only issue one more async op in the current iteration before `async_wait_stage(0, 3)`, i.e. the number of in-flight ops is already three.)
 
 ### How to determine the “in-flight count” for each `async_wait_stage` ?
 
@@ -366,7 +368,7 @@ TIR software pipeline transform makes these indices explicit and readily availab
 
 **A simple observation**: The correct in-flight count is exactly `producer_head` - `consumer_head`.
 
-For example, below the async producer writes to `i + 3`, and two consumers read from `i` and `i + 1`. The corresponding in-flight count is `(i + 3) - i` and `(i + 3) - (i + 1)`.
+For example, below the async producer writes to `i + 3`, and two consumers read from `i` and `i + 1`. The corresponding in-flight counts are `(i + 3) - i` and `(i + 3) - (i + 1)`.
 
 ```python
 for k0 in range(125):
