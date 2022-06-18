@@ -156,11 +156,11 @@ def te_compute_expanded(
 
 ### (F4) Interleave host program and TVMScript program to customize metaprogramming
 
-As an escape hatch from writing code to be parsed (or evaluated) by TVMScript
+As an escape hatch from writing code to be parsed by the TVMScript
 parser, users should be able to write imperative code to construct IR nodes
-directly and embed it inside regular TVMScript. This gives users the ultimate
-tool when TVMScript isn’t expressible enough for their use cases. For example,
-at
+directly and embed it inside regular TVMScript. Those code will be evaluated
+by the Python interpreter when parsing. This gives users the ultimate tool when
+TVMScript isn’t expressible enough for their use cases. For example, at
 [python/tvm/topi/vision/nms.py#L380-L431](https://github.com/apache/tvm/blob/3cb4597ed48360e3f3d80161d1c03f833072d28e/python/tvm/topi/vision/nms.py#L380-L431),
 there are blocks of repetitive code on computing the coordinates of the four
 corners of bounding box. This can be simplified as:
