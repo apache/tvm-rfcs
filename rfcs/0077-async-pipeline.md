@@ -9,7 +9,7 @@ generated code.
 The most important component we should agree on is the model of synchronization: Coming up with a design that is general enough to be useful for diverse backends, while making sure that the chosen design can be translated to a low-level synchronization model of a particular backend, is highly non-trivial.
 The approach described in this document is motivated by a use case for NVIDIA GPUs, but we took some cares so that the design can be adopted by other backends. For example, if a backend has an asynchronous DMA engine, vector and tensor unit, we can specify that each of them runs asynchronously in different stages in a pipeline, with necessary synchronization between them.
 
-The proposed model may have diverged from conventional ones, but we believe that this is a good for the TIR software pipeline specifically.
+The proposed model may have diverged from conventional ones, but we believe that this is a good fit for the TIR software pipeline specifically.
 
 # Asynchronous stage in a software pipeline
 
