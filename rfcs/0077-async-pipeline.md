@@ -99,14 +99,16 @@ async_wait_stage(0, 0)
 C[15] = B[1] + 1
 ```
 
-Semantics of the proposed intrinsics is as follows. “stage” refers to the same notion in the TIR software pipeline.
-
+**Semantics of the proposed intrinsics**. “stage” refers to the same notion in the TIR software pipeline.
 - `async_commit_stage(i)` : Group one or more invocation of async operations, and “commit” them to the `i`-th stage. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. The group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on.
 - `async_wait_stage(i, N)` : Block until only `N` **most recent** committed groups are still in-flight at the stage `i` . In other words, if there are `M` committed groups in-flight at the stage `i`, at the invocation of `async_wait_stage(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
 
 They directly correspond to the async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
 
 The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_stage` and `async_wait_stage` take a “stage” parameter.
+
+**The role of async_scope**. `async_scope` is represented by `AttrStmt` with key `tir::attr::async_scope`. It is inserted to let later transform passes know that the enclosed statement is intended to run asynchronously. This way, the actual lowering to target-dependent asynchronous instructions
+can happen much later in the compilation flow, rather than before the software pipeline transform using tensorization. For example, rewriting of global to shared memory copy by CUDA-specific `cp.async` can be made simpler if the rewrite happens after buffer flattening and loop vectorization passes.
 
 ### `wait(in-flight-count)` vs `wait(finished-count)`
 
