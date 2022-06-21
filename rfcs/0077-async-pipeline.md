@@ -1,4 +1,5 @@
 - Feature Name: Asynchronous stage in software pipeline
+- Authors: [Masahiro Masuda](https://github.com/masahi), [Wuwei Lin](https://github.com/vinx13/)
 - Start Date: (2022-06-17)
 
 # Summary
