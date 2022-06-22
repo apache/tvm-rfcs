@@ -90,7 +90,7 @@ async_scope:
 for i in range(15):
     async_scope:
         B[(i + 1) % 2] = A[i] + 1
-        async_commit_stage(0)
+    async_commit_stage(0)
 
     async_wait_stage(0, 1)
     C[i] = B[i % 2] + 1
@@ -141,33 +141,33 @@ sch.annotate(i, "software_pipeline_async_stages", [0, 1])
 ```
 
 ```python
-B = alloc([1])
-C = alloc([1])
+B = alloc([2])
+C = alloc([2])
 
 # Prologue
 for i in range(2):
    async_scope:
       B[i % 2]  = A[i] + 1
-      async_commit_stage(0)
+   async_commit_stage(0)
 
    if 1 <= i:
       async_wait_stage(0, 1)
       async_scope:
          C[(i - 1) % 2] = B[(i - 1) % 2] + 1
-         async_commit_stage(1)
+      async_commit_stage(1)
 
 # Body
 for i in range(14):
    # Stage 0
    async_scope:
       B[(i + 2) % 2]  = A[i + 2] + 1
-      async_commit_stage(0)
+   async_commit_stage(0)
 
    # Stage 1
    async_wait_stage(0, 1)
    async_scope:
       C[(i + 1) % 2] = B[(i + 1) % 2] + 1
-      async_commit_stage(1)
+   async_commit_stage(1)
 
    # Stage 2
    async_wait_stage(1, 1)
@@ -180,7 +180,7 @@ for i in range(2):
      async_wait_stage(0, 0)
      async_scope:
         C[(i + 15) % 2] = B[(i + 15) % 2] + 1
-        async_commit_stage(1)
+     async_commit_stage(1)
 
    if i < 1:
       async_wait_group(1, 1)
@@ -227,11 +227,11 @@ for i in range(3):
       B_local[0] <- B_shared[0, ...]
 
 # Body
-for k0 in range(125):
+for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
 
-   async_scoppe:
+   async_scope:
      B_shared[(i + 3) % 4] <- global[...]
 
    async_commit_stage(0)
@@ -244,7 +244,7 @@ for k0 in range(125):
    compute(A_local[0], B_local[0])
 
    A_local[0] <- A_shared[(i + 1) % 4, ...]
-   B_local[0] <- B_shared[(I + 1) % 4, ...]
+   B_local[0] <- B_shared[(i + 1) % 4, ...]
 
    compute(A_local[1], B_local[1])
 
@@ -319,18 +319,18 @@ for i in range(3):
    async_scope:
      A_shared[i] <- global[...]
      ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    if i <= 2:
       async_wait_stage(0, 2)
       A_local[0] <- A_shared[0, ...]
 
 
-for k0 in range(125):
+for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    async_wait_stage(0, 3)
    A_local[1] <- A_shared[i % 4, ...]
@@ -344,11 +344,11 @@ for k0 in range(125):
 But the second wait subsumes the first one (since it allows less in-flight ops), so we may as well generate:
 
 ```python
-for k0 in range(125):
+for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    async_wait_stage(0, 2)
    A_local[1] <- A_shared[i % 4, ...]
@@ -374,11 +374,11 @@ TIR software pipeline transform makes these indices explicit and readily availab
 For example, below the async producer writes to `i + 3`, and two consumers read from `i` and `i + 1`. The corresponding in-flight counts are `(i + 3) - i` and `(i + 3) - (i + 1)`.
 
 ```python
-for k0 in range(125):
+for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    async_wait_stage(0, 3)
    A_local[1] <- A_shared[i % 4, ...]
@@ -404,11 +404,11 @@ sch.annotate(k0, ann_key="software_pipeline_stage", ann_val=[0, 0, 0, 3, 3])
 In such cases, we need to force all pending asyncs ops to complete before the async result is accessed by the consumer in the same stage. The result of transformation looks like this:
 
 ```python
-for k0 in range(125):
+for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    async_wait_stage(0, 0)
    A_local[1] <- A_shared[i % 4, ...]
@@ -426,14 +426,14 @@ Note that the index `i + 3` is both produced and consumed in the same iteration.
 for i in range(3):
    async_scope:
      shared[i] = ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    ...
 
 for i in range(125):
    async_scope:
      shared[(i + 3) % 4] = ...
-     async_commit_stage(0)
+   async_commit_stage(0)
 
    ...
 
@@ -494,14 +494,14 @@ for i in range(3):
 for i in range(13):
     async_scope:
        A_shared[(i + 3) % 4] = A[...]
-       async_commit_stage(0)
+    async_commit_stage(0)
 
     async_wait_stage(0, 5)
     compute(A_shared[i], B_shared[i])
 
     async_scope:
        B_shared[(i + 3) % 4] = B[...]
-       async_commit_stage(0)
+    async_commit_stage(0)
 
 for i in range(3):
    ...
