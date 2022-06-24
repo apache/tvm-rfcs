@@ -84,36 +84,36 @@ B = alloc([2])
 # Prologue
 async_scope:
    B[0] = A[0]
-   async_commit_stage(0)
+   async_commit_queue(0)
 
 # Body
 for i in range(15):
     async_scope:
         B[(i + 1) % 2] = A[i] + 1
-    async_commit_stage(0)
+    async_commit_queue(0)
 
-    async_wait_stage(0, 1)
+    async_wait_queue(0, 1)
     C[i] = B[i % 2] + 1
 
 # Epilogue
-async_wait_stage(0, 0)
+async_wait_queue(0, 0)
 C[15] = B[1] + 1
 ```
 
 **Semantics of the proposed intrinsics**. “stage” refers to the same notion in the TIR software pipeline.
-- `async_commit_stage(i)` : Group one or more invocation of async operations, and “commit” them to the `i`-th stage. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. The group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on.
-- `async_wait_stage(i, N)` : Block until only `N` **most recent** committed groups are still in-flight at the stage `i` . In other words, if there are `M` committed groups in-flight at the stage `i`, at the invocation of `async_wait_stage(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
+- `async_commit_queue(i)` : Group one or more invocation of async operations, and “commit” them to the `i`-th stage. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. The group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on.
+- `async_wait_queue(i, N)` : Block until only `N` **most recent** committed groups are still in-flight at the stage `i` . In other words, if there are `M` committed groups in-flight at the stage `i`, at the invocation of `async_wait_queue(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
 
 They directly correspond to the async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
 
-The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_stage` and `async_wait_stage` take a “stage” parameter.
+The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_queue` and `async_wait_queue` take a “stage” parameter.
 
 **The role of async_scope**. `async_scope` is represented by `AttrStmt` with key `tir::attr::async_scope`. It is inserted to let later transform passes know that the enclosed statement is intended to run asynchronously. This way, the actual lowering to target-dependent asynchronous instructions
 can happen much later in the compilation flow, rather than before the software pipeline transform using tensorization. For example, rewriting of global to shared memory copy by CUDA-specific `cp.async` can be made simpler if the rewrite happens after buffer flattening and loop vectorization passes.
 
 ### `wait(in-flight-count)` vs `wait(finished-count)`
 
- It would be more intuitive if the semantics of `wait(N)` was “Wait until the oldest N async operations have completed”. But that would make translation to the corresponding PTX instruction more complicated, since we additionally need to keep track of the “number of async operations in-flight” at each synchronization point, and make that an additional argument to `async_wait_stage` so that we can do subtraction during translation of `async_wait_stage` to `cp.async`.
+ It would be more intuitive if the semantics of `wait(N)` was “Wait until the oldest N async operations have completed”. But that would make translation to the corresponding PTX instruction more complicated, since we additionally need to keep track of the “number of async operations in-flight” at each synchronization point, and make that an additional argument to `async_wait_queue` so that we can do subtraction during translation of `async_wait_queue` to `cp.async`.
 
 One of the pros of `wait(in-flight-count)` semantics is that, it is trivial to let all in-flight async operations to complete: `wait(0)`. The alternative semantics would require, again, precise tracking of the number of async operations in-flight at the desired sync point.
 
@@ -148,39 +148,39 @@ C = alloc([2])
 for i in range(2):
    async_scope:
       B[i % 2]  = A[i] + 1
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    if 1 <= i:
-      async_wait_stage(0, 1)
+      async_wait_queue(0, 1)
       async_scope:
          C[(i - 1) % 2] = B[(i - 1) % 2] + 1
-      async_commit_stage(1)
+      async_commit_queue(1)
 
 # Body
 for i in range(14):
    # Stage 0
    async_scope:
       B[(i + 2) % 2]  = A[i + 2] + 1
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    # Stage 1
-   async_wait_stage(0, 1)
+   async_wait_queue(0, 1)
    async_scope:
       C[(i + 1) % 2] = B[(i + 1) % 2] + 1
-   async_commit_stage(1)
+   async_commit_queue(1)
 
    # Stage 2
-   async_wait_stage(1, 1)
+   async_wait_queue(1, 1)
    D[i] = C[i % 2] + 1
 
 
 # Epilogue
 for i in range(2):
    if i < 1:
-     async_wait_stage(0, 0)
+     async_wait_queue(0, 0)
      async_scope:
         C[(i + 15) % 2] = B[(i + 15) % 2] + 1
-     async_commit_stage(1)
+     async_commit_queue(1)
 
    if i < 1:
       async_wait_group(1, 1)
@@ -202,7 +202,7 @@ sch.annotate(k1, ann_key="software_pipeline_stage", ann_val=[0, 0, 1])
 sch.annotate(k1, ann_key="software_pipeline_order", ann_val=[0, 1, 2])
 ```
 
-`async_commit_stage` is inserted after copies to `A_shared` and `B_shared` are issued, so that the two copies can be awaited as one chunk.
+`async_commit_queue` is inserted after copies to `A_shared` and `B_shared` are issued, so that the two copies can be awaited as one chunk.
 
 ```python
 
@@ -219,10 +219,10 @@ for i in range(3):
    async_scope:
      B_shared[i] <- global[...]
 
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    if 2 <= i:
-      async_wait_stage(0, 2)
+      async_wait_queue(0, 2)
       A_local[0] <- A_shared[0, ...]
       B_local[0] <- B_shared[0, ...]
 
@@ -234,9 +234,9 @@ for i in range(125):
    async_scope:
      B_shared[(i + 3) % 4] <- global[...]
 
-   async_commit_stage(0)
+   async_commit_queue(0)
 
-   async_wait_stage(0, 2)
+   async_wait_queue(0, 2)
 
    A_local[1] <- A_shared[i % 4, ...]
    B_local[1] <- B_shared[i % 4, ...]
@@ -250,7 +250,7 @@ for i in range(125):
 
 # Epilogue
 for i in range(3):
-   async_wait_stage(0, 1 - i)
+   async_wait_queue(0, 1 - i)
 
    A_local[1] <- A_shared[0, ...]
    B_local[1] <- B_shared[0, ...]
@@ -291,7 +291,7 @@ It’s also worth noting some cons of the token-based synchronization, in the co
 
 
 
-### Where to put `async_commit_stage`?
+### Where to put `async_commit_queue`?
 
 Simple: It should be after the last async block in a given stage. For example, given the annotation,
 
@@ -300,7 +300,7 @@ sch.annotate(k0, ann_key="software_pipeline_stage", ann_val=[0, 0, 3])
 sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
 ```
 
-`async_commit_stage(0)` is inserted after the second block.
+`async_commit_queue(0)` is inserted after the second block.
 
 However, if the order is given by
 
@@ -308,9 +308,9 @@ However, if the order is given by
 sch.annotate(loop, ann_key="software_pipeline_order", ann_val=[0, 2, 1])
 ```
 
-, the two async blocks are interleaved with their consumer block in the middle. In such cases, we need to put `async_commit_stage` after each async block. An example transformation is shown toward the bottom of this document.
+, the two async blocks are interleaved with their consumer block in the middle. In such cases, we need to put `async_commit_queue` after each async block. An example transformation is shown toward the bottom of this document.
 
-### Where to put `async_wait_stage` ?
+### Where to put `async_wait_queue` ?
 
 We must put wait before the consumer of async ops, so for example the following is correct:
 
@@ -319,10 +319,10 @@ for i in range(3):
    async_scope:
      A_shared[i] <- global[...]
      ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    if i <= 2:
-      async_wait_stage(0, 2)
+      async_wait_queue(0, 2)
       A_local[0] <- A_shared[0, ...]
 
 
@@ -330,13 +330,13 @@ for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
-   async_wait_stage(0, 3)
+   async_wait_queue(0, 3)
    A_local[1] <- A_shared[i % 4, ...]
    ...
 
-   async_wait_stage(0, 2)
+   async_wait_queue(0, 2)
    A_local[0] <- A_shared[(i + 1) % 4, ...]
    ...
 ```
@@ -348,9 +348,9 @@ for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
-   async_wait_stage(0, 2)
+   async_wait_queue(0, 2)
    A_local[1] <- A_shared[i % 4, ...]
    ...
 
@@ -358,9 +358,9 @@ for i in range(125):
    ...
 ```
 
-(Actually, the first wait `async_wait_stage(0, 3)` is redundant, since `async_wait_stage(0, 2)` in the previous iteration makes sure that there are only two in-flight ops, and we only issue one more async op in the current iteration before `async_wait_stage(0, 3)`, i.e. the number of in-flight ops is already three.)
+(Actually, the first wait `async_wait_queue(0, 3)` is redundant, since `async_wait_queue(0, 2)` in the previous iteration makes sure that there are only two in-flight ops, and we only issue one more async op in the current iteration before `async_wait_queue(0, 3)`, i.e. the number of in-flight ops is already three.)
 
-### How to determine the “in-flight count” for each `async_wait_stage` ?
+### How to determine the “in-flight count” for each `async_wait_queue` ?
 
 Let's define two monotonically increasing indices. They are imaginary, in the sense that the actual indices they write to / read from have `mod N`  applied to them, where `N` is the multiplicity of multi buffering (`max_stage` + 1, to be exact).
 
@@ -378,13 +378,13 @@ for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
-   async_wait_stage(0, 3)
+   async_wait_queue(0, 3)
    A_local[1] <- A_shared[i % 4, ...]
    ...
 
-   async_wait_stage(0, 2)
+   async_wait_queue(0, 2)
    A_local[0] <- A_shared[(i + 1) % 4, ...]
 ```
 
@@ -408,9 +408,9 @@ for i in range(125):
    async_scope:
      A_shared[(i + 3) % 4] <- global[...]
      ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
-   async_wait_stage(0, 0)
+   async_wait_queue(0, 0)
    A_local[1] <- A_shared[i % 4, ...]
    ...
 
@@ -426,33 +426,33 @@ Note that the index `i + 3` is both produced and consumed in the same iteration.
 for i in range(3):
    async_scope:
      shared[i] = ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    ...
 
 for i in range(125):
    async_scope:
      shared[(i + 3) % 4] = ...
-   async_commit_stage(0)
+   async_commit_queue(0)
 
    ...
 
 # Two consumers but no async producer in the epilogue
 for i in range(3):
    # in_flight_count = 127 - (i + 125)
-   async_wait_stage(0, 2 - i)
+   async_wait_queue(0, 2 - i)
    local[...] = shared[(i + 125) % 4]
    ...
 
    if i < 2:
      # in_flight_count = 127 - (i + 126)
-     async_wait_stage(0, 1 - i)
+     async_wait_queue(0, 1 - i)
      local[...] = shared[(i + 126) % 4]
 
    ...
 ```
 
-If either of async operations in the prologue or body are predicated with a non-trivial condition, we cannot tell how many async ops have been actually issued. In this case, we put `async_wait_stage(0, 0)` in the epilogue (flush all pending async ops) and don’t try to do something clever.
+If either of async operations in the prologue or body are predicated with a non-trivial condition, we cannot tell how many async ops have been actually issued. In this case, we put `async_wait_queue(0, 0)` in the epilogue (flush all pending async ops) and don’t try to do something clever.
 
 **A producer with non-trivial predicate in the epilogue**. There is also a case where there are both an async producer and its consumer in the epilogue, but the producer is predicated so that the number of counts from the expression `producer_head` - `consumer_head` is not valid for all iterations. In such cases, we can generate two different in-flight counts enclosed in if-then-else, one of the counts being 0 (”give up”). See [this](https://github.com/masahi/tvm/blob/42edd5c74920846ce0805ee75537d5b392ce64dc/tests/python/unittest/test_tir_transform_inject_software_pipeline.py#L1223-L1226) test case for more details.
 
@@ -476,7 +476,7 @@ sch.annotate(loop, ann_key="software_pipeline_order", ann_val=[0, 2, 1])
 sch.annotate(loop, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
 ```
 
-the result of transformation looks as follows. Note that there are two `async_commit_stage` for the same stage.
+the result of transformation looks as follows. Note that there are two `async_commit_queue` for the same stage.
 
 ```python
 A_shared = alloc([4])
@@ -489,19 +489,19 @@ for i in range(3):
     async_scope:
        B_shared[i] = B[...]
 
-    async_commit_stage(0)
+    async_commit_queue(0)
 
 for i in range(13):
     async_scope:
        A_shared[(i + 3) % 4] = A[...]
-    async_commit_stage(0)
+    async_commit_queue(0)
 
-    async_wait_stage(0, 5)
+    async_wait_queue(0, 5)
     compute(A_shared[i], B_shared[i])
 
     async_scope:
        B_shared[(i + 3) % 4] = B[...]
-    async_commit_stage(0)
+    async_commit_queue(0)
 
 for i in range(3):
    ...
