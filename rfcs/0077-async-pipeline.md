@@ -61,7 +61,7 @@ What’s currently available today is, after all, a “software” pipeline: whe
 
 The goal of this work is to support HW-backed asynchrony in the pipeline. Asynchronous data movement is becoming increasingly important in GPU computing, and NPUs typically have multiple kinds of asynchronous units (DMA copy, vector & matrix compute etc). To exploit such hardware features, it’s essential that we express all kinds of available asynchronies in the IR.
 
-A user of the TIR software pipeline transform will be able to specify which data movement or compute block should become asynchronous by an additional annotation. For example, given the  annotation specifying that the first block in the pipeline be made async,
+A user of the TIR software pipeline transform will be able to specify which pipeline stage should become asynchronous by an additional annotation. For example, given the  annotation specifying that the first stage in the pipeline be made async,
 
 ```python
 for i in range(16):
@@ -196,7 +196,7 @@ for i in range(2):
 ```python
 sch.annotate(k0, ann_key="software_pipeline_stage", ann_val=[0, 0, 2, 3, 3])
 sch.annotate(k0, ann_key="software_pipeline_order", ann_val=[0, 1, 3, 2, 4])
-sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
+sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0])
 
 sch.annotate(k1, ann_key="software_pipeline_stage", ann_val=[0, 0, 1])
 sch.annotate(k1, ann_key="software_pipeline_order", ann_val=[0, 1, 2])
@@ -295,7 +295,7 @@ Simple: It should be after the last async block in a given stage. For example, g
 
 ```python
 sch.annotate(k0, ann_key="software_pipeline_stage", ann_val=[0, 0, 3])
-sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
+sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0])
 ```
 
 `async_commit_queue(0)` is inserted after the second block.
@@ -471,7 +471,7 @@ and annotation which makes the two async blocks interleaved with its consumer, t
 ```python
 sch.annotate(loop, ann_key="software_pipeline_stage", ann_val=[0, 0, 3])
 sch.annotate(loop, ann_key="software_pipeline_order", ann_val=[0, 2, 1])
-sch.annotate(loop, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
+sch.annotate(loop, ann_key="software_pipeline_async_stages", ann_val=[0])
 ```
 
 the result of transformation looks as follows. Note that there are two `async_commit_queue` for the same stage.
