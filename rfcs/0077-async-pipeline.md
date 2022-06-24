@@ -100,13 +100,20 @@ async_wait_queue(0, 0)
 C[15] = B[1] + 1
 ```
 
-**Semantics of the proposed intrinsics**. “stage” refers to the same notion in the TIR software pipeline.
-- `async_commit_queue(i)` : Group one or more invocation of async operations, and “commit” them to the `i`-th stage. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. The group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on.
-- `async_wait_queue(i, N)` : Block until only `N` **most recent** committed groups are still in-flight at the stage `i` . In other words, if there are `M` committed groups in-flight at the stage `i`, at the invocation of `async_wait_queue(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
+The proposed intrinsics are intentionally more general / abstract than what's needed by the TIR software pipeline, in the hope that
+they would find their uses in more general settings. In particular, synchronization is done in terms of "queue": It is an abstract entity
+associated with each asynchronous unit, and it tracks invocations and completions of asynchronous operations in the FIFO order.
 
-They directly correspond to the async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
+**Semantics of the proposed intrinsics**
+- `async_commit_queue(i)` : Group one or more invocations of async operations, and “commit”(or push) them to the queue `i`. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. A group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on. Groups
+committed to the same queue complete in the FIFO order.
 
-The CUDA counterparts do not have the notion of “stage”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). To support more general cases where there could be multiple kinds of async “engine”, each of which corresponds to a different stage in an async pipeline, TIR `async_commit_queue` and `async_wait_queue` take a “stage” parameter.
+- `async_wait_queue(i, N)` : Block until only `N` **most recent** committed groups are still in-flight in the queue `i` . In other words, if there are `M` committed groups in-flight in the queue `i`, at the invocation of `async_wait_queue(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
+
+The two intrinsics are inspired by the corresponding async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
+The CUDA counterparts do not have the notion of “queue”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). So "commit" and "wait" always refer to the same internal queue.
+
+To support more general cases where there could be multiple kinds of asynchronous units, each of which has its own queue(s), TIR `async_commit_queue` and `async_wait_queue` take the“queue”parameter. It can be an arbitrary integer, as long as it is used consistently by the two intrinsics. Moreover, it does not have to be a constant. However, in the current usage by the TIR software pipeline, "queue" coincides with the notion of "stage", and thus it is always an integer constant.
 
 **The role of async_scope**. `async_scope` is represented by `AttrStmt` with key `tir::attr::async_scope`. It is inserted to let later transform passes know that the enclosed statement is intended to run asynchronously. This way, the actual lowering to target-dependent asynchronous instructions
 can happen much later in the compilation flow, rather than before the software pipeline transform using tensorization. For example, rewriting of global to shared memory copy by CUDA-specific `cp.async` can be made simpler if the rewrite happens after buffer flattening and loop vectorization passes.
@@ -120,7 +127,7 @@ One of the pros of `wait(in-flight-count)` semantics is that, it is trivial to l
 
 ### More examples
 
-**Three stages of compute, where the first two stages are async**. The second stage is both an async producer and consumer. This example demonstrates the use of the “stage” parameter. Note that there is no distinction of asynchronous copy or compute.
+**Three stages of compute, where the first two stages are async**. The second stage is both an async producer and consumer. This example demonstrates the use of the “queue” parameter. Note that there is no distinction of asynchronous copy or compute.
 
 ```python
 B = alloc([1])
@@ -281,13 +288,9 @@ These properties may help if we want do some analysis of async programs.
 
 The current design started from and has stayed with CUDA’s implicit synchronization model based on counting, primarily because it makes mapping to the corresponding PTX instructions trivial. We can adopt the explicit model instead, if we have a good way to translate token-based synchronization to the counting one for PTX. So far, we do not have a good solution for this. MLIR has adopted the token abstraction, but they have not solve this problem either: Their `DeviceAsyncWaitOp` has [an optional attribute `numGroups`](https://mlir.llvm.org/docs/Dialects/NVGPU/#nvgpudevice_async_wait-mlirnvgpudeviceasyncwaitop) that directly corresponds to "in-flight count", and they basically generate either `wait(numGroups)` or `wait(0)`, [in their translation](https://github.com/llvm/llvm-project/blob/main/mlir/lib/Conversion/NVGPUToNVVM/NVGPUToNVVM.cpp#L426-L427) of  `DeviceAsyncWaitOp` (token based) to PTX `cp.async` (counting based). `wait(0)` is always correct but least precise / efficient.
 
-
-
 (The following is highly speculative) On the other hand, translation from “count” to “token” seems more feasible: At each synchronization point, a backend presumably maintains the number and the order of pending async operations. Given the count, it should be possible to derive the correct token from the corresponding ordered list of tokens.
 
 It’s also worth noting some cons of the token-based synchronization, in the context of the TIR software pipeline. First, it is not obvious how a token should be represented at all. It would probably be an integer, but each backend would probably have its own different representation. Second, expressing dependencies via tokens would be natural if what we generate is a DAG-like structure. But the output of the TIR software pipeline transform is still a loop, without unrolling: We would need to be able to refer to “the token associated with an async operation from three iterations ago”, for example, but that is a bit awkward to express. We would end up maintaining a circular buffer of tokens, in addition to the circular buffer of multi-versioned buffer copies.
-
-
 
 ### Where to put `async_commit_queue`?
 
@@ -390,7 +393,7 @@ The above access pattern is ideal in terms of the order of accesses to the async
 
 ```python
 sch.annotate(k0, ann_key="software_pipeline_stage", ann_val=[0, 0, 2, 3, 3])
-sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0, 1])
+sch.annotate(k0, ann_key="software_pipeline_async_stages", ann_val=[0])
 ```
 
 But if a user mistakenly uses a slightly different annotation below, the third block, which is a consumer of the async ops in the first and second block, is put into the same stage as the async producers:
@@ -520,7 +523,7 @@ Thus, both copies at the iteration `i - 3` will be forced to complete by `wait(5
 ### Assumption & limitation
 
 - The relative order of an async producer and its consumer should be “reasonable”. Some effort has been done to support tricky and unusual cases, but it’s highly possible that some unexpected input programs and their annotations would cause invalid IR to be generated. Unresolved question: Should all pipeline configurations that pass the existing validity check be supported by async pipeline? Is there a way to derive the wait count statically that works for all possible cases?
-- Control flow. If an async block is predicated so that we cannot tell exactly how many times it would be executed, we can only do `wait(0)`. It is unclear if such case would come up in practice. In the worst case, we can allocate a local variable that dynamically tracks the number of async operations that have actually happened. For now, this proposal won’t implement such dynamic counting, but if it turns out that the current support is too limiting, we can revisit this approach. (Note for PTX: `cp.async(N)` apparently requires `N` to be an integer constant, so dynamic counting won’t work there.)
+- Control flow. If an async block is predicated so that we cannot tell exactly how many times it would be executed, we can only do `wait(0)`. It is unclear if such case would come up in practice. In the worst case, we can allocate a local variable that dynamically tracks the number of async operations that have actually happened. For now, this proposal will not implement such dynamic counting, but if it turns out that the current support is too limiting, we can revisit this approach. (Note for PTX: `cp.async(N)` apparently requires `N` to be an integer constant, so dynamic counting won’t work there.)
 
 ### Implementation status
 The implementation, including test cases, is complete and ready to be upstreamed as soon as this RFC is accepted. The test cases include an end to end demonstration of pipelining transform and lowering to actual asynchronous instructions, runnable on an NVIDIA Ampere GPUs.
