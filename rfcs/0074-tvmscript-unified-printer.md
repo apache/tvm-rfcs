@@ -1,7 +1,7 @@
 - Feature Name: TUNIP: TVMScript Unified Printer
 - Start Date: 05/25/2022
 - RFC PR: [apache/tvm-rfcs#74](https://github.com/apache/tvm-rfcs/pull/74)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- GitHub Issue: [apache/tvm#11912](https://github.com/apache/tvm/issues/11912)
 - Co-Authors: Lite Ye ([**@yelite**](https://github.com/yelite)), Greg Bonik
   ([**@gbonik**](https://github.com/gbonik)) Yong Wu
   ([**@yongwww**](https://github.com/yongwww)), Yuchen Jin
