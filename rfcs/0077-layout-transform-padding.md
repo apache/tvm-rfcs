@@ -479,6 +479,28 @@ In TE, the write stage of a buffer is the stage that outputs the
 transformed tensor.  In TIR, the write stage of a buffer is any block
 that writes to all values of the pre-transformation tensor.
 
+If a transformed buffer is an argument to the PrimFunc, then this
+transformation alters the interface of the PrimFunc.  Whether this is
+allowed strongly depends on the context in which the PrimFunc is being
+used.
+
+* If a PrimFunc must remain compatible with the current calling
+  context, `transform_layout` may not be applied to argument buffers.
+  For example, when creating an optimization candidate of a subgraph,
+  the candidate must remain compatible with the calling scope.
+
+* If a PrimFunc is being modified as part of a transformation that
+  also changes the context, `transform_layout` may be applied to
+  argument buffers.  For example, if an end-to-end model is
+  represented within a single `IRModule`, a transformation may alter a
+  subgraph's calling convention and the call into the subgraph at the
+  same time.
+
+* If a PrimFunc is being modified independent independent of any
+  context, `transform_layout` may be applied to argument buffers.  For
+  example, a PrimFunc that is being prepared for a subgraph, but is
+  not yet part of a graph, may be altered.
+
 
 ### New Utility - Reorder Loops According to Buffer
 
