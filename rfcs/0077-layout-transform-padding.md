@@ -487,7 +487,9 @@ used.
 * If a PrimFunc must remain compatible with the current calling
   context, `transform_layout` may not be applied to argument buffers.
   For example, when creating an optimization candidate of a subgraph,
-  the candidate must remain compatible with the calling scope.
+  if there is no legalization pass to handle layout disagreements
+  between adjacent subgraphs, the candidate must remain compatible
+  with the calling scope.
 
 * If a PrimFunc is being modified as part of a transformation that
   also changes the context, `transform_layout` may be applied to
@@ -498,8 +500,8 @@ used.
 
 * If a PrimFunc is being modified independent independent of any
   context, `transform_layout` may be applied to argument buffers.  For
-  example, a PrimFunc that is being prepared for a subgraph, but is
-  not yet part of a graph, may be altered.
+  example, a PrimFunc that is being prepared for use as a subgraph,
+  but is not yet part of a graph, may be altered.
 
 
 ### New Utility - Reorder Loops According to Buffer
