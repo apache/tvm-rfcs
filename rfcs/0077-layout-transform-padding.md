@@ -17,12 +17,11 @@
   - [Overcompute vs Branching](#overcompute-vs-branching)
 - [Reference-level explanation](#reference-level-explanation)
   - [TIR Changes](#tir-changes)
-    - [Buffer Annotation of Padding Predicate/Constraint Pairs](#buffer-annotation-of-padding-predicateconstraint-pairs)
+    - [New TIR Op, `tir::builtin::assume`](#new-tir-op-tirbuiltinassume)
     - [New TIR Op, `tir::builtin::undef`](#new-tir-op-tirbuiltinundef)
-    - [Buffer Annotation of Layout Transforms](#buffer-annotation-of-layout-transforms)
-  - [Transformations/Metaschedule Primitives](#transformationsmetaschedule-primitives)
+    - [Transformations/Metaschedule Primitives](#transformationsmetaschedule-primitives)
+    - [Enhancement - `cache_read`, `cache_write`](#enhancement---cache_read-cache_write)
     - [Enhancement - transform_layout](#enhancement---transform_layout)
-    - [New Primitive - Add buffer constraint](#new-primitive---add-buffer-constraint)
     - [New Utility - Reorder Loops According to Buffer](#new-utility---reorder-loops-according-to-buffer)
     - [Enhancement - Predicate for DomainTouched](#enhancement---predicate-for-domaintouched)
     - [Enhancement - Remove No Op](#enhancement---remove-no-op)
@@ -32,7 +31,8 @@
     - [Utility - Merge Adjacent Loops](#utility---merge-adjacent-loops)
     - [New Primitive - Remove Branching Through Overcompute](#new-primitive---remove-branching-through-overcompute)
     - [New Primitive - Remove Overcompute Through Branching](#new-primitive---remove-overcompute-through-branching)
-    - [New Lowering Transform - Remove T.Undef](#new-lowering-transform---remove-tundef)
+    - [New Lowering Transform - Remove T.assume](#new-lowering-transform---remove-tassume)
+    - [New Lowering Transform - Remove T.undef](#new-lowering-transform---remove-tundef)
   - [Implementation options](#implementation-options)
     - [Never write to transformation padding](#never-write-to-transformation-padding)
     - [Never read from transformation padding](#never-read-from-transformation-padding)
@@ -1454,7 +1454,7 @@ def func(
 ```
 
 
-### New Lowering Transform - Remove T.assume
+### New Lowering Transform - Remove `T.assume`
 
 This introduces a new lowering pass
 `tir.transform.RemoveCompileTimeAssume`, which occurs at the start of
@@ -1464,7 +1464,7 @@ phase 1, and which replaces all `Call` nodes that use the
 After this pass, the `PrimFunc` should not contain any calls to the
 builtin `T.assume`.
 
-### New Lowering Transform - Remove T.undef
+### New Lowering Transform - Remove `T.undef`
 
 This introduces a new lowering pass
 `tir.transform.RemoveStoreUndef`, which occurs at the start of
