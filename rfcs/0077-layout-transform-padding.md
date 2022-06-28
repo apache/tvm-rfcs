@@ -796,7 +796,7 @@ Changes to be made to `tvm::tir::NoOpRemover`, which implements the
   `tvm::arith::StmtSimplifier`, but is needed here to recognize
   strings of no-op.  (Thought: Merge the Simplify and RemoveNoOp
   passes?)
-  
+
 * Writing a value that is known to exist within the buffer is a no-op.
 
   ```python
@@ -804,16 +804,16 @@ Changes to be made to `tvm::tir::NoOpRemover`, which implements the
   @T.prim_func
   def sum(A: T.Buffer[16, "float32"], B: T.Buffer[1, "float32"]):
       T.assume(B[0] == 0.0)
-  
+
       B[0] = 0.0
       for i in T.serial(16):
           B[0] = B[0] + A[i]
-               
+
   # After RemoveNoOp
   @T.prim_func
   def sum(A: T.Buffer[16, "float32"], B: T.Buffer[1, "float32"]):
       T.assume(B[0] == 0.0)
-  
+
       for i in T.serial(16):
           B[0] = B[0] + A[i]
   ```
@@ -927,49 +927,49 @@ the `tir.transform.Simplify` transform.
               A[i] = A[i] + 1.0
               A[i] = 0.0
   ```
-  
+
 * When encountering a `T.assume` statement, this should be used for
   later simplifications.
-  
+
   ```python
   # Before simplification
   @T.prim_func
   def func(A: T.Buffer[16, "int32"], n: T.int32):
       T.assume(n >= 0 and n < 8)
-      
+
       for i in T.serial(16):
           A[i] = n//8
-  
+
   # After simplification.  Because the range of `n` is provided in the
   # assumption, n//8 can be simplified.
   @T.prim_func
   def func(A: T.Buffer[16, "int32"], n: T.int32):
       T.assume(n >= 0 and n < 8)
-      
+
       for i in T.serial(16):
           A[i] = 0
   ```
-  
+
   These assumptions are statements only known to be true at the
   location of the `T.assume` call.  For assumptions based on value
   stored in a buffer, the assumption may be invalidated by later
   writes to the buffer.
-  
+
   ```python
   # Before simplification
   @T.prim_func
   def func(A: T.Buffer[16, "int32"], B: T.Buffer[1, "int32"]):
       T.assume(B[0] == 0)
-  
+
       if A[0] == B[0]:
           for i in T.serial(16):
               B[0] = B[0] + A[i]
-  
+
   # After simplification
   @T.prim_func
   def func(A: T.Buffer[16, "int32"], B: T.Buffer[1, "int32"]):
       T.assume(B[0] == 0)
-  
+
       # The first access of B[0] may be replaced with 0 using the
       # assumption.
       if A[0] == 0:
@@ -1371,7 +1371,7 @@ def func(
             B[io, ii] = 0.0
             for f in T.serial(3):
                 B[io, ii] = B[io, ii] + A[io + (ii + f) // 4, (ii + f) % 4]
-    
+
     with T.block('B_pad_value'):
         for io,ii in T.grid(4,4):
             if io==3 and ii>=2:
@@ -1597,7 +1597,7 @@ def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]):
     B[0] = 0
     for i in T.serial(14):
         B[0] = B[0] + A[i]
-        
+
 # sched.cache_read(A, "local")
 @T.prim_func
 def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]) -> None:
@@ -2486,7 +2486,7 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(14,), "int32"]):
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io,ii in T.grid(4,4):
         T.assume(4*io+ii < 14 or A[io,ii] == T.undef())
-        
+
     for i in T.serial(14):
         B[i // 4, i % 4] = 2 * A[i // 4, i % 4]
 
@@ -2527,7 +2527,7 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io,ii in T.grid(4,4):
         T.assume(4*io+ii < 14 or A[io,ii] == T.undef())
-        
+
     for io, ii in T.grid(4, 4):
         B[io, ii] = 2 * A[io, ii]
 
@@ -2578,7 +2578,7 @@ def func(A: T.Buffer[(14, 60), "int32"], B: T.Buffer[(14,), "int32"]):
 def func(A: T.Buffer[(4, 4, 60), "int32"], B: T.Buffer[(14,), "int32"]):
     for io,ii,j in T.grid(4,4,60):
         T.assume(4*io + ii < 14 or A[io,ii,j]==T.undef())
-    
+
     for i in T.serial(14):
         B[i] = 0
         for j in T.serial(60):
@@ -2618,7 +2618,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
 
     for io,ii,j in T.grid(4,4,60):
         T.assume(4*io + ii < 14 or A[io,ii,j//8,j%8]==T.undef())
-        
+
     for i in T.serial(14):
         B[i // 4, i % 4] = 0
         for j in T.serial(60):
@@ -2637,7 +2637,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io,ii,jo,ji in T.grid(4,4,8,8):
         if 8*jo + ji < 60:
             T.assume(4*io + ii < 14 or A[io,ii,jo,ji]==T.undef())
-        
+
     for io, ii in T.grid(4, 4):
         if 4 * io + ii < 14:
             B[io, ii] = 0
@@ -2699,14 +2699,14 @@ overwritten, and therefore can be inserted as a no-op.
 * When scheduling, all operators that share a buffer must use the same
   layout transformation (or sequence of layout transformations), and
   must have the same buffer constraints applied.
-  
+
 * When splitting a single `PrimFunc` into multiple functions, such as
   hoisting a stage into an independent `PrimFunc`, buffer annotations
   should be used to expose non-local information that may be used for
   local simplification.  The choice of how much information to expose
   should be made when hoisting the stage, and must be provable using
   the hoisted stage.
-  
+
   ```python
   # Initial function, with two stages contained in a single function.
   @T.prim_func
@@ -2716,14 +2716,14 @@ overwritten, and therefore can be inserted as a no-op.
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   B[io, ii] = A[4 * io + ii]
-  
+
       with T.block("compute"):
           C[0] = 0
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   C[0] = C[0] + B[io, ii]
-  
-  
+
+
   # This is a valid transformation, because it only impacts the values
   # in an internal cached buffer.
   @T.prim_func
@@ -2735,13 +2735,13 @@ overwritten, and therefore can be inserted as a no-op.
                   B[io, ii] = A[4 * io + ii]
               else:
                   B[io, ii] = 0
-  
+
       with T.block("compute"):
           C[0] = 0
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   C[0] = C[0] + B[io, ii]
-  
+
   # This is a valid transformation, removing the branch in the "compute"
   # block.  This is allowed, because the inserted statements `C[0] =
   # C[0] + B[3,2]` and `C[0] = C[0] + B[3,3]` can be proven to be no ops
@@ -2756,13 +2756,13 @@ overwritten, and therefore can be inserted as a no-op.
                   B[io, ii] = A[4 * io + ii]
               else:
                   B[io, ii] = 0
-  
+
       with T.block("compute"):
           C[0] = 0
           for io, ii in T.grid(4, 4):
               C[0] = C[0] + B[io, ii]
-  
-  
+
+
   # Initial module, with two stages contained in two different functions.
   @ir_module
   class split_module:
@@ -2771,15 +2771,15 @@ overwritten, and therefore can be inserted as a no-op.
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   B[io, ii] = A[4 * io + ii]
-  
+
       @T.prim_func
       def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
           C[0] = 0
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   C[0] = C[0] + B[io, ii]
-  
-  
+
+
   @ir_module
   class split_module:
       # This is NOT a valid transformation of transform_A, because it
@@ -2791,7 +2791,7 @@ overwritten, and therefore can be inserted as a no-op.
                   B[io, ii] = A[4 * io + ii]
               else:
                   B[io, ii] = 0
-  
+
       # This is NOT a valid transformation of compute_C, because the
       # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
       # B[3,3]` CANNOT be proven to be no-ops, nor can it even be
@@ -2802,10 +2802,10 @@ overwritten, and therefore can be inserted as a no-op.
           C[0] = 0
           for io, ii in T.grid(4, 4):
               C[0] = C[0] + B[io, ii]
-  
-  
-  
-  
+
+
+
+
   # Initial module, with two stages contained in two different
   # functions, with T.assume and T.undef statements.
   @ir_module
@@ -2815,22 +2815,22 @@ overwritten, and therefore can be inserted as a no-op.
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   B[io, ii] = A[4 * io + ii]
-  
+
           for io,ii in T.grid(4,4):
               if 4 * io + ii >= 14:
                   B[io,ii] = T.undef()
-  
+
       @T.prim_func
       def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
           for io,ii in T.grid(4,4):
               T.assume(4*io+ii < 14 or B[io,ii]==T.undef())
-          
+
           C[0] = 0
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   C[0] = C[0] + B[io, ii]
-  
-  
+
+
   @ir_module
   class split_module:
       # This is a valid transformation of transform_A.  The additional
@@ -2847,11 +2847,11 @@ overwritten, and therefore can be inserted as a no-op.
                   B[io, ii] = A[4 * io + ii]
               else:
                   B[io, ii] = 0
-  
+
           for io,ii in T.grid(4,4):
               if 4 * io + ii >= 14:
                   B[io,ii] = T.undef()
-  
+
       # This is NOT a valid transformation of compute_C, because the
       # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
       # B[3,3]` CANNOT be proven to be no-ops.  We can prove that it is
@@ -2865,12 +2865,12 @@ overwritten, and therefore can be inserted as a no-op.
       def compute(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
           for io,ii in T.grid(4,4):
               T.assume(4*io+ii < 14 or B[io,ii]==T.undef())
-  
+
           C[0] = 0
           for io, ii in T.grid(4, 4):
               C[0] = C[0] + B[io, ii]
-  
-  
+
+
   # Initial module, with two stages contained in two different
   # functions, with T.assume of a known value.
   @ir_module
@@ -2880,21 +2880,21 @@ overwritten, and therefore can be inserted as a no-op.
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   B[io, ii] = A[4 * io + ii]
-  
+
           for io,ii in T.grid(4,4):
               if 4 * io + ii >= 14:
                   B[io,ii] = 0
-  
+
       @T.prim_func
       def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
           for io,ii in T.grid(4,4):
               T.assume(4*io+ii < 14 or B[io,ii]==0)
-          
+
           C[0] = 0
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   C[0] = C[0] + B[io, ii]
-  
+
   @ir_module
   class split_module:
       @T.prim_func
@@ -2902,11 +2902,11 @@ overwritten, and therefore can be inserted as a no-op.
           for io, ii in T.grid(4, 4):
               if 4 * io + ii < 14:
                   B[io, ii] = A[4 * io + ii]
-  
+
           for io,ii in T.grid(4,4):
               if 4 * io + ii >= 14:
                   B[io,ii] = 0
-  
+
       # This is a valid transformation of compute_C, because the
       # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
       # B[3,3]` be proven to be no-ops.  Where the single_func version
@@ -2921,13 +2921,13 @@ overwritten, and therefore can be inserted as a no-op.
       def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
           for io,ii in T.grid(4,4):
               T.assume(4*io+ii < 14 or B[io,ii]==0)
-          
+
           C[0] = 0
           for io, ii in T.grid(4, 4):
               C[0] = C[0] + B[io, ii]
   ```
-  
-  
+
+
 
 # Drawbacks
 [drawbacks]: #drawbacks
@@ -2985,11 +2985,11 @@ no-ops, in order to prove that a branch can be removed.
   Second, enumerating these access patterns for all possible input and
   output buffers would be non-trivial, especially for operators with
   multiple input buffers, each of which may have a different layout.
-  
+
 - Should `Schedule.sequential_buffer_access` be an independent
   schedule primitive, rather than a wrapper around existing
   primitives?
-  
+
   No.  The separate primitives are expected to be irreducible.
 
 # Prior art
