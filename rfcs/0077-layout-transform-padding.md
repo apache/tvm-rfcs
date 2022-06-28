@@ -293,7 +293,8 @@ be proven.
 
 The primary use of `assume` in this RFC is to allow local
 simplifications within a `PrimFunc` to take advantage of information
-that would require full end-to-end analysis of a model.
+that would otherwise require full end-to-end analysis of a model.
+(See examples in [Points of Communication](#points-of-communication).)
 
 ### New TIR Op, `tir::builtin::undef`
 
@@ -420,9 +421,10 @@ write stage within the body of the function, then it is an input
 argument.  In this case, a new stage is added at the beginning of the
 function, which calls `T.assume` for each input.
 
-For buffer consumers, the constraint is added to the body as a call to the `T.assume` builtin.  For buffer
-producers, the buffer constraint is updated, and an additional loop is
-added to write `pad_value` to the padding that has been introduced.
+For buffer consumers, the constraint is added to the body as a call to
+the `T.assume` builtin.  For buffer producers, the buffer constraint
+is updated, and an additional loop is added to write `pad_value` to
+the padding that has been introduced.
 
 ```python
 # Before transforming A and B
@@ -2655,6 +2657,236 @@ overwritten, and therefore can be inserted as a no-op.
 * When scheduling, all operators that share a buffer must use the same
   layout transformation (or sequence of layout transformations), and
   must have the same buffer constraints applied.
+  
+* When splitting a single `PrimFunc` into multiple functions, such as
+  hoisting a stage into an independent `PrimFunc`, buffer annotations
+  should be used to expose non-local information that may be used for
+  local simplification.  The choice of how much information to expose
+  should be made when hoisting the stage, and must be provable using
+  the hoisted stage.
+  
+  ```python
+  # Initial function, with two stages contained in a single function.
+  @T.prim_func
+  def single_func_step0(A: T.Buffer[14, "int32"], C: T.Buffer[1, "int32"]):
+      B = T.alloc_buffer([4, 4], "int32")
+      with T.block("transform"):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+  
+      with T.block("compute"):
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  
+  
+  # This is a valid transformation, because it only impacts the values
+  # in an internal cached buffer.
+  @T.prim_func
+  def single_func_step1(A: T.Buffer[14, "int32"], C: T.Buffer[1, "int32"]):
+      with T.block("transform"):
+          B = T.alloc_buffer([4, 4], "int32")
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+              else:
+                  B[io, ii] = 0
+  
+      with T.block("compute"):
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  
+  # This is a valid transformation, removing the branch in the "compute"
+  # block.  This is allowed, because the inserted statements `C[0] =
+  # C[0] + B[3,2]` and `C[0] = C[0] + B[3,3]` can be proven to be no ops
+  # by first inspecting "transform" and determining that `B[3,2] == 0`
+  # and `B[3,3] == 0`.
+  @T.prim_func
+  def single_func_step2(A: T.Buffer[14, "int32"], C: T.Buffer[1, "int32"]):
+      with T.block("transform"):
+          B = T.alloc_buffer([4, 4], "int32")
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+              else:
+                  B[io, ii] = 0
+  
+      with T.block("compute"):
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              C[0] = C[0] + B[io, ii]
+  
+  
+  # Initial module, with two stages contained in two different functions.
+  @ir_module
+  class split_module:
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+  
+      @T.prim_func
+      def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  
+  
+  @ir_module
+  class split_module:
+      # This is NOT a valid transformation of transform_A, because it
+      # changes the resulting value of an output buffer.
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+              else:
+                  B[io, ii] = 0
+  
+      # This is NOT a valid transformation of compute_C, because the
+      # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
+      # B[3,3]` CANNOT be proven to be no-ops, nor can it even be
+      # determined that `B[3,2]` and `B[3,3]` are safe to access as they
+      # may contain uninitialized values.
+      @T.prim_func
+      def compute(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              C[0] = C[0] + B[io, ii]
+  
+  
+  
+  
+  # Initial module, with two stages contained in two different
+  # functions, with T.assume and T.undef statements.
+  @ir_module
+  class split_module:
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+  
+          for io,ii in T.grid(4,4):
+              if 4 * io + ii >= 14:
+                  B[io,ii] = T.undef()
+  
+      @T.prim_func
+      def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          for io,ii in T.grid(4,4):
+              T.assume(4*io+ii < 14 or B[io,ii]==T.undef())
+          
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  
+  
+  @ir_module
+  class split_module:
+      # This is a valid transformation of transform_A.  The additional
+      # statements `B[3,2] = 0` and `B[3,3] = 0` are no-ops, because
+      # they are overwritten by `T.undef()`.
+      #
+      # Because stores of `T.undef()` are removed during lowering, a
+      # write of `T.undef()` effectively acts as permission to change
+      # these locations in the buffer.
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+              else:
+                  B[io, ii] = 0
+  
+          for io,ii in T.grid(4,4):
+              if 4 * io + ii >= 14:
+                  B[io,ii] = T.undef()
+  
+      # This is NOT a valid transformation of compute_C, because the
+      # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
+      # B[3,3]` CANNOT be proven to be no-ops.  We can prove that it is
+      # safe to access `B[3,2]` and `B[3,3]`, but that isn't enough to
+      # prove that the inserted statements would be no-ops.
+      #
+      # Because `T.assume` calls are removed during lowering, a
+      # `T.assume(buf[indices] == T.undef())` effectively acts as
+      # permission to access the buffer at those indices.
+      @T.prim_func
+      def compute(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          for io,ii in T.grid(4,4):
+              T.assume(4*io+ii < 14 or B[io,ii]==T.undef())
+  
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              C[0] = C[0] + B[io, ii]
+  
+  
+  # Initial module, with two stages contained in two different
+  # functions, with T.assume of a known value.
+  @ir_module
+  class split_module:
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+  
+          for io,ii in T.grid(4,4):
+              if 4 * io + ii >= 14:
+                  B[io,ii] = 0
+  
+      @T.prim_func
+      def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          for io,ii in T.grid(4,4):
+              T.assume(4*io+ii < 14 or B[io,ii]==0)
+          
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  
+  @ir_module
+  class split_module:
+      @T.prim_func
+      def transform_A(A: T.Buffer[14, "int32"], B: T.Buffer[(4, 4), "int32"]):
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  B[io, ii] = A[4 * io + ii]
+  
+          for io,ii in T.grid(4,4):
+              if 4 * io + ii >= 14:
+                  B[io,ii] = 0
+  
+      # This is a valid transformation of compute_C, because the
+      # inserted statements `C[0] = C[0] + B[3,2]` and `C[0] = C[0] +
+      # B[3,3]` be proven to be no-ops.  Where the single_func version
+      # used earlier stages to provide the values of `B[3,2]` and
+      # `B[3,3]`, here they are determined from the `T.assume()`
+      # statement.
+      #
+      # Because `T.assume` calls are removed during lowering, a
+      # `T.assume(buf[indices] == T.undef())` exposes non-local
+      # constraints to the compute_C.
+      @T.prim_func
+      def compute_C(B: T.Buffer[(4, 4), "int32"], C: T.Buffer[1, "int32"]):
+          for io,ii in T.grid(4,4):
+              T.assume(4*io+ii < 14 or B[io,ii]==0)
+          
+          C[0] = 0
+          for io, ii in T.grid(4, 4):
+              if 4 * io + ii < 14:
+                  C[0] = C[0] + B[io, ii]
+  ```
+  
+  
 
 # Drawbacks
 [drawbacks]: #drawbacks
