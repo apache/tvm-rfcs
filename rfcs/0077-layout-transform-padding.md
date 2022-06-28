@@ -2882,8 +2882,7 @@ overwritten, and therefore can be inserted as a no-op.
           
           C[0] = 0
           for io, ii in T.grid(4, 4):
-              if 4 * io + ii < 14:
-                  C[0] = C[0] + B[io, ii]
+              C[0] = C[0] + B[io, ii]
   ```
   
   
