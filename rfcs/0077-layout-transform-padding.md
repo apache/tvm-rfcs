@@ -281,44 +281,30 @@ these options are exposed as two additional transformations,
 
 ## TIR Changes
 
-### Buffer Annotation of Padding Predicate/Constraint Pairs
+### New TIR Op, `tir::builtin::assume`
 
-`BufferNode` has a new member `std::vector<BufferConstraint>
-constraints` that describes known properties of this buffer.  Any
-transformation that introduces padding will also add a buffer
-constraint.
+A built-in operator that takes a single `PrimExpr` as an argument.  At
+compile-time, an error should be raised if the argument can be
+statically proven to be false at the point of call.  When lowering,
+the `tir::builtin::assume` should be replaced with a no-op.
+`tir::builtin::assume` is similar to the existing `tir::AssertStmt`,
+but does not result in a runtime assertion for conditions that cannot
+be proven.
 
-```c++
-struct BufferConstraintNode {
-  Array<Var> indices;
-  PrimExpr predicate;
-  Optional<PrimExpr> value
-};
-```
-
-The `indices` holds variables that represent the index being used to
-access the buffer.  Both `predicate` and `value` are in terms of the
-variables stored in `indices`.  If `predicate` is true for a given
-value of the indices, then the buffer has contents of `value` at those
-indices.  If `value` is empty, then any indices that match the
-predicate may not be accessed.
-
-The `indices` field is automatically populated based on the
-post-transformation indices.  The `predicate` field is automatically
-determined based on the transformation, and is true for any index
-corresponding to the transformation padding.  The `value` field is
-defined by the user input in `pad_value`
+The primary use of `assume` in this RFC is to allow local
+simplifications within a `PrimFunc` to take advantage of information
+that would require full end-to-end analysis of a model.
 
 ### New TIR Op, `tir::builtin::undef`
 
-A placeholder that represents a valid, but arbitrary value.  This is
-intended for use as `BufferConstraintNode::value`, to indicate that it
-is legal to access the address, but that no further constraints are
-placed on the value present in the buffer.  This is primarily used to
-allow simplifications in a producer, as any partial computations
-written to this space (e.g. by vectorized operations) may be left
-as-is.
-
+A placeholder that represents a valid, but arbitrary value.  For
+consumers, this is used in `T.assume()` expressions to indicate that
+it is legal to access the address, but that no further constraints are
+placed on the value present in the buffer.  For producers, this is
+used to allow simplifications that change the value stored in the
+output padding and would otherwise be forbidden.  (e.g. Leaving
+partial computations written to padding by vectorized operations,
+rather than zero-ing them out.)
 
 * Multiplication of `0 * undef` may be simplified to zero, for both
   integer and floating-point types.
@@ -341,47 +327,140 @@ transformations](#apply-operator-element-wise-over-the-transformation-padding)
 for example usage.
 
 
-### Buffer Annotation of Layout Transforms
-
-TODO: Should a buffer remember which layout transforms have been
-applied to it?  It would be useful for generating converters between
-logical/transformed/physical layout.  As it is, users must provide
-inputs that have the transformed layout.
-
 ## Transformations/Metaschedule Primitives
+
+### Enhancement - `cache_read`, `cache_write`
+
+Can be used outside of any loop, with the same scope as the uncached
+buffer.  The layout of the cache can then be transformed to operate on
+a reshaped buffer without modifying the calling signature of the
+original `PrimFunc`.
+
+TODO: Check if this is already allowed.
+
 
 ### Enhancement - transform_layout
 
 The `te.Stage.transform_layout` and `tir.Schedule.transform_layout`
 methods will be updated to take an additional argument `pad_value:
-Optional[Union[int, float, Callable]]`.  This provides the `value`
-field of the `BufferConstraintNode`.
+Optional[Union[int, float, PrimExpr, Callable]]`.
 
-For buffer consumers, the buffer constraint is updated, and no further
-changes are required based on the padding value.  For buffer
+For a transformation that introduces padding and with a defined
+`pad_value`, a new stage is inserted following each write stage of the
+transformed buffer.  This new stage writes `pad_value` to the
+introduced padding.
+
+```python
+# Before transforming A_cache and B_cache
+@T.prim_func
+def func(A: T.Buffer[14, "float32"], B: T.Buffer[14, "float32"]):
+    # A read cache of the input A
+    A_cache = T.alloc_buffer(14, "float32")
+    for i in T.serial(14):
+        with T.block("A_cache"):
+            A_cache[i] = A[i]
+
+    # The computation itself, doubling the input value
+    B_cache = T.alloc_buffer(14, "float32")
+    for i in T.serial(14):
+        with T.block("compute"):
+            B_cache[i] = 2 * A_cache[i]
+
+    # Copying from the write cache into the output B
+    for i in T.serial(14):
+        with T.block("B_cache"):
+            B[i] = B_cache[i]
+
+
+# After applying
+# sched.transform_layout(block='compute', buffer='A_cache', lambda i: [i//4, i%4], pad_value=-1)
+# sched.transform_layout(block='compute', buffer='B_cache', lambda i: [i//4, i%4], pad_value=-2)
+@T.prim_func
+def func(A: T.Buffer[14, "float32"], B: T.Buffer[14, "float32"]):
+    A_cache = T.alloc_buffer(14, "float32")
+
+    # When copying into the read cache, the loop iteration remains the
+    # same, but writes to the transformed locations in `A_cache`.
+    for i in T.serial(14):
+        with T.block("A_cache"):
+            A_cache[i // 4, i % 4] = A[i]
+
+    # Immediately following the stage that produces values in the
+    # transformed A_cache, a new stage is added that writes the
+    # pad_value to the padding.
+    for io, ii in T.grid(4, 4):
+        with T.block("A_cache_padding"):
+            if 4 * io + ii >= 14:
+                A_cache[io, ii] = -1
+
+    # The compute stage is unchanged, other than the updated indices
+    # for A_cache and B_cache.
+    B_cache = T.alloc_buffer(14, "float32")
+    for i in T.serial(14):
+        with T.block("compute"):
+            B_cache[i // 4, i % 4] = 2 * A_cache[i // 4, i % 4]
+
+    # Immediately following the stage that produces values in the
+    # transformed A_cache, a new stage is added that writes the
+    # pad_value to the padding.
+    for io, ii in T.grid(4, 4):
+        with T.block("B_cache_padding"):
+            if 4 * io + ii >= 14:
+                B_cache[io, ii] = -2
+
+    # When copying into the read cache, the loop iteration remains the
+    # same, but reads from the transformed locations in `B_cache`.
+    for i in T.serial(14):
+        with T.block("B_cache"):
+            B[i] = B_cache[i // 4, i % 4]
+```
+
+If `pad_value` is defined and the transformed buffer does not have a
+write stage within the body of the function, then it is an input
+argument.  In this case, a new stage is added at the beginning of the
+function, which calls `T.assume` for each input.
+
+For buffer consumers, the constraint is added to the body as a call to the `T.assume` builtin.  For buffer
 producers, the buffer constraint is updated, and an additional loop is
 added to write `pad_value` to the padding that has been introduced.
 
 ```python
-# Before transforming A
+# Before transforming A and B
 @T.prim_func
-def func(A: T.Buffer[(14,), "float32"]):
+def func(A: T.Buffer[14, "float32"], B: T.Buffer[14, "float32"]):
+    # The computation, doubling the input value
+    B_cache = T.alloc_buffer(14, "float32")
     for i in T.serial(14):
-        A[i] = i
+        with T.block("compute"):
+            B[i] = 2 * A[i]
 
-# After applying transform_layout(lambda i: [i//4, i%4], pad_value=-1)
+
+# After applying
+# sched.transform_layout(block='compute', buffer='A', lambda i: [i//4, i%4], pad_value=-1)
+# sched.transform_layout(block='compute', buffer='B', lambda i: [i//4, i%4], pad_value=-2)
 @T.prim_func
-def func(A: T.Buffer[(4,4), "int32"]):
-    # This loop writes the same values, but to the new locations in
-    # `A`.
-    for i in T.serial(14):
-        A[i//4, i%4] = i
+def func(A: T.Buffer[(4, 4), "float32"], B: T.Buffer[(4, 4), "float32"]):
+    # The buffer A does not have a write stage within this buffer.
+    # Therefore, a new stage is inserted that calls T.assume.  The
+    # assumption provided states that either the transformed indices
+    # correspond to a set of indices in the pre-transformation buffer
+    # (4*io + 11 < 14), or the value stored in the buffer is the
+    # pad_value `A[io, ii] == -1`.
+    for io, ii in T.grid(4, 4):
+        T.assume(4 * io + ii < 14 or A[io, ii] == -1)
 
-    # This loop writes the padding values.  In this case, `io==3 and
-    # ii>2` is the predicate, and `-1` is the value.
-    for io,ii in T.grid(4,4):
-        if io==3 and ii>2:
-            A[io, ii] = -1
+    # The computation, doubling the input value
+    for i in T.serial(14):
+        with T.block("compute"):
+            B[i] = 2 * A[i]
+
+    # The buffer B is an argument to the function, but contains a
+    # write stage.  Therefore, we add a stage that writes the
+    # pad_value after the write stage.
+    for io, ii in T.grid(4, 4):
+        with T.block("B_cache_padding"):
+            if 4 * io + ii >= 14:
+                B[io, ii] = -2
 ```
 
 It is expected that the loop that writes padding may be simplified
@@ -393,19 +472,10 @@ loopnests](#utility-merge-adjacent-loops) after [rewriting for
 sequential buffer
 access](#new-utility-reorder-loops-according-to-buffer).
 
-In TE, the producer is the stage that outputs the transformed tensor.
-In TIR, the producer is the block that writes to all values of the
-pre-transformation tensor.
+In TE, the write stage of a buffer is the stage that outputs the
+transformed tensor.  In TIR, the write stage of a buffer is any block
+that writes to all values of the pre-transformation tensor.
 
-
-
-### New Primitive - Add buffer constraint
-
-Similar to `Schedule.set_axis_separators`, this adds an annotation to
-an existing buffer, and can be used independently of
-`transform_layout`.  This can be useful for hardware that provides a
-default value for out-of-bounds reads (e.g. texture memory clamping on
-a GPU).
 
 ### New Utility - Reorder Loops According to Buffer
 
@@ -682,6 +752,27 @@ Changes to be made to `tvm::tir::NoOpRemover`, which implements the
   `tvm::arith::StmtSimplifier`, but is needed here to recognize
   strings of no-op.  (Thought: Merge the Simplify and RemoveNoOp
   passes?)
+  
+* Writing a value that is known to exist within the buffer is a no-op.
+
+  ```python
+  # Before RemoveNoOp
+  @T.prim_func
+  def sum(A: T.Buffer[16, "float32"], B: T.Buffer[1, "float32"]):
+      T.assume(B[0] == 0.0)
+  
+      B[0] = 0.0
+      for i in T.serial(16):
+          B[0] = B[0] + A[i]
+               
+  # After RemoveNoOp
+  @T.prim_func
+  def sum(A: T.Buffer[16, "float32"], B: T.Buffer[1, "float32"]):
+      T.assume(B[0] == 0.0)
+  
+      for i in T.serial(16):
+          B[0] = B[0] + A[i]
+  ```
 
 
 ### Enhancement - Simplify
@@ -791,6 +882,58 @@ the `tir.transform.Simplify` transform.
           if A[i] < 0.0:
               A[i] = A[i] + 1.0
               A[i] = 0.0
+  ```
+  
+* When encountering a `T.assume` statement, this should be used for
+  later simplifications.
+  
+  ```python
+  # Before simplification
+  @T.prim_func
+  def func(A: T.Buffer[16, "int32"], n: T.int32):
+      T.assume(n >= 0 and n < 8)
+      
+      for i in T.serial(16):
+          A[i] = n//8
+  
+  # After simplification.  Because the range of `n` is provided in the
+  # assumption, n//8 can be simplified.
+  @T.prim_func
+  def func(A: T.Buffer[16, "int32"], n: T.int32):
+      T.assume(n >= 0 and n < 8)
+      
+      for i in T.serial(16):
+          A[i] = 0
+  ```
+  
+  These assumptions are statements only known to be true at the
+  location of the `T.assume` call.  For assumptions based on value
+  stored in a buffer, the assumption may be invalidated by later
+  writes to the buffer.
+  
+  ```python
+  # Before simplification
+  @T.prim_func
+  def func(A: T.Buffer[16, "int32"], B: T.Buffer[1, "int32"]):
+      T.assume(B[0] == 0)
+  
+      if A[0] == B[0]:
+          for i in T.serial(16):
+              B[0] = B[0] + A[i]
+  
+  # After simplification
+  @T.prim_func
+  def func(A: T.Buffer[16, "int32"], B: T.Buffer[1, "int32"]):
+      T.assume(B[0] == 0)
+  
+      # The first access of B[0] may be replaced with 0 using the
+      # assumption.
+      if A[0] == 0:
+          # These later accesses of B[0] may not be replaced, because
+          # for all loop iterations i!=0, the value stored in B[0] has
+          # been overwritten since the T.assume call.
+          for i in T.serial(16):
+              B[0] = B[0] + A[i]
   ```
 
 ### New Transform - Hoist Expression
@@ -1163,15 +1306,16 @@ def func(
 
 This is the reverse of [removing branching through
 overcompute](#new-primitive-remove-branching-through-overcompute).
-For each buffer access, insert a conditional based on the buffer
-constraints, hoist the conditionals, and simplify.
+For each buffer access, insert a conditional based on the final value
+of the buffer's padding, hoist the conditionals, and simplify.
 
 TODO: Since branching is the default behavior, do we need the reverse
 path?
 
 ```python
-# Function with overcompute.  B has a buffer constraint such that
-# B[io,ii]==0 if io==3 and ii>=2.
+# Function with overcompute.  B has the constant value of zero in the
+# buffer padding, located at io==3 and ii>=2.  This can be inferred
+# from the schedule, by analysis of the "B_pad_value" block.
 @T.prim_func
 def func(
     A: T.Buffer[(4, 4), "float32"],
@@ -1183,7 +1327,8 @@ def func(
             B[io, ii] = 0.0
             for f in T.serial(3):
                 B[io, ii] = B[io, ii] + A[io + (ii + f) // 4, (ii + f) % 4]
-
+    
+    with T.block('B_pad_value'):
         for io,ii in T.grid(4,4):
             if io==3 and ii>=2:
                 B[io,ii] = 0.0
@@ -1284,7 +1429,17 @@ def func(
 ```
 
 
-### New Lowering Transform - Remove T.Undef
+### New Lowering Transform - Remove T.assume
+
+This introduces a new lowering pass
+`tir.transform.RemoveCompileTimeAssume`, which occurs at the start of
+phase 1, and which replaces all `Call` nodes that use the
+`tir::builtin::assume` with a no-op.
+
+After this pass, the `PrimFunc` should not contain any calls to the
+builtin `T.assume`.
+
+### New Lowering Transform - Remove T.undef
 
 This introduces a new lowering pass
 `tir.transform.RemoveStoreUndef`, which occurs at the start of
@@ -1388,6 +1543,9 @@ buffer if it is within the logical extents of the input, or to the
 operation's desired default otherwise.  All access of the input values
 are then done through the internal allocation.
 
+This does not insert any `T.assume` statements, because the pad value
+can be inferred from the TIR graph.
+
 ```python
 # Initial function
 @T.prim_func
@@ -1395,9 +1553,7 @@ def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]):
     B[0] = 0
     for i in T.serial(14):
         B[0] = B[0] + A[i]
-```
-
-```python
+        
 # sched.cache_read(A, "local")
 @T.prim_func
 def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]) -> None:
@@ -1441,9 +1597,7 @@ def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]) -> None:
     for io,ii in T.grid(4,4):
         if 4*io+ii < 14:
             B[0] = B[0] + A_local[io,ii]
-```
 
-```python
 # sched.remove_branching_through_overcompute()
 @T.prim_func
 def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(1,), "int32"]) -> None:
@@ -1485,101 +1639,117 @@ class MyModule:
         B[0] = 0
         for i in T.serial(14):
             B[0] = B[0] + A[i]
-```
 
-```python
+
 # sched.transform_layout(A, lambda i: [i//4, i%4], pad_value=0)
 @script.ir_module
 class MyModule:
     @T.prim_func
-    def producer(A: T.Buffer[(4,4), "int32"]):
+    def producer(A: T.Buffer[(4, 4), "int32"]):
         for i in T.serial(14):
-            A[i//4, i%4] = 1000 + i
+            A[i // 4, i % 4] = 1000 + i
 
-        for io,ii in T.grid(4,4):
-            if io==3 and ii>=2:
-                A[io,ii] = 0
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii >= 14:
+                A[io, ii] = 0
 
     @T.prim_func
-    def consumer(A: T.Buffer[(4,4), "int32"], B: T.Buffer[(1,), "int32"]):
+    def consumer(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(1,), "int32"]):
+        for io, ii in T.grid(4, 4):
+            T.assume(4 * io + ii < 14 or A[io, ii] == 0)
+
         B[0] = 0
         for i in T.serial(14):
-            B[0] = B[0] + A[i//4, i%4]
+            B[0] = B[0] + A[i // 4, i % 4]
+
 
 # sched.sequential_buffer_access(A)
 @script.ir_module
 class MyModule:
     @T.prim_func
-    def producer(A: T.Buffer[(4,4), "int32"]):
-        for io,ii in T.grid(4,4):
-            if 4*io + ii < 14:
-                A[io,ii] = 1000 + i
+    def producer(A: T.Buffer[(4, 4), "int32"]):
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                A[io, ii] = 1000 + i
 
-        for io,ii in T.grid(4,4):
-            if io==3 and ii>=2:
-                A[io,ii] = 0
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii >= 14:
+                A[io, ii] = 0
 
     @T.prim_func
-    def consumer(A: T.Buffer[(4,4), "int32"], B: T.Buffer[(1,), "int32"]):
+    def consumer(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(1,), "int32"]):
+        for io, ii in T.grid(4, 4):
+            T.assume(4 * io + ii < 14 or A[io, ii] == 0)
+
         B[0] = 0
-        for io,ii in T.grid(4,4):
-            if 4*io + ii < 14:
-                B[0] = B[0] + A[io,ii]
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                B[0] = B[0] + A[io, ii]
+
 
 # sched.merge_adjacent_loops()
 @script.ir_module
 class MyModule:
     @T.prim_func
-    def producer(A: T.Buffer[(4,4), "int32"]):
-        for io,ii in T.grid(4,4):
-            if 4*io + ii < 14:
-                A[io,ii] = 1000 + i
-            if io==3 and ii>=2:
-                A[io,ii] = 0
+    def producer(A: T.Buffer[(4, 4), "int32"]):
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                A[io, ii] = 1000 + i
+            if 4 * io + ii >= 14:
+                A[io, ii] = 0
 
     @T.prim_func
-    def consumer(A: T.Buffer[(4,4), "int32"], B: T.Buffer[(1,), "int32"]):
+    def consumer(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(1,), "int32"]):
+        for io, ii in T.grid(4, 4):
+            T.assume(4 * io + ii < 14 or A[io, ii] == 0)
+
         B[0] = 0
-        for io,ii in T.grid(4,4):
-            if 4*io + ii < 14:
-                B[0] = B[0] + A[io,ii]
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                B[0] = B[0] + A[io, ii]
+
 
 # Simplify
 @script.ir_module
 class MyModule:
     @T.prim_func
-    def producer(A: T.Buffer[(4,4), "int32"]):
-        for io,ii in T.grid(4,4):
-            if io==3 and ii>=2:
-                A[io,ii] = 0
+    def producer(A: T.Buffer[(4, 4), "int32"]):
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                A[io, ii] = 1000 + i
             else:
-                A[io,ii] = 1000 + i
+                A[io, ii] = 0
 
     @T.prim_func
-    def consumer(A: T.Buffer[(4,4), "int32"], B: T.Buffer[(1,), "int32"]):
-        B[0] = 0
-        for io,ii in T.grid(4,4):
-            if 4*io + ii < 14:
-                B[0] = B[0] + A[io,ii]
-```
+    def consumer(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(1,), "int32"]):
+        for io, ii in T.grid(4, 4):
+            T.assume(4 * io + ii < 14 or A[io, ii] == 0)
 
-```python
+        B[0] = 0
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                B[0] = B[0] + A[io, ii]
+
+
 # sched.remove_branching_through_overcompute()
 @script.ir_module
 class MyModule:
     @T.prim_func
-    def producer(A: T.Buffer[(4,4), "int32"]):
-        for io,ii in T.grid(4,4):
-            if io==3 and ii>=2:
-                A[io,ii] = 0
+    def producer(A: T.Buffer[(4, 4), "int32"]):
+        for io, ii in T.grid(4, 4):
+            if 4 * io + ii < 14:
+                A[io, ii] = 1000 + i
             else:
-                A[io,ii] = 1000 + i
+                A[io, ii] = 0
 
     @T.prim_func
-    def consumer(A: T.Buffer[(4,4), "int32"], B: T.Buffer[(1,), "int32"]):
+    def consumer(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(1,), "int32"]):
+        for io, ii in T.grid(4, 4):
+            T.assume(4 * io + ii < 14 or A[io, ii] == 0)
+
         B[0] = 0
-        for io,ii in T.grid(4,4):
-            B[0] = B[0] + A[io,ii]
+        for io, ii in T.grid(4, 4):
+            B[0] = B[0] + A[io, ii]
 ```
 
 This requires both implementations to use the same `pad_value = 0`, so
@@ -1659,16 +1829,24 @@ range(2,8)]`.
 # sched.transform_layout(A, lambda i: [(i+2)//8, (i+2)%8], pad_value=0)
 @T.prim_func
 def func(
-    A: T.Buffer[(3,8), "float32"],
+    A: T.Buffer[(3, 8), "float32"],
     F: T.Buffer[(3,), "float32"],
     B: T.Buffer[(18,), "float32"],
 ):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
     for Bi in T.serial(18):
         B[Bi] = 0.0
         for fi in T.serial(3):
             Ai = Bi - fi + 2
             if 0 <= Ai < 16:
-                B[Bi] = B[Bi] + F[fi] * A[(Ai+2)//8, (Ai+2)%8]
+                B[Bi] = B[Bi] + F[fi] * A[(Ai + 2) // 8, (Ai + 2) % 8]
 ```
 
 We'll apply the same layout transformation to `B`.  Even though it has
@@ -1707,6 +1885,14 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
     for Bi in T.serial(18):
         B[(Bi + 2) // 8, (Bi + 2) % 8] = 0.0
         for fi in T.serial(3):
@@ -1728,7 +1914,6 @@ conditionals to handle the array borders and a fast loop that doesn't
 contain any conditionals.
 
 ```python
-
 # sched.sequential_buffer_access(A)
 @T.prim_func
 def func(
@@ -1736,6 +1921,14 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
     for Bi in T.serial(18):
         B[(Bi + 2) // 8, (Bi + 2) % 8] = 0.0
 
@@ -1763,7 +1956,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         Bi = 8 * io + ii - 2
         if 0 <= Bi < 18:
             B[io, ii] = 0.0
@@ -1801,7 +2002,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io, ii in T.grid(3, 8):
@@ -1831,7 +2040,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io, ii in T.grid(3, 8):
@@ -1855,7 +2072,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
@@ -1889,7 +2114,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
@@ -1923,7 +2156,15 @@ def func(
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
@@ -1965,23 +2206,40 @@ def func(
 
 So far, the transformations have used the indices defined in the
 transformation, but haven't taken significant advanced of the
-constraints provided for the padding in the input `A`.
+assumptions provided for the padding in the input `A`.  These can be
+used by simplifying the expression.
 
 ```python
-# sched.remove_branching_through_overcompute()
-# Part 1, apply to `ii+fi >= 2` condition
+# sched.simplify()
 #
-# Within this condition `A[io,ii]` is accessed for io==0 and ii<2,
-# which is known to be zero.  Therefore, the becomes a no-op in the
-# else-case, and the conditional can be removed without impacting the
-# result.
+# Within the if block of `io==0` and the else block of `ii >= 2`,
+# `A[io,ii]` is accessed for `io==0` and `ii<2`.  With these indices,
+# the `T.assume` statement simplifies to `A[io,ii] == 0.0`.  After
+# substituting this known value in, the entire body simplifies to a
+# no-op in the else-case, and the conditional can be removed without
+# impacting the result.
+#
+# Similarly, within the if block of `io==2` and the else block of `ii
+# < 2`, `A[io,ii]` is accessed for `io==2` and `ii>=2`.  With these
+# indices, the `T.assume` statement also simplifies to `A[io,ii] ==
+# 0.0`, and results in simplification of that block to a no-op.
+
+
 @T.prim_func
 def func(
     A: T.Buffer[(3, 8), "float32"],
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
@@ -1992,12 +2250,6 @@ def func(
                         B[io + (ii + fi) // 8, (ii + fi) % 8] = (
                             B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
                         )
-                else:
-                    for fi in T.serial(3):
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-
         elif io == 2:
             for ii in T.serial(8):
                 if ii < 2:
@@ -2005,105 +2257,70 @@ def func(
                         B[io + (ii + fi) // 8, (ii + fi) % 8] = (
                             B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
                         )
-                else:
-                    for fi in T.serial(3):
-                        if ii + fi < 4:
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                                B[io + (ii + fi) // 8, (ii + fi) % 8]
-                                + F[fi] * A[io, ii]
-                            )
         else:
             for ii in T.serial(8):
                 for fi in T.serial(3):
                     B[io + (ii + fi) // 8, (ii + fi) % 8] = (
                         B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
                     )
+```
 
+If we introduce overcompute, we can simplify even further.  Similar to
+the simplifications, proving that these changes are valid also relies
+on the information provided by `T.assume`.
 
+In order to remove the `ii >= 2` conditional, we must prove that an
+else block with the same body would be a no-op.  We already know that
+`io==0` in order to reach the conditional, and entering the else block
+would require that `ii < 2`.  Using these two conditions, our
+assumption tells us that `A[io,ii] == 0.0`, which can be used to
+simplify the newly introduced else block down to a no-op.  Therefore,
+the `ii >= 2` conditional does not need to be checked.
+
+Removing the `ii < 2` conditional is also possible, but requires an
+additional modification.  The same logic shows that the within the
+inserted else block, `io==2` and `ii>=2`, so `A[io,ii]==0.0`.  This
+allows the expression to be simplified to an access of `B[2 + (ii +
+fi) // 8, (ii + fi) % 8]`.  However, this is only a no-op if the
+indices are in-bounds, and could cause a segfault at runtime if the
+access is out-of-bounds.  For some cases, `ii + fi >= 8`, which would
+cause an out-of-bounds access of `B[3, _]`.  To avoid this, we can
+modify the accessed indices to be reduced mod 3.  We don't need any
+specific locations to be accessed, only for the access to be valid.
+
+TODO: Motivate this modification.  Maybe all buffer access gets the
+`floormod(i, axis_size)`, which can be simplified out wherever it ise
+necessary?
+
+```python
 # sched.remove_branching_through_overcompute()
-# Part 2, apply to `ii < 2` condition
 #
-# Within this condition ii<2 and fi<=2, so ii+fi<4`.  Therefore, the
-# `else` case is equivalent to the `then` case, when simplified under
-# the condition of the `then` case.
+# Part 1, remove conditional on (io==0 and ii>=2), and remove
+# conditional on (io==2 and ii<2)
 @T.prim_func
 def func(
     A: T.Buffer[(3, 8), "float32"],
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
         if io == 0:
-            for ii in T.serial(8):
-                if ii >= 2:
-                    for fi in T.serial(3):
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-                else:
-                    for fi in T.serial(3):
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-
-        elif io == 2:
-            for ii in T.serial(8):
-                for fi in T.serial(3):
-                    if ii + fi < 4:
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-        else:
             for ii in T.serial(8):
                 for fi in T.serial(3):
                     B[io + (ii + fi) // 8, (ii + fi) % 8] = (
                         B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
                     )
-
-
-# sched.remove_branching_through_overcompute()
-# Part 3, apply to `ii + fi < 4` condition
-#
-# We are attempting to simplify under the constraint that ii+fi >=4.
-# Using the iteration bound that fi<=2, ii>=2.  Since io==2 and ii>=2,
-# A[io,ii] is known to be zero, and the assignment simplifies to a
-# no-op, so long as the indices of the assignment are valid.
-#
-# TODO: How to recognize this as a valid simplification, since it
-# doesn't appear as the body on either side of the the conditional.
-#
-# Since `(ii+fi)//8` may be 1, `io+(ii+fi)//8` may be 3, outside the
-# bounds of the first axis of `B`.  We can add another floormod to
-# make this become a valid access without changing any other indices
-# that are accessed.
-#
-# Therefore, this conditional can be removed.
-@T.prim_func
-def func(
-    A: T.Buffer[(3, 8), "float32"],
-    F: T.Buffer[3, "float32"],
-    B: T.Buffer[(3, 8), "float32"],
-):
-    for io, ii in T.serial(3, 8):
-        B[io, ii] = 0.0
-
-    for io in T.serial(3):
-        if io == 0:
-            for ii in T.serial(8):
-                if ii >= 2:
-                    for fi in T.serial(3):
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-                else:
-                    for fi in T.serial(3):
-                        B[io + (ii + fi) // 8, (ii + fi) % 8] = (
-                            B[io + (ii + fi) // 8, (ii + fi) % 8] + F[fi] * A[io, ii]
-                        )
-
         elif io == 2:
             for ii in T.serial(8):
                 for fi in T.serial(3):
@@ -2118,14 +2335,25 @@ def func(
                     )
 
 
-# After simplification to merge IfThenElse with identical bodies.
+# sched.remove_branching_through_overcompute()
+#
+# Part 2, remove conditional on io
+
 @T.prim_func
 def func(
     A: T.Buffer[(3, 8), "float32"],
     F: T.Buffer[3, "float32"],
     B: T.Buffer[(3, 8), "float32"],
 ):
-    for io, ii in T.serial(3, 8):
+    for io, ii in T.grid(3, 8):
+        T.assume(
+            (io == 0 and ii >= 2)
+            or (io > 0 and io < 2)
+            or (io == 2 and ii < 2)
+            or A[io, ii] == 0.0
+        )
+
+    for io, ii in T.grid(3, 8):
         B[io, ii] = 0.0
 
     for io in T.serial(3):
@@ -2136,9 +2364,9 @@ def func(
                 )
 ```
 
-Other than the addition of an additional modulo, this is identical to
-our fast loop, but can be applied to all locations across the buffer,
-avoiding conditionals altogether.
+Other than the addition of an additional `floormod`, this is identical
+to our fast loop, but can be applied to all locations across the
+buffer, avoiding conditionals altogether.
 
 Intuitively, this takes advantage of the fact that a filter applied to
 a window containing only zero will have an output of zero.  As a
@@ -2188,7 +2416,6 @@ example below, the same transformation is applied to input buffer `A`
 and output buffer `B`.
 
 ```python
-
 # Initial function
 @T.prim_func
 def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(14,), "int32"]):
@@ -2199,6 +2426,13 @@ def func(A: T.Buffer[(14,), "int32"], B: T.Buffer[(14,), "int32"]):
 # sched.transform_layout(A, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.undef())
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(14,), "int32"]):
+    # This assumption doesn't tell us anything about the value of A,
+    # but does tell us that it is valid to read these locations of A,
+    # and won't contain uninitialized values, which could result in
+    # undefined behavior on some targets.
+    for io,ii in T.grid(4,4):
+        T.assume(4*io+ii < 14 or A[io,ii] == T.undef())
+
     for i in T.serial(14):
         B[i] = 2 * A[i // 4, i % 4]
 
@@ -2206,11 +2440,17 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(14,), "int32"]):
 # sched.transform_layout(B, lambda i: [i//4, i%4], pad_value=lambda io,ii: tir.undef())
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
+    for io,ii in T.grid(4,4):
+        T.assume(4*io+ii < 14 or A[io,ii] == T.undef())
+        
     for i in T.serial(14):
         B[i // 4, i % 4] = 2 * A[i // 4, i % 4]
 
+    # This will be removed later during lowering, and is used to
+    # signify that the function is allowed to alter the return value
+    # in these indices.
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
 
 
@@ -2218,19 +2458,19 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
     for io, ii in T.grid(4, 4):
-        if 0 <= 4 * io + ii < 14:
+        if 4 * io + ii < 14:
             B[io, ii] = 2 * A[io, ii]
 
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
 
 
 # sched.remove_branching_through_overcompute()
 #
-# If 4*io+ii >= 14, then io==3 and ii>=2.  Therefore, in the if/else
-# below, the else block only writes to indices that are later
-# overwritten by T.undef().
+# If we were to replace the `if 4 * io + ii < 14` conditional with the
+# following if/else block, the else block would only write to indices
+# that are later overwritten by T.undef().
 #
 # if 0 <= 4 * io + ii < 14:
 #     B[io, ii] = 2 * A[io, ii]
@@ -2241,13 +2481,20 @@ def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
 # can remove the conditional.
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
+    for io,ii in T.grid(4,4):
+        T.assume(4*io+ii < 14 or A[io,ii] == T.undef())
+        
     for io, ii in T.grid(4, 4):
         B[io, ii] = 2 * A[io, ii]
 
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
 
+# The T.assume and stores to T.undef are removed later, when lowering
+# the function.
+#
+# tir.transform.RemoveAssume
 # tir.transform.RemoveStoreUndef
 @T.prim_func
 def func(A: T.Buffer[(4, 4), "int32"], B: T.Buffer[(4, 4), "int32"]):
@@ -2277,17 +2524,17 @@ def func(A: T.Buffer[(14, 60), "int32"], B: T.Buffer[(14,), "int32"]):
         for j in T.serial(60):
             B[i] = B[i] + A[i, j]
 
-```
-
-```python
 # First transformation of A, reads on `io==3 and ii>=2` are valid, but return undefined value.
 # sched.transform_layout(
 #     A,
 #     lambda i, j: [i // 4, i % 4, j],
-#     pad_value=lambda io, ii, j: A[io, ii, j],
+#     pad_value=lambda io, ii, j: tir.undef(),
 # )
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 60), "int32"], B: T.Buffer[(14,), "int32"]):
+    for io,ii,j in T.grid(4,4,60):
+        T.assume(4*io + ii < 14 or A[io,ii,j]==T.undef())
+    
     for i in T.serial(14):
         B[i] = 0
         for j in T.serial(60):
@@ -2302,6 +2549,12 @@ def func(A: T.Buffer[(4, 4, 60), "int32"], B: T.Buffer[(14,), "int32"]):
 # )
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(14,), "int32"]):
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        T.assume(8*jo + ji < 60 or A[io,ii,jo,ji]==0)
+
+    for io,ii,j in T.grid(4,4,60):
+        T.assume(4*io + ii < 14 or A[io,ii,j//8,j%8]==T.undef())
+
     for i in T.serial(14):
         B[i] = 0
         for j in T.serial(60):
@@ -2316,18 +2569,31 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(14,), "int32"]):
 # )
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        T.assume(8*jo + ji < 60 or A[io,ii,jo,ji]==0)
+
+    for io,ii,j in T.grid(4,4,60):
+        T.assume(4*io + ii < 14 or A[io,ii,j//8,j%8]==T.undef())
+        
     for i in T.serial(14):
         B[i // 4, i % 4] = 0
         for j in T.serial(60):
             B[i // 4, i % 4] = B[i // 4, i % 4] + A[i // 4, i % 4, j // 8, j % 8]
 
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
 
 # sched.sequential_buffer_access(A)
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        T.assume(8*jo + ji < 60 or A[io,ii,jo,ji]==0)
+
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        if 8*jo + ji < 60:
+            T.assume(4*io + ii < 14 or A[io,ii,jo,ji]==T.undef())
+        
     for io, ii in T.grid(4, 4):
         if 4 * io + ii < 14:
             B[io, ii] = 0
@@ -2336,23 +2602,29 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
                     B[io, ii] = B[io, ii] + A[io, ii, jo, ji]
 
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
 
 # sched.remove_branching_through_overcompute()
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        T.assume(8*jo + ji < 60 or A[io,ii,jo,ji]==0)
+
+    for io,ii,jo,ji in T.grid(4,4,8,8):
+        if 8*jo + ji < 60:
+            T.assume(4*io + ii < 14 or A[io,ii,jo,ji]==T.undef())
+
     for io, ii in T.grid(4, 4):
         B[io, ii] = 0
         for jo, ji in T.grid(8, 8):
             B[io, ii] = B[io, ii] + A[io, ii, jo, ji]
 
     for io,ii in T.grid(4,4):
-        if io==3 and ii>=2:
+        if 4*io + ii >= 14:
             B[io,ii] = T.undef()
-```
 
-```python
+# tir.transform.RemoveCompileTimeAssumptions()
 # tir.transform.RemoveStoreUndef()
 @T.prim_func
 def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
@@ -2360,6 +2632,7 @@ def func(A: T.Buffer[(4, 4, 8, 8), "int32"], B: T.Buffer[(4, 4), "int32"]):
         B[io, ii] = 0
         for jo, ji in T.grid(8, 8):
             B[io, ii] = B[io, ii] + A[io, ii, jo, ji]
+
 ```
 
 In this example, `A` has different pading values stored along the `i`
