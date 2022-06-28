@@ -289,7 +289,8 @@ statically proven to be false at the point of call.  When lowering,
 the `tir::builtin::assume` should be replaced with a no-op.
 `tir::builtin::assume` is similar to the existing `tir::AssertStmt`,
 but does not result in a runtime assertion for conditions that cannot
-be proven.
+be proven.  This is equivalent to the [LLVM `__builtin_assume`
+intrinsic](https://clang.llvm.org/docs/LanguageExtensions.html#builtin-assume).
 
 The primary use of `assume` in this RFC is to allow local
 simplifications within a `PrimFunc` to take advantage of information
@@ -2952,6 +2953,10 @@ no-ops, in order to prove that a branch can be removed.
 
 # Prior art
 [prior-art]: #prior-art
+
+- The `tir::builtin::assume` has the same semantics as [LLVM's
+`__builtin_assume`
+intrinsic](https://clang.llvm.org/docs/LanguageExtensions.html#builtin-assume).
 
 - The `tir::builtin::undef` has similar semantics to [LLVM's
   `undef`](https://llvm.org/docs/LangRef.html#undefvalues).  The
