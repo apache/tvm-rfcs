@@ -297,6 +297,23 @@ simplifications within a `PrimFunc` to take advantage of information
 that would otherwise require full end-to-end analysis of a model.
 (See examples in [Points of Communication](#points-of-communication).)
 
+* An assumption may only be inserted if it is statically proven, or if
+  it is asserted by a user about a user-provided value.
+
+* When splitting a PrimFunc into multiple PrimFuncs (e.g. factoring
+  out a subroutine, hoisting an initial preprocessing stage into an
+  independent PrimFunc), an assumption may become separated from the
+  expressions that had initially been used to prove the assumption.
+
+* An assumption may only be removed if it is statically proven.  A
+  user-provided assumption may never be removed, as it may already
+  have been used to perform irreversible simplifications.
+
+* The expression within an assumption should be visited and mutated
+  identically to any other `PrimExpr`.  This ensures that passes that
+  redefine variables (e.g. by inlining a Let binding) do not result in
+  an invalid expression in the `PrimExpr`.
+
 ### New TIR Op, `tir::builtin::undef`
 
 A placeholder that represents a valid, but arbitrary value.  For
