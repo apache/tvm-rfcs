@@ -848,7 +848,7 @@ the `tir.transform.Simplify` transform.
           else:
               A[i] = 1.0
 
-          if i//8 == 1:
+          if i//8 == 0:
               B[i] = 2.0
           else:
               B[i] = 3.0
