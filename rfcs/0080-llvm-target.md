@@ -1,6 +1,6 @@
 - Feature Name: Encapsulate LLVM target for use with LLVM libraries
 - Start Date: May 13, 2022
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/0000)
+- RFC PR: [apache/tvm-rfcs#0083](https://github.com/apache/tvm-rfcs/pull/83)
 - GitHub Issue: None
 
 # Summary
