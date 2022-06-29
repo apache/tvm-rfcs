@@ -5,13 +5,13 @@
 
 # Summary
 
-1. Enapsulate all information related to a compilation target in LLVM into a
+Enapsulate all information related to a compilation target in LLVM into a
 single object `LLVMTarget`. Make creation of this object a prerequisite
 for using any LLVM facilities (e.g. optimizations, code generation, etc.).
 
-2. Extend the `llvm` target in TVM to contain LLVM flags, use `LLVMTarget`
-to save/restore LLVM's command line options based on the flags contained
-in the `llvm` target.
+This will allow extending the `llvm` target in TVM to contain LLVM flags.
+The `LLVMTarget` would them be used to save/restore LLVM's command line
+options based on the flags contained in the `llvm` target.
 
 # Motivation
 
