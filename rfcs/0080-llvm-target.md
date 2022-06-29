@@ -53,7 +53,8 @@ LLVM-based targets. Objects of this class would be constructed from TVM's
 The objects would contain the LLVM representations of the information
 represented by the TVM target, i.e. objects used by LLVM such as
 `TargetMachine`. In addition to translating the target data from TVM format
-to LLVM format, this object would also query the current state of relevant
+to LLVM format, once `llvm` target in TVM supports command line flags,
+this object would also query the current state of relevant
 LLVM command line options, set then to new values, and restore the original
 values on exit (the indent is to use constructor/desctructor for this).
 
