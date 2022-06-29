@@ -6,11 +6,11 @@
 # Summary
 
 Enapsulate all information related to a compilation target in LLVM into a
-single object `LLVMTarget`. Make creation of this object a prerequisite
+single object `LLVMScope`. Make creation of this object a prerequisite
 for using any LLVM facilities (e.g. optimizations, code generation, etc.).
 
 This will allow extending the `llvm` target in TVM to contain LLVM flags.
-The `LLVMTarget` would them be used to save/restore LLVM's command line
+The `LLVMScope` would them be used to save/restore LLVM's command line
 options based on the flags contained in the `llvm` target.
 
 # Motivation
@@ -47,7 +47,7 @@ representation in LLVM, and
 
 # Guide-level explanation
 
-The idea of this RFC is to implement a common class `LLVMTarget` for all
+The idea of this RFC is to implement a common class `LLVMScope` for all
 LLVM-based targets. Objects of this class would be constructed from TVM's
 `Target`, specifically from `Target` objects for `llvm` target.
 The objects would contain the LLVM representations of the information
@@ -63,19 +63,19 @@ A typical use would follow this pattern:
   // Let's see the LLVM IR and MIR after each transformation, i.e. use
   // -print-after-all in codegen.
   my_target = Target("llvm -mtriple myarch-unknown-elf -llvm-options=print-after-all");
-  LLVMTarget llvm_target(my_target);
+  LLVMScope llvm_scope(my_target);
   // [...]
-  // Some uses of llvm_target
-  const llvm::Target& t = llvm_target.target_machine->getTarget();
+  // Some uses of llvm_scope
+  const llvm::Target& t = llvm_scope.target_machine->getTarget();
   std::cout << "name: " << t.getName() << "\n";
   std::cout << "description: " << t.getShortDescription() << "\n";
   // [...]
   // Create codegen
   auto cg = new CodeGenMyArch();
-  cg->Init(llvm_target);
+  cg->Init(llvm_scope);
   // add functions, optimize, save output, etc.
   // [...]
-  // Done using LLVM. llvm_target's destructor does the cleanup.
+  // Done using LLVM. llvm_scope's destructor does the cleanup.
 }
 ```
 
@@ -85,20 +85,20 @@ A typical use would follow this pattern:
 
 One of the potential further developments could be loading LLVM support
 dynamically. Similarly to the saving of LLVM command line options, the call
-to dlopen could happen in the constructor of `LLVMTarget`, and the call to
+to dlopen could happen in the constructor of `LLVMScope`, and the call to
 dlclose in its destructor.
 This obviously precludes any uses of LLVM outside of the lifetime of the
-`LLVMTarget` object, and making it so (or at least coming as close as
+`LLVMScope` object, and making it so (or at least coming as close as
 possible) was one of the design goals.
 
-There is one case where the `LLVMTarget` object cannot be created before
+There is one case where the `LLVMScope` object cannot be created before
 making use of LLVM: when a LLVM module is deserialized. The `LLVMModule`[1]
 class in TVM stores the target string as a metadata in the LLVM IR, and
 so the LLVM IR has to be decoded (and the LLVM module created) first,
-before a `LLVMTarget` object can be created. To mitigate this issue,
-`LLVMTarget` has two "factory" functions, which deserialize an LLVM
+before a `LLVMScope` object can be created. To mitigate this issue,
+`LLVMScope` has two "factory" functions, which deserialize an LLVM
 module (from file, and from a string), and return a _pair_: the
-`LLVMTarget` created from the metadata encoded in the module, and the
+`LLVMScope` created from the metadata encoded in the module, and the
 LLVM module itself.
 
 Another design consideration was not imposing any limitations on using LLVM,
@@ -114,39 +114,39 @@ the TVM type.
 
 One of the more important structures in LLVM, in particular when dealing
 with LLVM IR, is `LLVMContext`. A LLVM module needs a context, but it does
-not own one. `LLVMContext` should be managed by `LLVMTarget` (in principle,
+not own one. `LLVMContext` should be managed by `LLVMScope` (in principle,
 by anything that outlives the rest of LLVM's objects).
 
 At the minimum, the designed interface would contain:
 
 ```C++
-class LLVMTarget {
+class LLVMScope {
 public:
-  LLVMTarget(const Target& target);
-  ~LLVMTarget();
+  LLVMScope(const Target& target);
+  ~LLVMScope();
 
-  std::pair<llvm::Module, LLVMTarget> LoadIR(const std::string& file_name);
-  std::pair<llvm::Module, LLVMTarget> ParseIR(const std::string& ir_text);
+  std::pair<llvm::Module, LLVMScope> LoadIR(const std::string& file_name);
+  std::pair<llvm::Module, LLVMScope> ParseIR(const std::string& ir_text);
 
   std::shared_ptr<llvm::Context> GetOrCreateContext();
 };
 ```
 
-Since the LLVM state is global, there should only be one `LLVMTarget` object
+Since the LLVM state is global, there should only be one `LLVMScope` object
 live at any given time if it attempts to modify the state. There can be
 arbitrarily many of such objects live simultaneously as long as none of them
 modify the state.
 
 # Drawbacks
 
-There is no way to effectively enforce the creation of `LLVMTarget` object
+There is no way to effectively enforce the creation of `LLVMScope` object
 before using LLVM inside TVM, at least not without further steps. This would
 have to be a convention that contributors follow, and accidental non-compliance
 will not be automatically detected.
 
 # Rationale and alternatives
 
-Having `LLVMTarget` as a prerequisite for using LLVM APIs was intended
+Having `LLVMScope` as a prerequisite for using LLVM APIs was intended
 to allow its constructor/destructor serve as the "setup"/"cleanup" functions,
 similarly to Python's `__enter__` and `__exit__`.  Following Python's `with`
 idiom was actually suggested by @tqchen on the discussion forum (thread
