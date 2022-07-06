@@ -298,12 +298,12 @@ to TVMScript parser.
 
 ## Parse-time evaluation
 
-TVMScript Parser can be considered as a thin wrapper around the IRBuilder API.
-The parser evaluates small fragments of code as it goes through the input AST,
-and the corresponding IRBuilder API is called to build the IR graph. All
-metaprogramming features we discussed above (F1 through F4) can be implemented
-through this parse-time evaluation in a consistent manner. Using the same
-`gen_matmul` example from F1,
+TVMScript Parser can be considered as a thin layer built above the IRBuilder
+API. The parser transforms input AST into a sequence of calls to IRBuilder API,
+by evaluating small fragments of code as it visits AST. The IRBuilder is
+responsible for building the actual IR graph. All metaprogramming features we
+discussed above (F1 through F4) can be implemented through this parse-time
+evaluation in a consistent manner. Using the same `gen_matmul` example from F1,
 
 ```python
 def gen_matmul(n, m) -> None:
