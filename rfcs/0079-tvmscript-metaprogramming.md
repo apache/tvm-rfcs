@@ -287,16 +287,23 @@ def main(
           vk = T.axis.R(128, k)
 ```
 
+As shwon in the example above, user doesn't need to pass the builder `b` to
+subsequent calls to IRBuilder API. The current builder state is maintained in a
+threadlocal store to imporve the ergonomics of IRBUilder API by avoiding
+passing the builder state explicitly.
+
 The implementation of IRBuilder will be in C++ so that it can be used in an
 environment without Python. Python binding will be created to expose IRBuilder
 to TVMScript parser.
 
 ## Parse-time evaluation
 
-To support metaprogramming, the TVMScript parser needs to evaluate the
-expression using Python interpreter. All metaprogramming
-features we discussed above can be implemented through this parse-time
-evaluation. Using the same `gen_matmul` example from F1,
+TVMScript Parser can be considered as a thin wrapper around the IRBuilder API.
+The parser evaluates small fragments of code as it goes through the input AST,
+and the corresponding IRBuilder API is called to build the IR graph. All
+metaprogramming features we discussed above (F1 through F4) can be implemented
+through this parse-time evaluation in a consistent manner. Using the same
+`gen_matmul` example from F1,
 
 ```python
 def gen_matmul(n, m) -> None:
