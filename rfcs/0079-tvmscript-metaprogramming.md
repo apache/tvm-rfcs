@@ -289,7 +289,7 @@ def main(
 
 As shwon in the example above, user doesn't need to pass the builder `b` to
 subsequent calls to IRBuilder API. The current builder state is maintained in a
-threadlocal store to imporve the ergonomics of IRBUilder API by avoiding
+threadlocal store to imporve the ergonomics of IRBuilder API by avoiding
 passing the builder state explicitly.
 
 The implementation of IRBuilder will be in C++ so that it can be used in an
@@ -316,9 +316,10 @@ def gen_matmul(n, m) -> None:
 What parser does here is to:
 
 1. Collect the environment inside `gen_matmul`, getting a dictionary
-    1. All primitive types will be captured automatically, while advanced types
-       (like function) needs to be explicitly declared in the decorator to be
-       captured (for example, `@T.prim_func(capture=[get_box_coordinates])`)
+    1. All primitive types (`int`, `str`, `float` and `None`) will be captured
+       automatically, while advanced types (like function) needs to be
+       explicitly declared in the decorator to be captured (for example,
+       `@T.prim_func(capture=[get_box_coordinates])`)
 2. Call the corresponding function from IRBuilder, as the parser visits the AST
    of function `f`.
     1. When visiting the function argument, call `eval` on its type annotation, 
