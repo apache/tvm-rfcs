@@ -373,6 +373,16 @@ The call to the `get_box_coordinates` function is evaluated when parser is visit
 assign statement. The parser calls IRBuilder `def_many(["a_l", "a_t", "a_r", "a_b"], <returned_tuple>)`
 and put them into the internal variable table.
 
+Note that we will not place extra restriction on the signature of user-provided
+function (`get_box_coordinates` in this example). More precisely, the function
+argument types can be anything because parser is able to capture outter
+variables thus bringing variables with arbitrary type into the scope. The restriction on
+returned type depends on the language spec of the target IR. For example, in
+TIR user can write `A[i] = ...` to represent `BufferStore`, where the rhs is a
+`PrimExpr`, then the user can provide a custom function
+`compute_magic_number(index: PrimExpr) -> PrimExpr` to use on the rhs as `A[i]
+= compute_magic_number(i)`.
+
 By running `eval` and `exec` provided by the Python interpreter, we can implement
 language features which are difficult to implement manually, and also make sure
 TVMScript has the same semantics on expression compared to regular Python code.
