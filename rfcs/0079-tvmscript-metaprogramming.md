@@ -343,6 +343,36 @@ The parser will:
 3. Collect the value of `i` from the `locals` dictionary
 4. Call the IRBuilder API `def_many(["i"], [i])` 
 
+As mentioned above, all metaprogramming features (F1 through F4) can be
+implemented through this parse-time evaluation. It's straightforward to see how
+F1 and F2 are implemented by parse-time evaluation, but it might be harder to
+grasp the idea behind F3 and F4. 
+
+For F3 (TE Compute in TIR),
+```python
+C = T.compute((128, 128), lambda i, j: A[i, j] + B[i, j])
+# build a similar graph as
+for i in range(128):
+  for j in range(128):
+    with T.block("..."):
+      C[i, j] = A[i, j] + B[i, j]
+```
+`T.compute` is provided in IRBuilder API and will construct all IR nodes (For,
+BlockRealize, Block and BufferStore). `T.compute` calls the lambda function to
+get the rhs of BufferStore. Then `T.compute` returns a `Buffer` node that
+represents `C`. The parser handles the assignment by assigning `"C"` to the
+`name_hint` of the returned buffer (by calling IRBuilder API `def_("C", C)`),
+and put it into the internal variable table (which is used to resolve variable
+when evaluating subsequent statements and expressions).
+
+For F4 (Interleave host program and TVMScript program),
+```python
+a_l, a_t, a_r, a_b = get_box_coordinates(output, batch_idx, box_a_idx, box_start_idx)
+```
+The call to the `get_box_coordinates` function is evaluated when parser is visiting the 
+assign statement. The parser calls IRBuilder `def_many(["a_l", "a_t", "a_r", "a_b"], <returned_tuple>)`
+and put them into the internal variable table.
+
 By running `eval` and `exec` provided by the Python interpreter, we can implement
 language features which are difficult to implement manually, and also make sure
 TVMScript has the same semantics on expression compared to regular Python code.
