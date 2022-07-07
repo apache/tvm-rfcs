@@ -296,6 +296,15 @@ The implementation of IRBuilder will be in C++ so that it can be used in an
 environment without Python. Python binding will be created to expose IRBuilder
 to TVMScript parser.
 
+With the separation between IRBuilder and parser, most implementation and
+documentation can be reused between TVMScript and IR definition. For example,
+most of operators are simply imported into the IRBuilder package, like
+```python
+from tvm.tir import sin, cos
+```
+so the documentation and type signatures only need to be written once, and the
+APIs are guaranteed to be consistent.
+
 ## Parse-time evaluation
 
 TVMScript Parser can be considered as a thin layer built above the IRBuilder
