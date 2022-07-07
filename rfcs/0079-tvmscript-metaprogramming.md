@@ -416,6 +416,45 @@ python/tvm/script/
         └── ...
 ```
 
+## Usage of `eval` and `exec`
+
+The parser uses `eval` and `exec` in the following places:
+- It calls `eval` to evaluate fragment of expressions
+- It calls `exec` to evaluate different kinds of assignment statement, like `first, *rest, last = T.grid(...)`
+
+The usage of `eval` and `exec` is necessary to our implementation. TVMScript
+allows users to construct IR graph in TVM declaratively as if they were writing
+Python code, lowering the barrier of using TVM to do low-level customization.
+However it is still restrictive and does not allow the usage of many Python
+features to build abstractions for user's code. All features proposed in this
+RFC can be seen as an effort to narrow this gap, thus they are designed to
+follow the Python semantics. On the implementation side, the most robust
+approach is to leverage the Python interpreter itself to facilitate those
+features, rather than write our own version of restricted Python interpreter.
+And `eval` and `exec` are the most suitable choices to achieve this. Other
+mechanism, like multiprocess + IPC and subinterpreter, either lacks an easy
+path to exchange Python objects, or requires dependency on the C API of CPython.
+
+In our use cases, `eval` and `exec` do not create additional
+security risk for users. All inputs to `eval` come from user's code
+directly, without modification. Our usage of `exec` only executes a
+specific form of code, 
+```python
+<lhs> = __tvm_rhs_var__
+```
+where `<lhs>` is the tokens from the left hand side of assign statement,
+directly from user's code. The situation is very different from cases that make
+`eval` and `exec` infamous, where they are used to evaluate untrusted
+input from end users, typically in a web server. Furthermore, we require users
+to explicitly capture variables. Therefore, The evaluation will only involve
+objects from `tvm`, Python builtins and objects explicitly captured by users.
+This rules out the possibility that an external function is called by parser
+without user's acknowledgement. If the malicious actor wants to exploit the
+system through the `eval` or `exec` in TVMScript parser, they must first get
+another RCE (remote code execution) vulnerability in the Python runtime to
+modify the code in runtime, which makes such exploit useless (one needs to
+first have an RCE to exploit another RCE with the same exposure). 
+
 
 # Drawbacks
 [drawbacks]: #drawbacks
