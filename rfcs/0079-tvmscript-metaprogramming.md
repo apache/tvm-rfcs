@@ -469,10 +469,41 @@ N/A
 # Prior art
 [prior-art]: #prior-art
 
+### Prior works in TVM
 - Hybrid Script: [https://tvm.apache.org/docs/reference/langref/hybrid_script.html](https://tvm.apache.org/docs/reference/langref/hybrid_script.html)
 - RFC for TVMScript: [https://discuss.tvm.apache.org/t/rfc-hybrid-script-support-for-tir/7516](https://discuss.tvm.apache.org/t/rfc-hybrid-script-support-for-tir/7516)
-- Taichi: [https://www.taichi-lang.org](https://www.taichi-lang.org/)
-- Triton: [http://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf](http://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf)
+
+### Other libraries
+#### Taichi 
+[https://www.taichi-lang.org](https://www.taichi-lang.org/)
+
+Taichi has a very similar metaprogramming model ([link to doc](https://docs.taichi.graphics/docs/master/meta)) as we presented in this RFC.
+The biggest difference is that Taichi requires `ti.static` to be wrapped around everything that needs to be evaluated in compile time. It also 
+has advanced features like loop unrolling, compile time branching and compile-time recursion. 
+
+In TVMScript parser, it does not need special marker to denote compile-time
+evaluation. Expressions are consistently evaluated in compile time (evaluated
+to IR node like PrimExpr, rather than the concrete value like a float matrix.), 
+thanks to the separation of IRBuilder and parser. Features like loop
+unrolling can be implemented in the IRBuilder layer per target IR. This keeps
+the core parser as minimal as possible.
+
+
+#### Triton 
+[http://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf](http://www.eecs.harvard.edu/~htk/publication/2019-mapl-tillet-kung-cox.pdf)
+
+Triton uses the meta-parameters to generalize kernels (for example, 
+[tutorials/03-matrix-multiplication.html](https://triton-lang.org/master/getting-started/tutorials/03-matrix-multiplication.html)).
+Meta parameters are placed together with real parameters, but with type
+annotation `tl.constexpr` to differentiate. This method slightly deviates from
+regular Python semantics, as users will intuitively expect to pass them
+together with real parameters when calling the kernel.
+
+In TVMScript, one of the design principle is to narrow the gap between
+TVMScript and regular Python code. TVMScript should not surprise users with
+syntax or language features that deviate from Python. All features proposed in
+this RFC are designed to strictly follow the semantics of Python and aimed to
+be intuitive to Python users.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
