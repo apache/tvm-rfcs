@@ -5,12 +5,14 @@
 
 # Summary
 
-Enapsulate all information related to a compilation target in LLVM into a
-single object `LLVMScope`. Make creation of this object a prerequisite
-for using any LLVM facilities (e.g. optimizations, code generation, etc.).
+1. Create an object `LLVMScope` whose lifetime determines the scope of
+availability of LLVM functions (except serializing/deserializing LLVM IR).
+2. Enapsulate all information related to a compilation target in LLVM into a
+single object `LLVMTarget`.
 
-This will allow extending the `llvm` target in TVM to contain LLVM flags.
-The `LLVMScope` would them be used to save/restore LLVM's command line
+This will allow extending the `llvm` target in TVM to contain LLVM command
+line flags.
+The `LLVMTarget` could them be used to save/restore LLVM's command line
 options based on the flags contained in the `llvm` target.
 
 # Motivation
@@ -19,11 +21,12 @@ For more details, see [discussion](https://discuss.tvm.apache.org/t/modularizing
 on discourse.
 
 The main issue with using statically linked LLVM libraries is that the LLVM
-code has, and depends on a global state. A specific (and most problematic)
-example of that are command line flags (implemented via `cl::opt` in LLVM).
-Many LLVM components use them to tune their behavior, provide debugging or
-tracing facilities, or simply as on/off switches. In LLVM sources they are
-global variables, and once set they maintain their values.
+code has, and depends on a global state. First of all, LLVM needs to be
+initialized by registering all targets before any use. Another (and most
+problematic) example of that are command line flags (implemented via `cl::opt`
+in LLVM). Many LLVM components use them to tune their behavior, provide
+debugging or tracing facilities, or simply as on/off switches. In LLVM
+sources they are global variables, and once set they maintain their values.
 
 Since TVM uses LLVM to generate code for multiple different targets, each
 specific code generator in TVM may want to use its own set of tuning flags
@@ -38,47 +41,61 @@ code generation for each target. This could be done by having a single
 "entry point" into LLVM, that each LLVM client would need to use. This
 RFC proposes a class that would serve as such entry point.
 
-Since uses of LLVM in TVM are tied to compilation targets, having a common
-class describing a compilation target in LLVM's terms would serve two
-purposes
-1. Would be a unified bridge between the `llvm` target in TVM and target
-representation in LLVM, and
-2. Would be the "entry point" into LLVM described above.
+Another consideration is the LLVM context (`llvm::LLVMContext`), which is
+a common source of a number of LLVM IR constructs (like types, or constants).
+LLVM context is required for creating LLVM IR, and its lifetime must be
+enough to contain the lifetimes of any LLVM IR (`llvm::Module` in particular).
+
+Uses of LLVM in TVM generally fall into two categories: (1) loading/writing
+LLVM IR (`llvm::Module`), and (2) target-specific functionality like
+optimization, or code generation. This RFC proposes two classes:
+1. `LLVMScope` class that would initialize LLVM as a whole, and maintain
+the LLVM context.
+2. `LLVMTarget` class that would be a unified bridge between the `llvm`
+target in TVM and target representation in LLVM, and eventually handle
+the saving and restoration of LLVM command line flags.
 
 # Guide-level explanation
 
-The idea of this RFC is to implement a common class `LLVMScope` for all
-LLVM-based targets. Objects of this class would be constructed from TVM's
-`Target`, specifically from `Target` objects for `llvm` target.
-The objects would contain the LLVM representations of the information
-represented by the TVM target, i.e. objects used by LLVM such as
-`TargetMachine`. In addition to translating the target data from TVM format
-to LLVM format, once `llvm` target in TVM supports command line flags,
-this object would also query the current state of relevant
-LLVM command line options, set then to new values, and restore the original
-values on exit (the indent is to use constructor/desctructor for this).
+The idea of this RFC is to implement a common class `LLVMScope` that would
+manage LLVM intialization and the LLVM context. It would be able to create
+LLVM modules (`llvm::Module`)[1], but not be associated with any specific
+target.
+
+The target object `LLVMTarget` would require a scope object, and the lifetime
+of the scope object must entirely contain any target object. The target object
+would be a common location to access LLVM data structures associated with
+compilation target, e.g. target machine (`llvm::TargetMachine`), fast math
+flags (`llvm::FastMathFlags`), optimization level (`llvm::CodeGenOpt::Level`),
+and so on. Once LLVM flags are added to the `llvm` target, the `LLVMTarget`
+object would also save/restore the original values when necessary.
 
 A typical use would follow this pattern:
 ```C++
 {
+  // Initialize LLVM.
+  LLVMScope llvm_scope;
   // Let's see the LLVM IR and MIR after each transformation, i.e. use
   // -print-after-all in codegen.
   my_target = Target("llvm -mtriple myarch-unknown-elf -llvm-options=print-after-all");
-  LLVMScope llvm_scope(my_target);
+  With<LLVMTarget> llvm_target(llvm_scope, my_target);
   // [...]
-  // Some uses of llvm_scope
-  const llvm::Target& t = llvm_scope.target_machine->getTarget();
+  // Some uses of llvm_target
+  const llvm::Target& t = llvm_target.target_machine->getTarget();
   std::cout << "name: " << t.getName() << "\n";
   std::cout << "description: " << t.getShortDescription() << "\n";
   // [...]
   // Create codegen
   auto cg = new CodeGenMyArch();
-  cg->Init(llvm_scope);
+  cg->Init(llvm_target);
   // add functions, optimize, save output, etc.
   // [...]
-  // Done using LLVM. llvm_scope's destructor does the cleanup.
+  // Done using LLVM. llvm_target's destructor does the cleanup.
 }
 ```
+
+[1] Unless indicated otherwise, the term "LLVM module" in the text of the RFC
+refers to `llvm::Module`.
 
 # Reference-level explanation
 
@@ -92,24 +109,23 @@ This obviously precludes any uses of LLVM outside of the lifetime of the
 `LLVMScope` object, and making it so (or at least coming as close as
 possible) was one of the design goals.
 
-There is one case where the `LLVMScope` object cannot be created before
-making use of LLVM: when a LLVM module is deserialized. The `LLVMModule`[1]
-class in TVM stores the target string as a metadata in the LLVM IR, and
-so the LLVM IR has to be decoded (and the LLVM module created) first,
-before a `LLVMScope` object can be created. To mitigate this issue,
-`LLVMScope` has two "factory" functions, which deserialize an LLVM
-module (from file, and from a string), and return a _pair_: the
-`LLVMScope` created from the metadata encoded in the module, and the
-LLVM module itself.
+Another consideration is the extent of the impact of command line options
+in LLVM. Since they are represented as global variables, they are acccessible
+nearly anywhere in the LLVM code (including LLVM IR deserialization).
+To completely contain any uses of LLVM flags in the scope of saving/restoring
+their default values one would have to save them before making any calls to
+LLVM code. This is unfortunately impossible, since LLVM command line flags
+will eventually become an attribute of `llvm` target, which in certain cases
+can only be created once an LLVM module has been deserialized: LLVM modules
+store target string as metadata.
+
+Because of that, saving and restoring of LLVM flags will not apply to
+serialization or deserialization of LLVM IR.
 
 Another design consideration was not imposing any limitations on using LLVM,
 once the prerequisites were met. In particular, the programmer should be
 able to use any LLVM functions or data structures that were available to
 them before this proposal.
-
-[1] Unless indicated otherwise, the term "LLVM module" in the text of the RFC
-refers to `llvm::Module`. When the name `LLVMModule` is used, it refers to
-the TVM type.
 
 ## Implementation
 
@@ -122,28 +138,31 @@ At the minimum, the designed interface would contain:
 
 ```C++
 class LLVMScope {
-public:
-  LLVMScope(const Target& target);
+ public:
+  LLVMScope();
   ~LLVMScope();
 
-  std::pair<llvm::Module, LLVMScope> LoadIR(const std::string& file_name);
-  std::pair<llvm::Module, LLVMScope> ParseIR(const std::string& ir_text);
+  std::shared_ptr<llvm::LLVMContext> GetContext() const { return ctx_; }
 
-  std::shared_ptr<llvm::Context> GetOrCreateContext();
+  std::unique_ptr<llvm::Module> ParseIR(const std::string& llvm_ir) const;
+  std::unique_ptr<llvm::Module> LoadIR(const std::string& file_name) const;
+
+ private:
+  std::shared_ptr<llvm::LLVMContext> ctx_;
 };
 ```
 
-Since the LLVM state is global, there should only be one `LLVMScope` object
+Since the LLVM state is global, there should only be one `LLVMTarget` object
 live at any given time if it attempts to modify the state. There can be
 arbitrarily many of such objects live simultaneously as long as none of them
 modify the state.
 
 # Drawbacks
 
-There is no way to effectively enforce the creation of `LLVMScope` object
-before using LLVM inside TVM, at least not without further steps. This would
-have to be a convention that contributors follow, and accidental non-compliance
-will not be automatically detected.
+There is no way to effectively enforce the creation of `LLVMScope` or
+`LLVMTarget` objects before using LLVM inside TVM. At the same time adding
+these objects to common code (e.g. `CodeGenLLVM`) should prevent accidental
+misuse of LLVM.
 
 # Rationale and alternatives
 
