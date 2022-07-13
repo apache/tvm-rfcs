@@ -71,7 +71,7 @@ for i in range(16):
 sch.annotate(i, "software_pipeline_stage", [0, 1])
 ...
 
-# "0" refers to the first element in te list [0, 1] above, i.e. the first block
+# "0" refers to the 0-th stage, corresponding to the first element in the list [0, 1].
 sch.annotate(i, "software_pipeline_async_stages", [0])
 ```
 
