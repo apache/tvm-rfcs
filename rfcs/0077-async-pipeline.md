@@ -75,7 +75,7 @@ sch.annotate(i, "software_pipeline_stage", [0, 1])
 sch.annotate(i, "software_pipeline_async_stages", [0])
 ```
 
-we generate the following IR. An asynchronous block is decorated with the `async_scope` attribute, and further enclosed in the scope `async_commit_queue(0)`. An intrinsic `async_wait_queue(0, 1)` is inserted to express synchronization.
+we generate the following IR. An asynchronous block is decorated with the `async_scope` attribute, and further enclosed in the scope `async_commit_queue(0)`.  Synchronization is expressed by a scope `async_wait_queue(0, 1)`.
 
 ```python
 B = alloc([2])
@@ -91,22 +91,22 @@ for i in range(15):
        async_scope:
           B[(i + 1) % 2] = A[i] + 1
 
-    async_wait_queue(0, 1)
-    C[i] = B[i % 2] + 1
+    async_wait_queue(0, 1):
+       C[i] = B[i % 2] + 1
 
 # Epilogue
-async_wait_queue(0, 0)
-C[15] = B[1] + 1
+async_wait_queue(0, 0):
+   C[15] = B[1] + 1
 ```
 
 The proposed async constructs are intentionally more general / abstract than what's needed by the TIR software pipeline, in the hope that
 they would find their uses in more general settings. In particular, synchronization is done in terms of "queue": It is an abstract entity
 associated with each asynchronous unit, and it tracks invocations and completions of asynchronous operations in the FIFO order.
 
-**Semantics of the proposed constructs**
-- `async_commit_queue(i)` scope annotation: Group one or more invocations of async operations in the given scope, and “commit”(or push) them to the queue `i`. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. A group of operations committed together is awaited as one chunk, and thus they constitute the granularity at which the synchronization intrinsic discussed next operates on. Groups committed to the same queue complete in the FIFO order.
+**Semantics of the proposed scope annotations**
+- `async_commit_queue(i)`: Group one or more invocations of async operations in the given scope, and “commit”(or push) them to the queue `i`. The exact interpretation of “committing” can be up to each backend, but informally it signifies that a group of async operations are now in-flight. A group of operations committed together is awaited as one chunk. Groups committed to the same queue complete in the FIFO order.
 
-- `async_wait_queue(i, N)` intrinsic: Block until only `N` **most recent** committed groups are still in-flight in the queue `i` . In other words, if there are `M` committed groups in-flight in the queue `i`, at the invocation of `async_wait_queue(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
+- `async_wait_queue(i, N)`: Block until only `N` **most recent** committed groups are still in-flight in the queue `i` . In other words, if there are `M` committed groups in-flight in the queue `i`, when reaching the synchornization scope `async_wait_queue(i, N)`, `M - N` oldest committed groups would be forced to complete. `N` doesn’t have to be a constant, but some backends may require a constant count (e.g. PTX)
 
 They are inspired by the corresponding async data movement instructions in CUDA (PTX): [`cp.async.commit_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-commit-group) and [`cp.async.wait_group`](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-wait-group).
 The CUDA counterparts do not have the notion of “queue”, since there is only one kind of async operation (copy from global to shared memory) supported by the current generation of NVIDIA GPU (Ampere, at the time of writing). So "commit" and "wait" always refer to the same internal queue.
@@ -157,9 +157,9 @@ for i in range(2):
 
    if 1 <= i:
       async_commit_queue(1):
-         async_wait_queue(0, 1)
-         async_scope:
-            C[(i - 1) % 2] = B[(i - 1) % 2] + 1
+         async_wait_queue(0, 1):
+            async_scope:
+               C[(i - 1) % 2] = B[(i - 1) % 2] + 1
 
 # Body
 for i in range(14):
@@ -170,29 +170,29 @@ for i in range(14):
 
    # Stage 1
    async_commit_queue(1):
-      async_wait_queue(0, 1)
-      async_scope:
-         C[(i + 1) % 2] = B[(i + 1) % 2] + 1
+      async_wait_queue(0, 1):
+         async_scope:
+            C[(i + 1) % 2] = B[(i + 1) % 2] + 1
 
    # Stage 2
-   async_wait_queue(1, 1)
-   D[i] = C[i % 2] + 1
+   async_wait_queue(1, 1):
+      D[i] = C[i % 2] + 1
 
 
 # Epilogue
 for i in range(2):
    if i < 1:
      async_commit_queue(1):
-        async_wait_queue(0, 0)
-        async_scope:
-           C[(i + 15) % 2] = B[(i + 15) % 2] + 1
+        async_wait_queue(0, 0):
+           async_scope:
+              C[(i + 15) % 2] = B[(i + 15) % 2] + 1
 
    if i < 1:
-      async_wait_group(1, 1)
+      async_wait_group(1, 1):
+         D[(i + 14) % 2] = C[(i + 14) % 2] + 1
    else:
-      async_wait_group(1, 0)
-
-   D[(i + 14) % 2] = C[(i + 14) % 2] + 1
+      async_wait_group(1, 0):
+         D[(i + 14) % 2] = C[(i + 14) % 2] + 1
 
 ```
 
@@ -226,46 +226,45 @@ for i in range(3):
          B_shared[i] <- global[...]
 
    if 2 <= i:
-      async_wait_queue(0, 2)
-      A_local[0] <- A_shared[0, ...]
-      B_local[0] <- B_shared[0, ...]
+      async_wait_queue(0, 2):
+         A_local[0] <- A_shared[0, ...]
+         B_local[0] <- B_shared[0, ...]
 
 # Body
 for i in range(125):
    async_commit_queue(0):
       async_scope:
-        A_shared[(i + 3) % 4] <- global[...]
+         A_shared[(i + 3) % 4] <- global[...]
 
       async_scope:
-        B_shared[(i + 3) % 4] <- global[...]
+         B_shared[(i + 3) % 4] <- global[...]
 
-   async_wait_queue(0, 2)
+   async_wait_queue(0, 2):
 
-   A_local[1] <- A_shared[i % 4, ...]
-   B_local[1] <- B_shared[i % 4, ...]
+      A_local[1] <- A_shared[i % 4, ...]
+      B_local[1] <- B_shared[i % 4, ...]
 
-   compute(A_local[0], B_local[0])
+      compute(A_local[0], B_local[0])
 
-   A_local[0] <- A_shared[(i + 1) % 4, ...]
-   B_local[0] <- B_shared[(i + 1) % 4, ...]
+      A_local[0] <- A_shared[(i + 1) % 4, ...]
+      B_local[0] <- B_shared[(i + 1) % 4, ...]
 
-   compute(A_local[1], B_local[1])
+      compute(A_local[1], B_local[1])
 
 # Epilogue
 for i in range(3):
-   async_wait_queue(0, 1 - i)
+   async_wait_queue(0, 1 - i):
 
-   A_local[1] <- A_shared[0, ...]
-   B_local[1] <- B_shared[0, ...]
+      A_local[1] <- A_shared[0, ...]
+      B_local[1] <- B_shared[0, ...]
 
-   compute(A_local[0], B_local[0])
+      compute(A_local[0], B_local[0])
 
-   if i < 2:
-      A_local[0] <- A_shared[0, ...]
-      B_local[0] <- B_shared[0, ...]
+      if i < 2:
+          A_local[0] <- A_shared[0, ...]
+          B_local[0] <- B_shared[0, ...]
 
-   compute(A_local[1], B_local[1])
-
+      compute(A_local[1], B_local[1])
 ```
 
 ### Implicit vs explicit approach to synchronization
@@ -320,8 +319,8 @@ for i in range(3):
         ...
 
    if i <= 2:
-      async_wait_queue(0, 2)
-      A_local[0] <- A_shared[0, ...]
+      async_wait_queue(0, 2):
+         A_local[0] <- A_shared[0, ...]
 
 
 for i in range(125):
@@ -330,13 +329,13 @@ for i in range(125):
         A_shared[(i + 3) % 4] <- global[...]
         ...
 
-   async_wait_queue(0, 3)
-   A_local[1] <- A_shared[i % 4, ...]
-   ...
+   async_wait_queue(0, 3):
+      A_local[1] <- A_shared[i % 4, ...]
+      ...
 
-   async_wait_queue(0, 2)
-   A_local[0] <- A_shared[(i + 1) % 4, ...]
-   ...
+   async_wait_queue(0, 2):
+      A_local[0] <- A_shared[(i + 1) % 4, ...]
+      ...
 ```
 
 But the second wait subsumes the first one (since it allows less in-flight ops), so we may as well generate:
@@ -348,12 +347,12 @@ for i in range(125):
         A_shared[(i + 3) % 4] <- global[...]
         ...
 
-   async_wait_queue(0, 2)
-   A_local[1] <- A_shared[i % 4, ...]
-   ...
+   async_wait_queue(0, 2):
+      A_local[1] <- A_shared[i % 4, ...]
+      ...
 
-   A_local[0] <- A_shared[(i + 1) % 4, ...]
-   ...
+      A_local[0] <- A_shared[(i + 1) % 4, ...]
+      ...
 ```
 
 (Actually, the first wait `async_wait_queue(0, 3)` is redundant, since `async_wait_queue(0, 2)` in the previous iteration makes sure that there are only two in-flight ops, and we only issue one more async op in the current iteration before `async_wait_queue(0, 3)`, i.e. the number of in-flight ops is already three.)
@@ -378,12 +377,12 @@ for i in range(125):
          A_shared[(i + 3) % 4] <- global[...]
          ...
 
-   async_wait_queue(0, 3)
-   A_local[1] <- A_shared[i % 4, ...]
-   ...
+   async_wait_queue(0, 3):
+      A_local[1] <- A_shared[i % 4, ...]
+      ...
 
-   async_wait_queue(0, 2)
-   A_local[0] <- A_shared[(i + 1) % 4, ...]
+   async_wait_queue(0, 2):
+      A_local[0] <- A_shared[(i + 1) % 4, ...]
 ```
 
 The above access pattern is ideal in terms of the order of accesses to the async result. It is taken from a complicated nested software pipeline example, using the annotation:
@@ -408,12 +407,12 @@ for i in range(125):
          A_shared[(i + 3) % 4] <- global[...]
          ...
 
-   async_wait_queue(0, 0)
-   A_local[1] <- A_shared[i % 4, ...]
-   ...
+   async_wait_queue(0, 0):
+      A_local[1] <- A_shared[i % 4, ...]
+      ...
 
-   A_local[0] <- A_shared[(i + 3) % 4, ...]
-   ...
+      A_local[0] <- A_shared[(i + 3) % 4, ...]
+      ...
 ```
 
 Note that the index `i + 3` is both produced and consumed in the same iteration. So before we access `A_shared[(i + 3) % 4, ...]`, we need to put `async_wait_queue(0, 0)`. `(i + 3) - (i + 3) = 0`, so the math checks out here too.
@@ -438,16 +437,15 @@ for i in range(125):
 # Two consumers but no async producer in the epilogue
 for i in range(3):
    # in_flight_count = 127 - (i + 125)
-   async_wait_queue(0, 2 - i)
-   local[...] = shared[(i + 125) % 4]
-   ...
+   async_wait_queue(0, 2 - i):
+      local[...] = shared[(i + 125) % 4]
+      ...
 
    if i < 2:
      # in_flight_count = 127 - (i + 126)
-     async_wait_queue(0, 1 - i)
-     local[...] = shared[(i + 126) % 4]
-
-   ...
+     async_wait_queue(0, 1 - i):
+        local[...] = shared[(i + 126) % 4]
+        ...
 ```
 
 If either of async operations in the prologue or body are predicated with a non-trivial condition, we cannot tell how many async ops have been actually issued. In this case, we put `async_wait_queue(0, 0)` in the epilogue (flush all pending async ops) and don’t try to do something clever.
@@ -493,8 +491,8 @@ for i in range(13):
        async_scope:
           A_shared[(i + 3) % 4] = A[...]
 
-    async_wait_queue(0, 5)
-    compute(A_shared[i], B_shared[i])
+    async_wait_queue(0, 5):
+       compute(A_shared[i], B_shared[i])
 
     async_commit_queue(0):
        async_scope:
