@@ -1,4 +1,4 @@
-- Feature Name: Encapsulate LLVM target for use with LLVM libraries
+- Feature Name: Create LLVM scope class for use with LLVM libraries
 - Start Date: May 13, 2022
 - RFC PR: [apache/tvm-rfcs#0083](https://github.com/apache/tvm-rfcs/pull/83)
 - GitHub Issue: None
@@ -144,7 +144,12 @@ class LLVMScope {
 
   std::shared_ptr<llvm::LLVMContext> GetContext() const { return ctx_; }
 
+  // Assume the "llvm_ir" parameter contains serialized textual LLVM IR.
+  // Parse the IR and return the resulting llvm::Module.
   std::unique_ptr<llvm::Module> ParseIR(const std::string& llvm_ir) const;
+  // Load LLVM IR from file given by "file_name", and return the created
+  // llvm::Module. The file can contain either the bitcode (i.e. "bc"), or
+  // text (i.e. "ll").
   std::unique_ptr<llvm::Module> LoadIR(const std::string& file_name) const;
 
  private:
