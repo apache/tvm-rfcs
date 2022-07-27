@@ -272,7 +272,7 @@ with Builder() as b:
 f = b.get() # f is a PrimFunc
 ```
 
-produces similar result to 
+produces equivalent result as 
 
 ```python
 @T.prim_func
@@ -287,9 +287,9 @@ def main(
           vk = T.axis.R(128, k)
 ```
 
-As shwon in the example above, user doesn't need to pass the builder `b` to
+As shown in the example above, user doesn't need to pass the builder `b` to
 subsequent calls to IRBuilder API. The current builder state is maintained in a
-threadlocal store to imporve the ergonomics of IRBuilder API by avoiding
+threadlocal store to improve the ergonomics of IRBuilder API by avoiding
 passing the builder state explicitly.
 
 The implementation of IRBuilder will be in C++ so that it can be used in an
