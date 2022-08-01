@@ -5,7 +5,7 @@
            [Junru Shao](https://github.com/junrushao1994)
 - Start Date: 2022-06-06
 - RFC PR: [apache/tvm-rfcs#0077](https://github.com/apache/tvm-rfcs/pull/0077)
-- GitHub Issue: TBD
+- GitHub Issue: [apache/tvm#12261](https://github.com/apache/tvm/issues/12261)
 
 # Table of contents
 - [Table of contents](#table-of-contents)
