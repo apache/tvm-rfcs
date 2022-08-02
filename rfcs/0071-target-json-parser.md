@@ -32,7 +32,7 @@ We can see that there are additional fields which are of interest to TVM, note-a
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-Alongside the existing `set_attrs_preprocessor` method on `TargetKind`, there will be an alternative `set_target_parser` method, this new parser will take precedence over the `attrs` preprocessor if present:
+Alongside the existing `set_attrs_preprocessor` method on `TargetKind`, there will be an alternative `set_target_parser` method to bind a `FTVMTargetParser` to the `TargetKind`. The new `FTVMTargetParser` will take precedence over the `attrs` preprocessor if present:
 
 ```c++
 TVM_REGISTER_TARGET_KIND("target", kDLCPU)
