@@ -149,17 +149,17 @@ with flattened indices.
 * New statement `T.decl_buffer` will be introduced. It has the same interface as `T.buffer_decl`.
 ```python
 def decl_buffer(
-    shape,
-    dtype="float32",
-    data=None,
-    strides=None,
-    elem_offset=None,
-    scope="global",
-    align=-1,
-    offset_factor=0,
-    buffer_type="default",
-    axis_separators=None) -> Buffer:
-    ...
+    shape: Sequence[Union[PrimExpr, int]],
+    dtype: str = "float32",
+    data: Var = None,
+    strides: Optional[Sequence[int]] = None,
+    elem_offset: Optional[int] = None,
+    scope: str = "global",
+    align: int = -1,
+    offset_factor: int = 0,
+    buffer_type: str = "default",
+    axis_separators: Optional[List[int]] = None,
+) -> Buffer: ...
 ```
 It will be parsed to `DeclBuffer` node.
 
