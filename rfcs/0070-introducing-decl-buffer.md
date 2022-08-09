@@ -146,9 +146,36 @@ Specifically, the updated flow of buffer flattening using `DeclBuffer` will be:
 with flattened indices.
 
 ## TVM script updates
+* New statement `T.decl_buffer` will be introduced. It has the same interface as `T.buffer_decl`.
+```python
+def decl_buffer(
+    shape,
+    dtype="float32",
+    data=None,
+    strides=None,
+    elem_offset=None,
+    scope="global",
+    align=-1,
+    offset_factor=0,
+    buffer_type="default",
+    axis_separators=None) -> Buffer:
+    ...
+```
+It will be parsed to `DeclBuffer` node.
+
 * `T.allocate` will return data variable instead of a buffer. If the subsequent program need to access
 the data variable as a buffer, it should use `T.decl_buffer` to declare the buffer.
-* `T.buffer_decl` will be renamed to `T.decl_buffer`.
+* As a syntax sugar to avoid writing both `T.allocate` and `T.decl_buffer` at the same time,
+when the `data` parameter is not specified for `T.decl_buffer`, the buffer data will be
+allocated implicitly. This means the following code snippets are equivalent:
+```
+A_data = T.allocate(shape=[16], dtype="float32")
+A = T.decl_buffer(shape=[16], dtype="float32", data=A_data)
+```
+```
+A = T.decl_buffer(shape=[16], dtype="float32")
+```
+* `T.buffer_decl` will be deprecated in favor of the explicit `T.decl_buffer`.
 
 ## TIR validation
 With `DeclBuffer` introduced, we can implement utilities for TIR validation. It will enforce that:
