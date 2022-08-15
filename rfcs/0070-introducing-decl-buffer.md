@@ -87,7 +87,7 @@ Allocate {
 This can also be represented in TVMScript:
 ```
 A_data = T.allocate(shape=..., dtype=...)
-A = T.decl_buffer(data=A_data)
+A = T.decl_buffer(shape=..., dtype=..., data=A_data)
 ```
 
 ## Declaration of buffer alias
@@ -132,8 +132,8 @@ After flattening:
 ```
 @T.prim_func
 def elemwise(A: T.Buffer[(16, 16), "float32"], C: T.Buffer[(16, 16), "float32"]):
-    A_flattened = T.decl_buffer(A.data, (256,), "float32")
-    C_flattened = T.decl_buffer(C.data, (256,), "float32")
+    A_flattened = T.decl_buffer(shape=(256,), dtype="float32", data=A.data)
+    C_flattened = T.decl_buffer(shape=(256,), dtype="float32", data=C.data)
     for i, j in T.grid(16, 16):
         C_flattened[i * 16 + j] = A[i * 16 + j]
 ```
