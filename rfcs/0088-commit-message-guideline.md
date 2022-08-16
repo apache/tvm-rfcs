@@ -123,12 +123,6 @@ Below is an example that can be used as a model:
 > when building a project, since the ‘build’ method is usually called more often
 > than the ‘generate_project’.
 
-If a PR is created from more than one commit (a patchset), then ideally the
-changes should be split into commits in a reasonable way. For instance, if it’s
-a fix and so it also adds a regression test, it’s a good practice to split the
-changes having one commit for the fix and another one for the test, applying the
-rules and recommendations in this guideline to each commit.
-
 After a new PR is created and the review starts it’s common that reviewers will
 request changes. Usually the author will address the reviewers’ comments and
 push additional commits on top of the initial ones. For these additional commits
