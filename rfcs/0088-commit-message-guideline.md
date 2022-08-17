@@ -126,11 +126,18 @@ Below is an example that can be used as a model:
 After a new PR is created and the review starts it’s common that reviewers will
 request changes. Usually the author will address the reviewers’ comments and
 push additional commits on top of the initial ones. For these additional commits
-there is no recommendation regarding the commit messages. The only
-recommendation is that if the additional commits render the PR title and/or body
-outdated then the PR title and body must reflect the new changes in the code and
-be updated accordingly (remember that the PR title and body will be used to
-compose the final commit message that will land in the main tree).
+there is no recommendation regarding the commit messages. However if the
+additional commits render the PR title and/or body outdated then it's the
+author's responsibility to keep the PR title and body in sync with new changes
+in the code and updated the PR title and body accordingly (remember that the PR
+title and body will be used to compose the final commit message that will land
+in the main tree).
+
+Committers will seek to fix any issues with the commit message prior to
+committing but they retain the right to inform the author of the rules and
+encourage them to follow them in future. Also, they retain the right to ask to
+the author to update the PR title and/or body when they are not correctly
+updated or fixed.
 
 # Reference-level explanation
 [reference-level-explanation]: #reference-level-explanation
