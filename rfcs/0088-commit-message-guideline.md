@@ -81,7 +81,7 @@ _PR/commit title_:
 * Observe proper use of caps at the beginning (uppercase for the first letter)
   and for acronyms, like, for instance, TVM, FVP, OpenCL. Hence instead of
   “fix tvm use of opencl library”, write it as “Fix TVM use of OpenCL library”;
-* No period at the end of the title is necessary.
+* Do not put a period at the end of the title.
 
 _PR/commit body_:
 
