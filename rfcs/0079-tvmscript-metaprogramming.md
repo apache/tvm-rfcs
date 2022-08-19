@@ -1,7 +1,7 @@
 - Feature Name: tvmscript-metaprogramming
 - Start Date: 2022-06-16
 - RFC PR: [apache/tvm-rfcs#79](https://github.com/apache/tvm-rfcs/pull/79)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- GitHub Issue: [apache/tvm#12442](https://github.com/apache/tvm/issues/12442)
 - Co-Authors: Yaxing Cai ([**@cyx-6**](https://github.com/cyx-6), main implementation), Lite Ye
   ([**@yelite**](https://github.com/yelite)), Yong Wu
   ([**@yongwww**](https://github.com/yongwww)), Yuchen Jin
