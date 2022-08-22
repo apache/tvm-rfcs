@@ -65,16 +65,16 @@ _PR/commit title_:
 
 * Guarantee a title exists (enforced);
 * Don’t use Github usernames in the title, like @username (enforced);
-* Check if a tag should be present as a hint about what component(s) of the code
-  the commits “touch”. For example [BugFix], [CI], [microTVM], and [TVMC]. Tags
-  go between square brackets and appear first in the title. If more than one tag
-  exist, multiple brackets should be used, like [BugFix][CI]. The case
-  recommended for tags, in geral, is the upper camel case. For example, prefer
-  the forms [Fix], [BugFix], and [Docker] instead of [fix], [bug_fix], and
-  [docker]. Acronyms should be kept as such so, for example, use [CI] and [TVMC]
-  instead of [ci] and [tvmc]. Tags help reviewers to identify the PRs they
-  can/want to review and also help the release folks when generating the release
-  notes (enforced);
+* A tag must be present as a hint about what component(s) of the code
+  the PRs / commits “touch” (enforced). For example [BugFix], [CI], [microTVM],
+  and [TVMC]. Tags go between square brackets and appear first in the title. If
+  more than one tag exist, multiple brackets should be used, like [BugFix][CI].
+  The case recommended for tags, in geral, is the upper camel case. For example,
+  prefer the forms [Fix], [BugFix], and [Docker] instead of [fix], [bug_fix],
+  and [docker]. Acronyms should be kept as such so, for example, use [CI] and
+  [TVMC] instead of [ci] and [tvmc]. Tags help reviewers to identify the PRs
+  they can/want to review and also help the release folks when generating the
+  release notes;
 * Use an imperative mood. Avoid titles like “Added operator X” and “Updated
   image Y in the CI”, instead use the forms “Add feature X” and “Update image Y
   in the CI” instead;
