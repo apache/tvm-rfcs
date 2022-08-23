@@ -1,7 +1,6 @@
 - Feature Name: Commit Message Guideline
 - Start Date: 2022-08-12
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/88)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- RFC PR: [apache/tvm-rfcs#0088](https://github.com/apache/tvm-rfcs/pull/88)
 
 # Summary
 [summary]: #summary
