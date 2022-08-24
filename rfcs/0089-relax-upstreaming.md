@@ -23,6 +23,11 @@ The main focus of this upstreaming RFC is to upstream the **core foundation** of
 - **Minimize disruption:** This upstreaming should provide a **non-default** path to enable new capabilities for users/developers who are interested in what Relax brings, so it will not break the current default Relay flow.
 - **Minimize complexity:** This upstreaming should reuse existing TVM/Relay infrastructure as much as possible (for example IRModule, runtime Module, TOPI library, etc.) to avoid duplicated effort and code.
 
+Note:
+- Acceptance of this RFC doesn't mean there is an agreement to eventually deprecate Relay and replace it with Relax. It only permits bringing the development that's currently occurring on the Relax fork into the TVM repo. This will improve the accessibility of that important work for community stakeholders who rely on it, as well as bring Relax under TVM project governance.
+
+- If at a later stage it's found that individual features from Relax are desired in the Relay compiler (e.g. dynamic shapes, TVMScript support), design discussions and RFCs must take place to determine the best way to implement those features. Acceptance of this RFC gives no preference to Relax as the solution, and so evolving Relay would remain firmly on the table in those discussions.
+
 This initial upstreaming will open the path for TVM Unity, and incrementally bring Relax into the community.
 
 # 3. **Guide-level explanation**
