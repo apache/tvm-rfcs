@@ -25,7 +25,6 @@ The main focus of this upstreaming RFC is to upstream the **core foundation** of
 
 Note:
 - Acceptance of this RFC doesn't mean there is an agreement to eventually deprecate Relay and replace it with Relax. It only permits bringing the development that's currently occurring on the Relax fork into the TVM repo. This will improve the accessibility of that important work for community stakeholders who rely on it, as well as bring Relax under TVM project governance.
-
 - If at a later stage it's found that individual features from Relax are desired in the Relay compiler (e.g. dynamic shapes, TVMScript support), design discussions and RFCs must take place to determine the best way to implement those features. Acceptance of this RFC gives no preference to Relax as the solution, and so evolving Relay would remain firmly on the table in those discussions.
 
 This initial upstreaming will open the path for TVM Unity, and incrementally bring Relax into the community.
@@ -49,11 +48,12 @@ from tvm.script import relax as R, tir as T
 class MyIRModule:
     # This is a TIR PrimFunc which calls the TIR intrinsic T.exp
     @T.prim_func
-    def tir_exp_func(x: T.handle, y: T.handle): ## <= D2
+    def tir_exp_func(x: T.handle, y: T.handle): ## <= D0
+        n = T.var("int64")
         X = T.match_buffer(x, (n,), "float32")
         Y = T.match_buffer(y, (n,), "float32")
-        with T.grid(n) as i:
-            Y[i] = T.exp(X[i])
+        for i in T.serial(n):
+            Y[i] = T.exp(X[i], dtype="float32")
 
     # This is a Relax function which contains a dataflow block
     # representing a computational graph, as well as a call to an
@@ -338,14 +338,14 @@ Suppose we have a `unique` operation which we cannot deduce the return tensor’
 
 During lowering, this call won't get translated into destination passing style, because it is impossible to obtain the shape information and pre-allocate the memory. Instead, they are directly translated to calls that allocate and return the result tensor.
 
-- `R.unique` can be mapped to a runtime PackedFunc calls that takes in an NDArray x and perform an unique operation.
+- `R.unique` can be mapped to a runtime PackedFunc call that takes in an NDArray x and perform an unique operation.
     - We can even dispatch to common runtime libraries such as `torch.unique`, for exmaple the above `R.unique(x)` can be lowered to `call_packed(”torch.unique”, x)`.
 
 These features are supported by Relax VM as PackedFunc calls that return TVM Object. We can bring the tensors from no shape computation land to the shape-aware land using match_shape. The no shape computation is by no means the most effective way to handle things. It is necessary for cases like data-dependent calculation and interfaces with external libs that have weaker shape information.
 
 ## D2: ****Dataflow block as a first-class construct****
 
-Most machine learning models can be represented with a **pure**/**side-effect-free** computational graph. An operation is pure or side-effect free ****if: it only reads from its inputs and returns the result via its output, it will not change other parts of the program (such as incrementing a global counter).
+Most machine learning models can be represented with a **pure**/**side-effect-free** computational graph. An operation is pure or side-effect free if: it only reads from its inputs and returns the result via its output, it will not change other parts of the program (such as incrementing a global counter).
 
 A **dataflow graph** means every operation inside is **side-effect free** and there are no **control flows** (such as if-then-else). A **dataflow block** is a way for us to mark the dataflow graph regions of the program in Relax. Specifically, all the operations under the dataflow block are side-effect-free and do not contain control flows (control flow is an advanced semantic that most pass writers do not consider). Outside a dataflow block, operations can contain side effects (for example doing in-place weight update during model training) and control flow. The program below is an example program that contains two dataflow blocks.
 
@@ -499,13 +499,13 @@ def relax_func(x: R.Tensor[(n, k), "float32"], w: R.Tensor[(k, m), "float32"]):
 
 ## 4.2 Relax runtime
 
-For the ease of implementation and flexibility to support dynamic workloads, we start with a flexible register-based VM runtime similiar to the Relay VM but with two distinctions:
+For the ease of implementation and flexibility to support dynamic workloads, we build a flexible register-based VM runtime similiar to the Relay VM but with two distinctions:
 
-- Minimal instruction set (including Call, Ret, If, Goto):
-    - **Call** **Instruction**(packed function invocation) as the core instruction, since eventually TIR is also compiled to PackedFuncs.
+- Minimal instruction set (including `Call`, `Ret`, `If`, `Goto`):
+    - **Call** **Instruction** (packed function invocation) as the core instruction, since eventually TIR PrimFuncs are also compiled to PackedFuncs.
     - Builtin packed function library to bridge the IR and runtime (e.g., `shape_of(tensor)` is one of the builtin packed functions to be invoked with the **Call** **instruction** to get the shape of a tensor).
-- Do shape calculations via shape heap (an internal NDArray) manipulation.
-    - Suppose Tensor A's shape is (m, n) at compile time, and in the Relax program we want to compute (j, k) = (m+1, n+1). At runtime, A's shape will be stored in index 0 and index 1 of a shape heap(which is a TVM NDArray) via calling the vm builtin function `store_shape(A.shape)`. m+1 and n+1 will be computed by a TIR Primfunc generated in the shape lowering pass, and j and k will be stored at index 2 and 3 of the shape heap. Please refer to the shape lowering pass in the next subsection for more details.
+- Do shape calculations via "shape tensor" manipulation.
+    - In Relax runtime, a "shape tensor" (a tvm NDArray) is used as a scratchpad for shape computations. Suppose Tensor A's shape is (m, n) at compile time, and in a later Relax program we want to compute (j, k) = (m+1, n+1). At runtime, A's shape will be fetched and stored in index 0 and index 1 of the shape tensor via calling the runtime builtin function `store_shape(A.shape, 0, 1)`. m+1 (j) and n+1 (k) will be computed by a TIR PrimFunc generated in a shape lowering pass, and stored at index 2 and 3 of the shape tensor. Please refer to the shape lowering pass in the next subsection for more details.
 
 As future plan, we will consolidate Relay VM and Relax VM, and integrate Relax with the AOT executor (see Section 5).
 
@@ -549,7 +549,7 @@ class MyIRModule:
 There are two challenges to lowering a Relax program to Relax VM instructions:
 
 - C0: Every `call_tir` needs to be lowered because Relax runtime only supports calling a packed function directly → We need to insert explicit memory allocation for each `call_tir`.
-- C1: The symbolic shape variables `n` and `m` are not something that the runtime can represent (the Relax VM only supports `NDArray` and `ShapeTuple` runtime data structures) → We need to use the heap in the runtime to do shape calculations.
+- C1: The symbolic shape variables `n` and `m` are not something that the runtime can represent (the Relax VM only supports `NDArray` and `ShapeTuple` runtime data structures) → We need to use the shape tensor in the runtime to do shape calculations.
 
 ### A**ddress C0: lower `call_tir` to explicit memory allocation form**
 
@@ -590,25 +590,25 @@ def relax_function(x):
 
 In a future RFC, we will design and implement a memory planner to be leveraged both by the Relax VM flow discussed here and the AOT flow to be defined in the future.
 
-### A**ddress C1: do shape lowering via VM heap manipulation**
+### A**ddress C1: do shape lowering via VM shape tensor manipulation**
 
 We can introduce three builtin functions in the runtime:
 
-- `relax.runtime.builtin.alloc_heap(size) -> heap`: Allocate the heap (an NDArray) with a specific size to execute shape computation
+- `relax.runtime.builtin.alloc_shape_tensor(size) -> shape_tensor`: Allocate an NDArray with a specific size to execute shape computation
     
     (We can use `alloc_tensor` to achieve the same goal)
     
-- `relax.runtime.builtin.store_shape(shape, heap, idx0, ...)`: Store a shape into specific indices in the shape heap.
-- `relax.runtime.builtin.load_shape(heap, idx0, ...) -> shape`: Construct a shape from the shape heap according to the indices.
+- `relax.runtime.builtin.store_shape(shape, shape_tensor, idx0, ...)`: Store a shape into specific indices in the shape_tensor.
+- `relax.runtime.builtin.load_shape(shape_tensor, idx0, ...) -> shape`: Construct a shape from the shape_tensor according to the indices.
 
 Program after shape lowering:
 
 ```python
 @R.function
 def relax_function(x):
-    shape_heap = relax.call_packed("vm.builtin.alloc_shape_heap", size=k) 
-    relax.runtime.builtin.store_shape(x.shape, shape_heap, 0, 1)
-    sh = relax.runtime.builtin.load_shape(shape_heap, 0, 1)
+    shape_tensor = relax.call_packed("vm.builtin.alloc_shape_tensor", size=k) 
+    relax.runtime.builtin.store_shape(x.shape, shape_tensor, 0, 1)
+    sh = relax.runtime.builtin.load_shape(shape_tensor, 0, 1)
     # this product_shape function (to compute n*m) is generated as TIR primfunc when visiting ShapeExpr in the shape lowering pass
     shape_size = product_shape(sh) 
 		
@@ -616,7 +616,7 @@ def relax_function(x):
     gv0 = relax.runtime.builtin.alloc_tensor(storage0, sh, 0, "float32")
     R.call_packed("tirexp"), x, gv0)
 		
-    sh1 = R.call_packed("load_shape"), heap, 0, 1)
+    sh1 = R.call_packed("load_shape"), shape_tensor, 0, 1)
     storage1 = relax.runtime.builtin.alloc_storage(size=shape_size, device=cpu)
     gv1 = relax.runtime.builtin.alloc_tensor(storage1, sh1, 0, "float32")
     R.call_packed("flatten"), gv0, gv1)
@@ -650,12 +650,12 @@ The above code snippets demonstrate how users can build an end-to-end workload b
 The Relax BlockBuilder has a member function `emit_te` as highlighted in the program on the left. `emit_te` takes the following arguments:
 
 - a TE function
-- Relax variables that define the input tensors (for example the input and weight variables)
+- Relax variables that define the input tensors (for example the `input` and `weight` variables in this example)
 
 `emit_te` then does the following:
 
 - Creates `te.placeholder` for the input Relax variables (e.g. input and weight)
-- Schedules the TE/TOPI function (`topi.matmul` in this case) using those `te.placeholder`.
+- Creates TE compute through the TE/TOPI function (`topi.matmul` in this case) using those `te.placeholder`.
 - Calls into `te.create_prim_func` to create a TIR PrimFunc.
 - Generates a call into the generated TIR PrimFunc via `call_tir`.
 
