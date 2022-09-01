@@ -1,7 +1,8 @@
 - Feature Name: TVM Explorer Infrastructure
-- Start Date: Sep ??, 2022
+- Start Date: Sep 1, 2022
 - RFC PR: [apache/tvm-rfcs#0092](https://github.com/apache/tvm-rfcs/pull/92)
-- GitHub Issue: None
+- GitHub Issue: [apache/tvm/#10072](https://github.com/apache/tvm/pull/10072)
+- Authors: Chun-I Tsai, Hao-Wei Hsu, Zack Chen.
 
 # Summary
 [summary]: #summary
@@ -381,7 +382,7 @@ class SequentialSpan : public Span {
 those new generated expressions without span. Another is collecting source spans from a contiguous sequence of
 expressions. The following UML demonstrates the overview of `SIBuilder`:
 <p align="center">
-  UML of SequentialSpan<br/>
+  UML of SIBuilder<br/>
   <img src="./assets/0092/sibuilder-uml.png?" height="400">
 </p>
 
