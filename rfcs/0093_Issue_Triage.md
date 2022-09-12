@@ -46,8 +46,8 @@ In these templates, the `triage-bot` will parse the issue’s text body for tags
 For example, when creating an issue concerning a bug in `autotvm` , the process would be -
 
 1. The user would select the **Bug Report** template and will see a section shown in body to list the tags they would like to use. It will include a link to the document mentioned above which lists all the label tags.
-2. The user would then add the relevant tags. In this case, they would add `autotvm`.In the case that the issue creator is unsure of which label tags to use, they can simply leave the label tag section blank. This template will add the `needs-triage` label by default which can alert other TVM contributors who can assist in properly sorting the issue.
-3. After, filling out the quick summary of the issue, they would post it. It will look like shown in this [example here](https://drive.google.com/file/d/12IHgPFcijcSsbHrY5IY9ACqDlpl2AbP9/view?usp=sharing) and will trigger the `triage-bot` to parse the issue body and add the appropriate label.
+2. The user would then add the relevant tags. In this case, they would add `autotvm`. In the case that the issue creator is unsure of which label tags to use, they can simply leave the label tag section blank. This template will add the `needs-triage` label by default which can alert other TVM contributors who can assist in properly sorting the issue.
+3. After filling out the quick summary of the issue, they would post it. It will look like shown in this [example here](https://drive.google.com/file/d/12IHgPFcijcSsbHrY5IY9ACqDlpl2AbP9/view?usp=sharing) and will trigger the `triage-bot` to parse the issue body and add the appropriate label.
 4. Then, the `triage-bot` removes the `needs-triage` label and adds the appropriate label. In this example, it would add `autotvm`.
 
 ![TVM Bot](assets/0089/TVM%20bot.png)
@@ -98,7 +98,7 @@ There are a few alternatives to the proposed schema that might shorten the label
 
 ### Issue Filing Flow
 
-1. **Title** - Instead of including the label tags in the issue body, the user can include them in the issue title. The `triage-bot` will then parse the title as opposed to the issue body. This plan will still include a document that lists all the label tags with short descriptions.Pros: Can be more intuitive to some users. It will also lead to a shorter issue template since the “Triage” section won’t be needed anymore.Cons: Adding multiple label tags will result in a long issue title making it harder to read.
+1. **Title** - Instead of including the label tags in the issue body, the user can include them in the issue title. The `triage-bot` will then parse the title as opposed to the issue body. This plan will still include a document that lists all the label tags with short descriptions. Pros: Can be more intuitive to some users. It will also lead to a shorter issue template since the “Triage” section won’t be needed anymore. Cons: Adding multiple label tags will result in a long issue title making it harder to read.
 
 ![Title](assets/0089/Title.png)
 
@@ -107,7 +107,7 @@ There are a few alternatives to the proposed schema that might shorten the label
 
 ![Dropdown](assets/0089/Dropdown.png)
 
-3. **Component Specific Issue Templates** - This approach requires that each high level component such as “frontend” or “codegen” (identified in the labels below with `<component>:` prefixes) have its own issue template. Each of these high level component templates will include a list of its sub-components in the issue body that the user can prune to only post sub-components that are relevant to their post.Pros: Remove the need for another page with all the label tags and their descriptions. Can also provide some organization structure from the start of the triage process.Cons: Limits opportunities to open issues that include multiple high-level components. Results in a long list of issue templates and can look bloated to some users.
+3. **Component Specific Issue Templates** - This approach requires that each high level component such as “frontend” or “codegen” (identified in the labels below with `<component>:` prefixes) have its own issue template. Each of these high level component templates will include a list of its sub-components in the issue body that the user can prune to only post sub-components that are relevant to their post. Pros: Remove the need for another page with all the label tags and their descriptions. Can also provide some organization structure from the start of the triage process. Cons: Limits opportunities to open issues that include multiple high-level components. Results in a long list of issue templates and can look bloated to some users.
 
 # **Future possibilities**
 
