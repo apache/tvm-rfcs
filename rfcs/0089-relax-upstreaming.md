@@ -693,7 +693,76 @@ We will migrate to use the new TVMScript parser/printer proposed in the followin
 - Parser: https://github.com/apache/tvm-rfcs/pull/79
 - Printer: https://github.com/apache/tvm-rfcs/pull/74
 
-# 6. Acknowledgement
+# 6. **Rationale and alternatives**
+This proposal brings Relax as a separate dialect to the TVM ecosystem. We propose to do so because: Relax presents a set of closely chosen co-design choices to resolve pain points we observed so far in the TVM ecosystem, namely dynamic shape, side-effect handling, and cross-IR interaction. Additionally, the current Relax mainly focuses on graph-TIR-based cross-layer optimizations and complements the passes implemented in Relay.
+
+Presenting optional modules and dialects to the ecosystem is an important way to welcome new improvements, land our technical commitment timely, continue to reinvent ourselves, and welcome new community members who have new use cases.  It also aligns with practices we see in other ML projects, such as MLIR dialects, PyTorch FX modules, etc.
+
+As in these previous cases (MLIR dialects and TorchFX), there can be some amount of perceived duplications with existing modules. Nevertheless, there are usually technical reasons for a new module, both from design consistency, time to delivery, and separation of concerns from stable modules during improvements. Additionally, there is also a majority amount of support to help continue maintaining the new module. This new community effort would help us to welcome new members to the community, and enhance the overall development of TVM.
+
+We acknowledge that the migration of default flow (that involves Relay) would benefit from more in-depth discussions on possible approaches. They are not part of this proposal and we welcome further discussions on this topic. We think however, that it is useful to provide such a context. This section provides a context on possible difficulties in evolving Relay to bring some of the features.
+
+From the development point of view, we think that the technical reasonings, community needs, and technical support around the module being present is sufficient to justify the inclusion of the optional module. We agree that we need to do further in-depth discussions on default flow evolution, and would be more than happy to continue the discussion after this RFC.
+
+To incrementally extend Relay to achieve the same goals as Relax, we need to consider several changes:
+
+**C0: Add first-class dynamic shape support:**
+
+In Relay, shape is part of its type system. Specifically, tensor shape is part of tensor type (`TensorType`), `Any` is used to represent a statically unknown dimension of tensor, and shape inference is part of type inference. For example, in the code snippet below, when applying a flatten operation on tensor `a` of shape `(Any, 224)`, the output tensor `b`’s shape is represented as `(Any, )`.
+
+```python
+a: Tensor[(Any, 224)]
+b: Tensor[(Any, )] = relay.flatten(a)
+```
+
+To support first-class symbolic shape, `shape_` field needs to be introduced to expressions to define how shapes should be computed at run time, while the tensor type (`DynTensorType`) only stores the generic rank and dtype constraints. Separating shape from type system allows for greater flexibility for variable-shape tensors and makes it easier to implement new operators.
+
+In Relax, the above program is represented as below:
+
+```python
+a: Tensor[(m, 224)]
+b: Tensor[(m * 224, )] = relax.flatten(a)
+```
+
+With first-class symbolic shape, we know the shape relation between tensor `a` and tensor `b`, which allows for good optimization opportunities, for example, memory planning can reuse the memory between `a` and `b` since it is known at compile time these two tensors occupy the same amount of memory. In Relax, shape computation is part of the program, so we can do shape computations like `m * 224` at run time.
+
+Supporting both shape mechanisms would mean all related passes need to be rewritten to be aware of these two shape mechanisms and only take benefits from one of them, which can be very confusing in the transition stage. Additionally, the two shape mechanisms are so different that users need to know which shape to look at, whether it’s the shape in type, or the `shape_` field. Directly refactoring the shape mechanism would mean an immediate jump to Relax, which is not incremental, and also infeasible in terms of engineering. See also the co-design section to see how shape in Relax interacts with other parts.
+
+**C1: Add first-class support for interactions with TensorIR and TVM FFI:**
+
+Relay focuses on graph-op level optimizations, while Relax focuses on interactions across layers (graph-TIR-runtime). Even though it’s possible to introduce intrinsics like `call_tir` into Relay, since currently all Relay passes do not consider the interactions between graph and TIR/runtime, related passes and BYOC flows need to be rewritten. 
+
+For example, the fusion pass can be implemented in a modularized way in Relax: 
+
+- An annotation pass to annotate op pattern kind (e.g., element-wise, injective, etc.) by analyzing each TIR PrimFunc in the IRModule. This requires manual labeling in Relay for each operator.
+- A pass to make fusion decision based on some algorithm.
+- An application pass to apply the fusion decision.
+
+Note that we can have different decision passes with different algorithms, but only one decision application pass, and this allows TVM users to explore new fusion algorithms.
+
+Relax can be viewed as a dialect on the graph-TIR-runtime abstraction, that is complementary to Relay. Relay focuses on high-level op transformations, while Relax passes focus on TIR-graph-runtime co-transformations that can enable new capabilities such as [customizable fusion](https://github.com/tqchen/tvm-rfcs/blob/main/rfcs/0091-establish-tvm-unity-connection.md#customize-fusion) and [generic layout rewrite](https://github.com/tqchen/tvm-rfcs/blob/main/rfcs/0091-establish-tvm-unity-connection.md#3-example-simplified-automatic-scheduling-integration), which is hard to achieve by simply migrating the current Relay passes.
+
+**C2: Add first-class dataflow and side effect handling:**
+
+Relay does not define semantics for side effects in operators, and most of Relay operators and passes were implemented without accommodating side effects. For example, the lack of in-place update semantics in Relay has prevented importing many PyTorch models used in practice. There have been many requests ([1](https://github.com/apache/tvm/pull/6049), [2](https://github.com/apache/tvm/pull/7513), [3](https://github.com/apache/tvm/pull/9375)) to add support for the `aten::copy_` op (which does in-place update on a tensor), but we have rejected all of them. To handle side effects, not only we need define semantics for them, but also need to rewrite related Relay passes, importers, and operators to respect the new assumptions that operators can have side effects.
+
+From the three points discussed above, we can see that each time we introduce a component to Relay, it requires significant changes to the code base—not only adding the corresponding IR constructs but also rewriting all related passes based on the new assumptions. There are other assumptions and designs that we make in Relax, for example, we expect the majority of the Relax passes to operate on IR in [A-normal form](https://en.wikipedia.org/wiki/A-normal_form), to avoid the [stack overflow issue](https://discuss.tvm.apache.org/t/rfc-discuss-non-recursive-ast-visiting/2481) when visiting AST.
+
+**Co-design**
+
+Importantly, all these three components (C0, C1, C2) are coupled to each other. Co-designing them together is much more powerful than treating them as individual features. For example, `call_tir` (C1) signature has `output_shape` which can be represented by symbolic shape (C0), so bridging Relax and TIR is simple and clean given that TensorIR and TE natively support symbolic shape hence we can directly generate PrimFunc with `emit_te`. Also, `call_packed` (C1) provides the flexibility to call into third-party libraries and any opaque functions that may have side effects (C2), which dramatically simplifies the process to add new operators and customized compilation flow such as [BYOC](https://discuss.tvm.apache.org/t/establish-tvm-unity-connection-a-technical-strategy/13344#byoc-9). Introducing each component separately in an incremental way will make the whole design less cohesive.
+
+**Summary**
+
+In summary, the update would involve three things that are tightly coupled together:
+
+- Change the shape mechanism.
+- Build passes that are aware of symbolic shapes and TIR interaction. Notably, it’s not a migration, as most passes in Relay focus on the graph-op level.
+- Handle dataflow and side effects.
+
+Every step would require significant engineering effort, which is infeasible and non-incremental. On the other hand, Relax is complementary to Relay and can be viewed as a dialect on the graph-TIR-runtime abstraction, while Relay is stable and already used in many production cases. Introducing Relax as an optional module avoids introducing breaking changes to Relay. Additionally, most of the Relax passes work on the graph-TIR-runtime form, which allows us to incrementally build such passes.
+
+# 7. **Acknowledgement**
 
 We want to acknowledge all the Relax contributors (listed alphabetically by Github ID):
 
