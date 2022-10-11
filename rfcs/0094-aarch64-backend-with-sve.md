@@ -53,7 +53,7 @@ The node visitors in the AArch64 backend implementation would generate SVE code 
 
 # Reference-level explanation
 
-The main difference compared to CodegenLLVM would be how we generate llvm and assembly for `Ramp` and `Broadcast` nodes.
+The main difference compared to CodegenLLVM would be how we generate LLVM and assembly for `Ramp` and `Broadcast` nodes.
 
 Let's take a simple vectorized addition of two dimensional tensors as an example:
 
@@ -129,6 +129,14 @@ That would then be turned into assembly when compiled for SVE enabled AArch64:
     mov w15, #200
     mov x16, x11
 ```
+
+## Pattern matching TIR
+
+We can change the fixed vector length loops into scalable vector length loops with following steps:
+
+1. Pattern match vectorized BufferLoad/BufferStore nodes in a form `A[ramp(iter*lanes, 1, lanes)]` and check that they all have the same lane value. Change the lane value to `vscale * 16 / sizeof(dtype)` in generated LLVM.
+2. Change the outer loop bound to depend on the `vscale`.
+3. If the loop doesn't satisfy this pattern, we abort.
 
 # Drawbacks
 
