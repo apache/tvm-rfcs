@@ -52,9 +52,9 @@ In this process RFC, We’d like to propose a process to encourage S0 modules an
 
 Note that this RFC focuses on the S0 stage. We propose the following guidelines to expedite to process while ensuring, quality and community support:
 
-- More than three PMC members endorse the S0-level proposal to ensure that there are enough eyes and shepherding in the module. The decision to establish a S0-level module needs to get majority support from PMC.
-- The code changes of S0-level modules follow the normal code review process as in all other modules in the codebase.*
-- A clear set of community members are committed to maintaining the proposed modules with technical support quantitatively, more than three endorsing committers who can serve as the initial owner.
+- Majority of the PMC members endorse the S0-level proposal to ensure that there are enough eyes and shepherding in the module. The decision to establish an S0-level module needs to get majority support from PMC.
+- The code changes of S0-level modules follow the normal code review process as in all other modules in the codebase.
+- A clear set of community members are committed to maintaining the proposed modules with technical support quantitatively, more than one endorsing committer who can serve as the initial owner.
 - No implication that everybody has to immediately work on or switch to the new S0 module.
 - We expect discussions of the relation of the proposed module with existing ones and reuse when possible, but we do not enforce hard no-overlap rules at S0 stage, as most OSS projects do not require modules to have zero perceived overlap.
 - Relations to existing modules and interaction are being clearly discussed, but no hard requirements on zero duplications as per practices in other projects
