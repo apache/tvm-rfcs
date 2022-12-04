@@ -2,7 +2,7 @@
 - Start Date: 2022-10-19
 - RFC PR: [apache/tvm-rfcs#95](https://github.com/apache/tvm-rfcs/pull/95)
 
-# Background
+# Motivation
 
 Machine Learning Compilation (MLC) is an emerging field in fast development. With the tremendous help from the whole community, it’s exciting to see that TVM delivers significant needs from and to developers, and thus has become widely popular in both academia and industry.
 
@@ -52,7 +52,7 @@ In this process RFC, We’d like to propose a process to encourage S0 modules an
 
 Note that this RFC focuses on the S0 stage. We propose the following guidelines to expedite to process while ensuring, quality and community support:
 
-- Majority of the PMC members endorse the S0-level proposal to ensure that there are enough eyes and shepherding in the module. The decision to establish an S0-level module needs to get majority support from PMC.
+- Majority of the PMC members endorse the S0-level proposal to ensure that there are enough eyes and shepherding in the module. The decision to establish an S0-level module needs to get majority support from PMC. PMC should consider various factors related to G0 and G1 when making the module establishment decision collectively.
 - The code changes of S0-level modules follow the normal code review process as in all other modules in the codebase.
 - A clear set of community members are committed to maintaining the proposed modules with technical support quantitatively, more than one endorsing committer who can serve as the initial owner.
 - No implication that everybody has to immediately work on or switch to the new S0 module.
@@ -61,6 +61,14 @@ Note that this RFC focuses on the S0 stage. We propose the following guidelines 
 - Clean isolation of changes from existing modules, when the change touches existing modules, they should be discussed separately.
 - In discussions of S0-level RFC, maintain a clear separation from S1, and S2 level decisions in later stages so we can encourage S0 changes early while enabling informed decisions at S1, and S2 levels in continued discussions as the modules continue to evolve in the ecosystem.
 - There should be discussions about how the proposal fits into the project to bring clarity. We also acknowledge that not all S1, S2 level decisions can be made at the beginning. Additionally, an S0-module should show a clear positive fit to some(but not all) aspects of the project and clear cohesion to some of the existing modules. As the development evolves, more discussions will happen in future RFCs with additional evidence that help us to make informed decisions.
+
+The community shall evaluate the new module in a variety of factors, keeping both G0 and G1 in mind. The factors include, but not limited to:
+
+- Fit into the overall project and rest of the modules and project.
+- Test strategy, modularization, and documentation.
+- The scope of impact of the added module, and levels of open-mindedness.
+- Competitive landscape of the overall MLC space and enablement of the project towards goals that are not supported atm.
+- Community empowerment in general: e.g. contributors who would become an added force of offset development complexity, and also in a lot of cases contribute to other existing modules.
 
 After the RFC discussion period. One of the PMC members would serve as a champion, provide a clear technical summary of the state, pros and cons during discussions for the S0-level proposal and suggest a path forward. The champion will also continue to drive the overall process of code upstreaming and follow-up discussions.
 
