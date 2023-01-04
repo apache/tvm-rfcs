@@ -16,31 +16,40 @@ Embedded Rust is an emerging field with a eco-system based around a standard [em
 # Guide-level explanation
 [guide-level-explanation]: #guide-level-explanation
 
-As much as possible, we aim to provide a `safe` Rust experience for users, this is possible for:
+As much as possible, we aim to provide an idiomatic and `safe` Rust experience for users, this is possible for:
 * Running a simple model
 * Running a model with workspace pools
 * Running a model with constant pools
 * Running a model with I/O pools
-
-But is not possible for using the [C Device API](https://github.com/apache/tvm-rfcs/blob/main/rfcs/0031-devices-api.md) due to the need for a void pointer when passing the driver object.
+* Using Rust drivers with the Device API
 
 ## Running a model
-Users can reference the generated interface API using the `#[path]` macro in Rust to point to the generated interface in the [Model Library Format archive](https://discuss.tvm.apache.org/t/rfc-tvm-model-library-format/9121); this provides functions to create structures to specify inputs and outputs; structures provide the `new` constructor to take Rust types and map to any internal data structure:
+Users will be able to import a generated crate from within the [Model Library Format archive](https://discuss.tvm.apache.org/t/rfc-tvm-model-library-format/9121) which includes the dependencies that are required for running that model, this can be added to a user application in `Cargo.toml`:
 
 ```rust
-#[path = "../../codegen/host/src/tvmgen_default.rs"]
-mod tvmgen_default;
+[dependencies]
+tvmgen_ultimate_cat_spotter = { path = "./tvm_archive/crates/ultimate_cat_spotter" }
+```
 
+The generated crate provides types for the Model and Workspace implementing any necessary TVM Runtime traits which allow
+to write applications generic over the model used:
+
+```rust
 mod my_app_logic;
+extern crate tvmgen_ultimate_cat_spotter as ultimate_cat_spotter;
 
 fn main() {
   let mut input_data: [i8; 25600] = my_app_logic::create_input();
   let mut output_data: [f32; 12] = my_app_logic::create_output();
 
-  let mut model_input = tvmgen_default::Inputs::new(&mut input_data);
-  let mut model_output = tvmgen_default::Outputs::new(&mut output_data);
+  let mut workspace = ultimate_cat_spotter::Workspace::new(
+    &mut input_data,
+    &mut output_data,
+  );
 
-  tvmgen_default::run(&mut model_input, &mut model_output);
+  let mut model = ultimate_cat_spotter::Model::new();
+  model.infer(&mut workspace, TVMDevice::CPU);
+  
   assert_eq!(output_data, my_app_logic::expected_output());
 }
 ```
@@ -49,21 +58,22 @@ fn main() {
 This extends the above premise and provides an additional memory pool argument:
 
 ```rust
-#[path = "../../codegen/host/src/tvmgen_default.rs"]
-mod tvmgen_default;
-
 mod my_app_logic;
+extern crate tvmgen_ultimate_cat_spotter as ultimate_cat_spotter;
 
 fn main() {
   let mut input_data: [i8; 25600] = my_app_logic::create_input();
   let mut output_data: [f32; 12] = my_app_logic::create_output();
   let mut memory_pool: [u8; 20000] = my_app_logic::create_memory_pool();
 
-  let mut model_input = tvmgen_default::Inputs::new(&mut input_data);
-  let mut model_output = tvmgen_default::Outputs::new(&mut output_data);
-  let mut model_workspace = tvmgen_default::WorkspacePools::new(&mut memory_pool);
+  let mut workspace = ultimate_cat_spotter::Workspace::new(
+    &mut input_data,
+    &mut output_data,
+    &mut memory_pool,
+  );
 
-  tvmgen_default::run(&mut model_input, &mut model_output, &mut model_workspace);
+  let mut model = ultimate_cat_spotter::Model::new();
+  model.infer(&mut workspace, TVMDevice::CPU);
   assert_eq!(output_data, my_app_logic::expected_output());
 }
 ```
@@ -72,21 +82,22 @@ fn main() {
 By utilising macros, users can generate the appropriate constant pools at compilation time:
 
 ```rust
-#[path = "../../codegen/host/src/tvmgen_default.rs"]
-mod tvmgen_default;
-
 mod my_app_logic;
+extern crate tvmgen_ultimate_cat_spotter as ultimate_cat_spotter;
 
 fn main() {
   let mut input_data: [i8; 25600] = my_app_logic::create_input();
   let mut output_data: [f32; 12] = my_app_logic::create_output();
   let mut memory_pool: [u8; 20000] = my_app_logic::create_memory_pool(tvmgen_default::constant_pool_data!());
 
-  let mut model_input = tvmgen_default::Inputs::new(&mut input_data);
-  let mut model_output = tvmgen_default::Outputs::new(&mut output_data);
-  let mut model_workspace = tvmgen_default::WorkspacePools::new(&mut memory_pool);
+  let mut workspace = ultimate_cat_spotter::Workspace::new(
+    &mut input_data,
+    &mut output_data,
+    &mut memory_pool,
+  );
 
-  tvmgen_default::run(&mut model_input, &mut model_output, &mut model_workspace);
+  let mut model = ultimate_cat_spotter::Model::new();
+  model.infer(&mut workspace, TVMDevice::CPU);
   assert_eq!(output_data, my_app_logic::expected_output());
 }
 ```
@@ -95,48 +106,63 @@ fn main() {
 This utilises Rust slices to take an input array of bytes and provide Rust access to different sections within the memory pools:
 
 ```rust
-#[path = "../../codegen/host/src/tvmgen_default.rs"]
-mod tvmgen_default;
-
 mod my_app_logic;
+extern crate tvmgen_ultimate_cat_spotter as ultimate_cat_spotter;
 
 fn main() {
   let mut memory_pool: [u8; 20000] = my_app_logic::create_memory_pool();
 
-  let mut model_input = tvmgen_default::WorkspacePools::map_inputs(&mut memory_pool);
+  let mut workspace = ultimate_cat_spotter::Workspace::new(
+    &mut memory_pool,
+  );
+
+  let mut model_input = workspace.input_data();
   my_app_logic::copy_input_data(model_input);
 
-  tvmgen_default::run(&mut model_workspace);
-
-  let mut model_output = tvmgen_default::WorkspacePools::map_outputs(&mut memory_pool);
-  assert_eq!(model_output.output, my_app_logic::expected_output());
+  let mut model = ultimate_cat_spotter::Model::new();
+  model.infer(&mut workspace, TVMDevice::CPU);
+  assert_eq!(workspace.output_data(), my_app_logic::expected_output());
 }
 ```
 
-## Utilise C Device API
-Here we have to use some `unsafe` Rust as the void pointer for a device is intentionally opaque and thus removes the safety guarantees of the Rust compiler. This `unsafe` code should be minimal:
+## Rust Device API
+In the Rust interface, we provide a similar interface as the C Device API, providing a trait for driver authors to implement:
 
 ```rust
-#[path = "../../codegen/host/src/tvmgen_default.rs"]
-mod tvmgen_default;
+trait TVMDevice {
+    fn activate();
+    fn open();
+    fn close();
+    fn deactivate();
+}
+```
 
+This can then be used by a driver author as simply:
+
+```rust
+impl TVMDevice for MyDriver { ... }
+```
+
+Which can be used as an alternative to `TVMDevice::CPU` in the `run` function:
+
+```rust
 mod my_app_logic;
+mod woofles_accelerator;
+extern crate tvmgen_ultimate_cat_spotter as ultimate_cat_spotter;
 
 fn main() {
-  let mut input_data: [i8; 25600] = my_app_logic::create_input();
-  let mut output_data: [f32; 12] = my_app_logic::create_output();
   let mut memory_pool: [u8; 20000] = my_app_logic::create_memory_pool();
 
-  let mut model_input = tvmgen_default::Inputs::new(&mut input_data);
-  let mut model_output = tvmgen_default::Outputs::new(&mut output_data);
-  
-  unsafe {
-    let mut device_handle = my_app_logic::get_device();
-    let mut model_devices = tvmgen_default::Devices::new(&mut device_handle);
-    tvmgen_default::run(&mut model_input, &mut model_output, &mut model_devices);
-  }
+  let mut workspace = ultimate_cat_spotter::Workspace::new(
+    &mut memory_pool,
+  );
 
-  assert_eq!(output_data, my_app_logic::expected_output());
+  let mut model_input = workspace.input_data();
+  my_app_logic::copy_input_data(model_input);
+
+  let mut model = ultimate_cat_spotter::Model::new();
+  model.infer(&mut workspace, TVMDevice::CPU);
+  assert_eq!(workspace.output_data(), my_app_logic::expected_output());
 }
 ```
 
@@ -162,11 +188,7 @@ fn main() {
 }
 ```
 
-This builds the existing C code and C interface for reference in Rust using the `ffi` module:
-
-```rust
-
-```
+This is contained within the generated crate so the user is not required to manage this.
 
 ## C Wrapper Structs
 By wrapping the C types in Rust structs, and exposing a `new` constructor it allows us to take a defined Rust array and translate it into a `void*`. Users of this interface only need to deal with pure Rust:
@@ -174,63 +196,67 @@ By wrapping the C types in Rust structs, and exposing a `new` constructor it all
 ```rust
 /// Input tensors for TVM module "rusty_coffee"
 #[repr(C)]
-pub struct Inputs {
+pub struct Workspace {
     input: *mut ::std::os::raw::c_void,
+    output: *mut ::std::os::raw::c_void,
 }
 
 impl Inputs {
     pub fn new <'a>(
         input: &mut [u8; 100],
+        output: &mut [u8; 10],
     ) -> Self {
         Self {
             input: input.as_ptr() as *mut ::std::os::raw::c_void,
-        }
-    }
-}
-```
-
-For devices, we can only store the void pointer as it's passed without type information through the C runtime:
-```rust
-/// Device context pointers for TVM module "rusty_coffee"
-#[repr(C)]
-pub struct Devices {
-    ethos_u: *mut ::std::os::raw::c_void,
-}
-
-impl Devices {
-    pub fn new <'a>(
-        ethos_u: *mut ::std::os::raw::c_void,
-    ) -> Self {
-        Self {
-            ethos_u: ethos_u,
+            output: output.as_ptr() as *mut ::std::os::raw::c_void,
         }
     }
 }
 ```
 
 ## C Wrapper Entrypoint
-Similar to the above, using the Rust FFI we can create an entrypoint function which passes the void pointers directly into C FFI from the Rust structs with the appropriate `unsafe` block to prevent user facing code from having to be `unsafe`. The `run` wrapper also checks the return code of TVM and converts it into a [standard Rust `Result` object](https://doc.rust-lang.org/rust-by-example/error/result.html).
+Similar to the above, using the Rust FFI we can create an entrypoint function which passes the void pointers directly into C FFI from the Rust structs with the appropriate `unsafe` block to prevent user facing code from having to be `unsafe`. The `run` wrapper also checks the return code of TVM and converts it into a [standard Rust `Result` object](https://doc.rust-lang.org/rust-by-example/error/result.html). Distinct from the C interface API, the Rust interface only has a concept of `Workspace` which is more consistent across the invocations. The device also always specified, and implementations can be written to use either CPU or another Device as necessary within application code.
 
 ```rust
 /// Entrypoint function for TVM module "rusty_coffee"
 /// # Arguments
-/// * `inputs` - Input tensors for the module
-/// * `outputs` - Output tensors for the module
-pub fn run(
-    inputs: &mut Inputs,
-    outputs: &mut Outputs,
-) -> Result<(), ()> {
-    unsafe {
-        let ret = tvmgen_rusty_coffee_run(
-            inputs,
-            outputs,
-        );
-        if ret == 0 {
-            Ok(())
-        } else {
-            Err(())
+/// * `workspace` - Workspace for model to operate on
+pub struct Model {
+    pub fn new() {
+        return Self;
+    }
+
+    pub fn infer(
+        self,
+        workspace: &mut Workspace,
+        device: &mut TVMDevice
+    ) -> Result<(), ()> {
+        unsafe {
+            let ret = tvmgen_rusty_coffee_run(
+                {
+                    .input = workspace.input
+                },
+                {
+                    .output = workspace.output
+                },
+            );
+            if ret == 0 {
+                Ok(())
+            } else {
+                Err(())
+            }
         }
     }
+}
+
+#[repr(C)]
+struct Inputs {
+    input: *mut ::std::os::raw::c_void,
+}
+
+#[repr(C)]
+struct Outputs {
+    output: *mut ::std::os::raw::c_void,
 }
 
 extern "C" {
@@ -238,6 +264,39 @@ extern "C" {
         inputs: *mut Inputs,
         outputs: *mut Outputs,
     ) -> i32;
+}
+```
+
+## Rust Device API
+Additional interfaces can be added to TVM's rust crate to provide `TVMDevice` with an implementation for CPU named `TVMDevice::CPU`:
+
+```rust
+pub struct CPU {}
+impl TVMDevice for CPU {
+    fn activate() {}
+    fn open() {}
+    fn close() {}
+    fn deactivate() {}
+}
+```
+
+We also define a `TVMDevice` shim to convert the C pointers in the executor to Rust, such as:
+```rust
+#[no_mangle]
+pub extern TVMDeviceWooflesActivate(device: *TVMDevice) {
+    *device.activate();
+}
+#[no_mangle]
+pub extern TVMDeviceWooflesOpen(device: *TVMDevice) {
+    *device.open();
+}
+#[no_mangle]
+pub extern TVMDeviceWooflesClose(device: *TVMDevice) {
+    *device.close();
+}
+#[no_mangle]
+pub extern TVMDeviceWooflesDeactivate(device: *TVMDevice) {
+    *device.deactivate();
 }
 ```
 
@@ -257,14 +316,14 @@ Whilst it is an innovation project, this will be supported with best efforts but
 # Prior art
 [prior-art]: #prior-art
 
-This largely aims to follow the APIs defined for `--interface-api=c` (see: [Embedded C APIs](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951)), but wraps each call to allow `safe` user facing Rust code.
+This largely aims to follow the APIs defined for `--interface-api=c` (see: [Embedded C APIs](https://discuss.tvm.apache.org/t/rfc-utvm-embedded-c-runtime-interface/9951)), but wraps each call to allow idiomatic user facing Rust code.
 
 It builds upon the [Model Library Format archive](https://discuss.tvm.apache.org/t/rfc-tvm-model-library-format/9121) to provide a complete package for Rust appication developers with all relevant files.
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
 
-- Are we as `safe` as we can be?
+- Are we as idiomatic as we can be?
 - Is there a better abstraction for devices?
 
 # Future possibilities
