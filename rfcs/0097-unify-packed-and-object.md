@@ -11,51 +11,51 @@ This RFC proposes to further unify our PackedFunc and Object in TVM Runtime. Key
 
 ## Motivation
 
-FFI is one of the main components of the TVM. We use PackedFunc convention to safely type-erase values and pass things around. In order to support a general set of data structures both for compilation purposes, we also have an Object system, which is made to be aware in the Packed API. 
+FFI is one of the main components of the TVM. We use PackedFunc convention to safely type-erase values and pass things around. In order to support a general set of data structures both for compilation purposes, we also have an Object system, which is made to be aware in the Packed API.
 
 Object supports reference counting, dynamic type casting, and checking as well as structural equality/hashing/serialization in the compiler.
 Right now, most of the things of interest are Object, including containers like Map, Array. PackedFunc itself, Module, and various IR objects.
-Object requires heap allocation and reference counting, which can be optimized through pooling. They are suitable for most of the deep learning runtime needs, 
+Object requires heap allocation and reference counting, which can be optimized through pooling. They are suitable for most of the deep learning runtime needs,
 such as containers, as long as they are infrequent.
-In the meantime, we still need to operate with values on the stack. Specifically, when we pass around int, and float values. 
+In the meantime, we still need to operate with values on the stack. Specifically, when we pass around int, and float values.
 It can be wasteful to invoke heap allocations/or even pooling if the operations are meant to be low cost. As a result, the FFI mechanism also serves additional ways to be able to pass **stack values** directly around without object.
 
 This post summarizes lessons from us and other related projects and needs around the overall TVM FFI and Object system. And seek to use these lessons to further solidify the current system. We summarize some of the needs and observations as follows:
 
 ### N0: First class stack small string and AnyValue
 
-Data preprocessing is an important part of ML pipeline. Preprocessing in NLP involves strings and containers. Additionally, when translating programs written by users (in python), there may not be sufficient type annotations. 
+Data preprocessing is an important part of ML pipeline. Preprocessing in NLP involves strings and containers. Additionally, when translating programs written by users (in python), there may not be sufficient type annotations.
 
 The programs below comes from real production scenario code from matxscript in NLP Preprocessing:
 
 ```cpp
-// This can be part of data processing code translated 
+// This can be part of data processing code translated
 // from user that comes without type annotation
 AnyValue unicode_split_any(const AnyValue& word) {
   List ret;
   for (size_t i = 0; i < word.size(); ++i) {
      AnyValue res = word[i];
-     ret.push_back(res);   
+     ret.push_back(res);
   }
   return ret;
 }
 // This is a better typed execution code
-// Note that word[i] returns a UCS4String container to match python semantics 
+// Note that word[i] returns a UCS4String container to match python semantics
 // Use UCS4String stores Unicode in a fixed-length 4 bytes value to ease random
-// access to the elements. 
+// access to the elements.
 List<UCS4String> unicode_split(const UCS4String& word) {
   List<UCS4String> ret;
   for (size_t i = 0; i < word.size(); ++i) {
      UCS4String res = word[i];
-     ret.push_back(res);   
+     ret.push_back(res);
   }
   return ret;
 }
 ```
-We would like to highlight a few key points by observing the above programs: 
+We would like to highlight a few key points by observing the above programs:
 - Need a base AnyValue to support both stack values and object.
     - This is to provide a safety net of translation.
-- The AnyValue needs to accommodate small-string(on stack) to enable fast string processing. Specifically, note that the particular example creates a `UCS4String res` for every character of the word. If we run heap allocation for each invocation, or even do reference countings, this can become expensive. The same principle also generalizes to the need to accommodate fast processing of other on-stack values. 
+- The AnyValue needs to accommodate small-string(on stack) to enable fast string processing. Specifically, note that the particular example creates a `UCS4String res` for every character of the word. If we run heap allocation for each invocation, or even do reference countings, this can become expensive. The same principle also generalizes to the need to accommodate fast processing of other on-stack values.
 
 
 While it is possible to rewrite the program through stronger typing and get more efficient code. It is important to acknowledge the need to efficient erased runtime support (with minimum overhead), especially given many ML user comes from python.
@@ -64,7 +64,7 @@ While it is possible to rewrite the program through stronger typing and get more
 
 In the above example, it is important to note that the container `List` should hold any values. While it is possible to also provide different variant of specialized containers(such as `vector<int>`), to interact with a language like python, it would be nice to have a single universal container across the codebase. We also experienced similar issues in our compilation stack. As an example, while it is possible to use Array to hold IR nodes such as Expr, we cannot use it to hold POD int values, or other POD data types such as DLDataType.
 
-Having an efficient universal container helps to simplify conversions across language as well. For example, a list from python will be able to be turned into a single container without worrying about content type. The execution runtime will also be able to directly leverage the universal container to support all possible cases that a developer might write. 
+Having an efficient universal container helps to simplify conversions across language as well. For example, a list from python will be able to be turned into a single container without worrying about content type. The execution runtime will also be able to directly leverage the universal container to support all possible cases that a developer might write.
 
 ### N2: Further Unify POD Value, Object and AnyValue
 
@@ -76,7 +76,7 @@ Both TVMRetValue and Object leverages a code field in the beginning of the data 
 There are two interesting regimes of operation that comes with ObjectRef and AnyValue.
 
 - R0: On one hand, if we are operating on the regime of no need for frequent stack value operations. It is desirable to simply use Object. Because object is more compact on register (the size of ptr, which costs 8 bytes on modern 64 bit machines and 4 bytes on 32 bit machines), it can obtain underlying container pointers easily for weak references
-    
+
     ```cpp
     void ObjectOperation(ObjectRef obj) {
       if (auto* IntImmNode int_ptr = obj.as<IntImmNode>()) {
@@ -84,10 +84,10 @@ There are two interesting regimes of operation that comes with ObjectRef and Any
       }
     }
     ```
-    
+
 - R1: On the other hand, when we operate on frequent processing that is also not well-typed (as the `unicode_split` example). It is important to also support a AnyValue that comes with stack value support.
 
-As a point of reference, python use object as base for everything. But that indeed creates the overhead for str, int (which we seek to eliminate). Java and C# support both stack values, and their object counter part. 
+As a point of reference, python use object as base for everything. But that indeed creates the overhead for str, int (which we seek to eliminate). Java and C# support both stack values, and their object counter part.
 Right now we have both mechanism. It would be **desirable to further unify the Object and AnyValue** to support both R0 and R1. Additionally, it would be nice to have automatic conversions if we decide that two mechanisms are supported. Say a caller pass in a boxed int value, the callee should be able to easily get int out from it(or treat it as an int) without having to do explicit casting. So the same routine can be implemented via either R0 or R1 that is transparent to the caller.
 
 - This is also important for compilers and runtimes, as different compiler and runtime might have their own considerations operating under R0/R1.
@@ -99,7 +99,7 @@ We have the following design goals:
 - G0: Automatic switching between object focused scenario and stack-mixed that requires AnyValue.
 - G1: Enable efficient string processing, specifically small-string support for NLP use-cases.
 - G2: Enable efficient universal container (e.g common container for List/Array that stores everything).
-  - Note that it does not prevent us to create specalized code such as `List<String>` as java do, except that 
+  - Note that it does not prevent us to create specalized code such as `List<String>` as java do, except that
     they still share the same underlying container.
   - Array will share the same container with List to avoid conversion cost.
 - G3: Reduce concept duplication(type_code) and provide an unify approach for POD values and object values(including boxing and unboxing)
@@ -112,13 +112,13 @@ AnyValue unicode_split_any(const AnyValue& word) {
   for (size_t i = 0; i < word.size(); ++i) {
      // efficient small string support
      AnyValue res = word[i];
-     ret.push_back(res);   
+     ret.push_back(res);
   }
   return ret;
 }
 
 // Unify object and POD value handling
-// passing an boxed int object to int function and get out int 
+// passing an boxed int object to int function and get out int
 // automatically without conversion
 int MyIntFunc(AnyValue x) {
   int xval = x;
@@ -149,11 +149,11 @@ struct Object {
   // 4 bytes type code
   // This is a common header with AnyPODBase_
   int32_t type_code;
-  // 4 bytes ref counter 
+  // 4 bytes ref counter
   RefCounterType<int32_t> ref_counter;
   // 8 bytes deleter
   typedef void (*FDeleter)(Object* self);
-  FDeleter deleter; 
+  FDeleter deleter;
   // Rest of the sections.
 };
 
@@ -188,7 +188,7 @@ struct AnyView: public AnyPodBaseValue_ {
 
 // An any value with extra padding data
 // can be used to store larger small str
-template<int num_paddings> 
+template<int num_paddings>
 struct AnyPad : public AnyValue {
   union {
     char v_pad_bytes[num_paddings * 8];
@@ -198,7 +198,7 @@ struct AnyPad : public AnyValue {
 };
 ```
 
-This is a design that outlines the key terms 
+This is a design that outlines the key terms
 
 - T0: Object: the intrusive ptr managed object, used by most containers
     - This is the same as the current object, we list here for clarity.
@@ -208,10 +208,10 @@ This is a design that outlines the key terms
 - T3: AnyPad: an any value that have larger padded size to accomodate on stack values.
     - When the initial value defaults to null. Both AnyValue and AnyPad, can choose to fill the small_len to be the size of total bytes available. This can help us to be able to pass small string back in C API (without template), by looking at `AnyValue*` ’s small_len field to decide the maximum bytes allowed.
 
-**Discussions**  The default size of AnyValue is 16 bytes. This means that for small string, we can use extra 8 bytes to store the string part(7 bytes if we need a tail `\0`). If we go with UCS4, we can store two extra UCS4 Char without the tail `\0`. The extra space may not be sufficient for some of the small string needs (as a reference matxscript adopts extra padding of 8 bytes to accommodate small string unicode). AnyPad serves as another variation of AnyValue that contains extra stack space. AnyPad is intended to be used interchangeably in any places that AnyValue appears. See also followup sections on conversions function signatures on how that works. One interesting future direction point here is that future compilers can choose to try different AnyPad in code generation and autotune the padding default to the scenario that best fits the application.
+**Discussions**  The default size of AnyValue is 16 bytes. This means that for small string, we can use extra 8 bytes to store the string part(7 bytes if we need a tail `\0`). If we go with UCS4, we can store two extra UCS4 Char without the tail `\0`. The extra space may not be sufficient for some of the small string needs (as a reference matxscript adopts extra padding of 8 bytes to accommodate small string unicode). AnyPad serves as another variation of AnyValue that contains extra stack space. AnyPad is intended to be used interchangeably in any places that AnyValue appears. See also followup sections on conversions function signatures on how that works.
 
 ```cpp
-// This can be part of data processing code translated 
+// This can be part of data processing code translated
 // from user that comes without type annotation
 AnyValue unicode_split_any(const AnyValue& word) {
   List ret;
@@ -219,13 +219,13 @@ AnyValue unicode_split_any(const AnyValue& word) {
      // we can use AnyPad to store longer small-str
      // in intermediate computation
      AnyPad<1> res = word[i];
-     ret.push_back(res);   
+     ret.push_back(res);
   }
   return ret;
 }
 ```
 
-Both AnyValue and AnyView also have direct correspondence in the current codebase (TVMRetValue and TVMArgValue). We will use `AnyValue` and `AnyView` for consistency throughout this document. 
+Both AnyValue and AnyView also have direct correspondence in the current codebase (TVMRetValue and TVMArgValue). We will use `AnyValue` and `AnyView` for consistency throughout this document.
 
 **Default size of AnyValue** Any variant of AnyPad can be used as default size of AnyValue. For example, we list the following design choices
 
@@ -258,7 +258,7 @@ class string_core {
     MediumLarge ml_;
   };
   const uint32_t zero_ = 0;            // for c_str
-  int32_t category_or_small_len_ = 0;  // small_len: >= 0; large: -2, 
+  int32_t category_or_small_len_ = 0;  // small_len: >= 0; large: -2,
 };
 ```
 
@@ -295,7 +295,7 @@ This is the key idea of this proposal. Right now Object type code and AnyValue t
 - **S4:** Object with dynamic type code.
 
 These sections are intentionally made to be continuous. So we can do bound checking to quickly narrow down to a section. Then do switch-case(which can be mapped to a jump table) for in-section specific handling.
-By adopting this design, we will have a single, unfied type code throughout the codebase. 
+By adopting this design, we will have a single, unfied type code throughout the codebase.
 
 - Note that some of the `type_code` (those in S0) **do not** correspond to objects.
 - The `type_code` in AnyValue and AnyView can indicate which kind of value it stores, there are two possible design choices here:
@@ -320,7 +320,7 @@ void Check(void* ptr) {
 
 One design lesson from matx is that `type_code` in S0 can be represented as negative numbers. That is, we set `S0SectionMax` to be 0.
 
-The main advantage is that it allows backward compatible extensions of both objects(by adding positive numbers) and special sections(by adding negative number). 
+The main advantage is that it allows backward compatible extensions of both objects(by adding positive numbers) and special sections(by adding negative number).
 
 ### D2: Conversion between AnyValue, AnyView and Object
 
@@ -356,7 +356,7 @@ The conversion from Object to AnyValue(which can then be converted to AnyView) c
 - **D2b:** Always unbox to the POD value if the object is a boxed value.
     - This simplifies conversion of AnyValue into POD, since there is no need to check for boxed values.
 
-We encourage D2b when possible, this is because such conversion can be simplified in assignment. It also can help to simplify compiler side logic which only looks at POD type code but cannot handle the Object boxing. 
+We encourage D2b when possible, this is because such conversion can be simplified in assignment. It also can help to simplify compiler side logic which only looks at POD type code but cannot handle the Object boxing.
 
 - Object to AnyValue with unboxing
     - Check if code in S2, unbox to the POD value
@@ -365,7 +365,7 @@ We encourage D2b when possible, this is because such conversion can be simplifie
 
 ### D3: Universal Container
 
-Now let us discuss the ways to implement universal container that can store stack value and Object. 
+Now let us discuss the ways to implement universal container that can store stack value and Object.
 
 **D3a: AnyValue as container item**
 
@@ -395,10 +395,10 @@ class ListObj {
 
 ```cpp
 
-// A pool that allocate AnyValue slots so we can store pod values 
+// A pool that allocate AnyValue slots so we can store pod values
 class AnyValuePool {
  public:
-  AnyPad<1>* head; 
+  AnyPad<1>* head;
 };
 class ListObj {
  private:
@@ -416,7 +416,7 @@ class ListObj {
 };
 ```
 
-In the above design, we stored an unified item ptr that can be either an any pointer or an object pointer. Note that both any and obj have a common type_code header. 
+In the above design, we stored an unified item ptr that can be either an any pointer or an object pointer. Note that both any and obj have a common type_code header.
 
 - When we insert an Object*, simply treat it as an Object and we can handle managed ref as usual.
 - When we insert an AnyValue that is POD or small-str. We copy it to `pod_pool`, and then take address from any_pool and write into data.
@@ -446,7 +446,7 @@ The unified List can be used as underlying container for specialized data struct
 
 **D3c-variant, further reducing cost of small int and char**
 
-We can further reduce the cost of memory cost in D3c by having a static AnyValue table for common small integers and frequently appearing characters. Specifically, we can allocate a static part of AnyValue pool for Integer in a small range and not allocate from local AnyValue pool. 
+We can further reduce the cost of memory cost in D3c by having a static AnyValue table for common small integers and frequently appearing characters. Specifically, we can allocate a static part of AnyValue pool for Integer in a small range and not allocate from local AnyValue pool.
 
 **Summary of tradeoffs:**
 
@@ -478,27 +478,27 @@ These changes are invisible to the users as long as they use the same source lib
 There are several design choices in terms of C API convention in light of this new proposal. They will affect the internal data layout of TVMArgs.
 
 - **D4a:** Current C API:
-    
+
     ```cpp
     int TVMCPackedFunc(PackedFuncHandle handle,
                        int num_args, int* type_codes, TVMValue* values,
                        int* out_tcode, TVMValue* out_value);
     ```
-    
+
     - This would require packing packing and unpacking the typecode. Note that small string passing wont work because of the lack of the seq_len padding field.
 - **D4b:** Combine type code and TVMValue
-    
+
     ```cpp
-    
+
     // TVMAnyView and TVMAnyValue follows the same layout as AnyPodBase_
     int TVMCPackedFunc(PackedFuncHandle handle,
-                       int num_args, TVMAnyView* args, 
+                       int num_args, TVMAnyView* args,
                        TVMAnyValue* out);
     ```
-    
+
     This approach combines code and value into a single entity, this would mean a change of ABI convention in generated code. This approach makes it possible to directly return a small-str without boxing it (however if it is faced in python frontend, likely we still need to box it to str).
-    
-    We will introduce adapters to support the old calling convention, which constructs TVMAnyView on the stack then pass things over in the transitioning period. PackedFunc will continue to support the existing TVMArgs and TVMRetValue signature, which adapts 
+
+    We will introduce adapters to support the old calling convention, which constructs TVMAnyView on the stack then pass things over in the transitioning period. PackedFunc will continue to support the existing TVMArgs and TVMRetValue signature, which adapts
     to the new calling convention.
     ```c++
     class PackedFunc {
@@ -507,11 +507,14 @@ There are several design choices in terms of C API convention in light of this n
       void CallPacked(TVMArgs args, TVMRetValue* rv);
       // new convention
       void CallPacked(int num_args, AnyView* args, AnyValue* out)
-    }    
+    }
     ```
+    Transition of `TVMFuncCall` also happens in two steps.
+    - First step the frontend facing APIs such as `TVMFuncCall` will be kept the same, providing an adapter to call into
+      the new convention under the hood.
+    - Then we will update the frontend implementation, compiler, and runtime to match the new proposed convention.
     The transition into the new convention is mostly mechanical (combining the type_code and value together). In this particular case,
     we favor fastly moving to a new state to reduce overall complexity.
-
 
 ## Prior Arts
 
@@ -550,7 +553,7 @@ The current state starts with D1a. The tradeoff here is again not as critical. O
 
 ### D1section: Any.type_code section convention
 
-When to store non-object type code in AnyValue.type_code. We have the following code segmentation organization 
+When to store non-object type code in AnyValue.type_code. We have the following code segmentation organization
 
 - **D1section-a**: [0, S0SectionMax)
 - **D1section-b**: [INT32_MIN, 0)
@@ -592,7 +595,7 @@ We would recommend D3c, with a caveat that it is indeed slightly more eng effort
 
 ```cpp
 int TVMCPackedFunc(PackedFuncHandle handle,
-                   int num_args, TVMAnyView* values, 
+                   int num_args, TVMAnyView* values,
                    TVMAnyValue* out_value);
 ```
 
@@ -606,22 +609,22 @@ This section discusses the implementation strategy of the proposal. The proposal
     - Implement D0a, D1a, D1section-b, D2b and D4b.
     - The code change would mostly be conventional changes.
     - Note that this implies (by intention) change the ABI of packed func. We will update the compiler/runtime to do so.
-    - All front-end, compiler, runtime will be updated together to ensure the current testcases continue to pass. 
+    - All front-end, compiler, runtime will be updated together to ensure the current testcases continue to pass.
     - We will introduce an adapter to support the TVMArgs during the transition but favors moving to a new state to reduce overall complexity.
 - M1: Introduce new string support (with small string)
 - M2: Introduce universal container
 
 We believe the overall milestones are positive given the net gain obtained to enable preprocessing and stronger interpolation with ML ecosystem and the community as well. It also opens doors to bring in features in projects like matx so we can enable efficient NLP preprocessing together with ML workload in the same pipeline.
 
-Additionally, Unifying FFI and Object would bring further unification and reduction in our overall code complexity while leveling up the extensibility, so it serves as a strong improvement to the overall quality of the project. 
+Additionally, Unifying FFI and Object would bring further unification and reduction in our overall code complexity while leveling up the extensibility, so it serves as a strong improvement to the overall quality of the project.
 
 ## Drawbacks
 
-The design proposal would involve changes in our runtime system. 
-This proposal implies (by intention) change the ABI of packed func. 
+The design proposal would involve changes in our runtime system.
+This proposal implies (by intention) change the ABI of packed func.
 Please see the phasing section on more details about the phasing plan to introduce such change.
 The unpacked API in microTVM won't be affected since it follows a different convention.
-This is, however, a positive step to further solidify and reduce the overall amount of concepts in the codebase, 
+This is, however, a positive step to further solidify and reduce the overall amount of concepts in the codebase,
 further unify packed and object, and simplify and solidify our implementation alongside of AnyValue and Object.
 
 ## Unresolved questions
@@ -631,7 +634,7 @@ Most of the design points within the scope are being discussed, and there is not
 ## Future possibilities
 
 The proposal opens doors to enable future NLP preprocessing and better interpolations other applications with TVM.
-One interesting future direction point here is that future compilers can choose to try different AnyPad in code generation 
+One interesting future direction point here is that future compilers can choose to try different AnyPad in code generation
 and autotune the padding default to the scenario that best fit the application.
 
 ## Appendix
@@ -644,7 +647,7 @@ Most of the relevant string methods from matxscript, are based on folly library.
 template <class Char>
 class string_core {
   int32_t category() const noexcept;
-  // init by char* and size  
+  // init by char* and size
   string_core(const Char* const data, size_t size, int32_t category);
   // copy/move construct
   string_core(const string_core& rhs);
@@ -652,11 +655,11 @@ class string_core {
   // access data address
   const Char* data() const noexcept;
   Char* data() noexcept;
-  // we might remove mutable part to keep things consistent 
+  // we might remove mutable part to keep things consistent
   // with immutable data structure
   Char* mutableData();
 
-  // get size/cap 
+  // get size/cap
   size_t size() const noexcept;
   size_t capacity() const noexcept;
 
@@ -665,12 +668,12 @@ class string_core {
   void reserve(size_t minCapacity);
   Char* expandNoinit(size_t delta, bool expGrowth = false);
   void push_back(Char c);
-  
+
   // check unique
   bool isShared() const noexcept;
 
   void reset() noexcept;
-  
+
   void copySmall(const string_core&);
   void copyMedium(const string_core&);
   void copyLarge(const string_core&);
