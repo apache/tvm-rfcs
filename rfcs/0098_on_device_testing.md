@@ -26,7 +26,7 @@ We explain this section by following the simplest case of a hardware-in-loop CI 
 There is a minimal set of requirements that TVM community expects Device Test Maintainers to follow. To add nightly tests to TVM, Device Test Maintainers should implement automation that performs the following steps:
 1. **Lookup nightly SHA for testing.** To ensure that results from disparate nightly test suites can be compares, an automated nightly process chooses a TVM sha1 which everyone should use. The bot will merge the new daily commits on main branch to TVM `nightly` branch ([PR13564](https://github.com/apache/tvm/pull/13564) implemented this) at 9:00PM PST. Device Test Maintainers should use the sha1 from this `nightly` branch for testing so we have consistent results across multiple CIs.
 
-2. **Testing.** At a minimum, Device Test Maintainers should re-run any simulated integration tests ordinarily ran in TVM’s CI on real hardware targets. In addition, they are welcome to bring more tests with more input samples or tuning with more trials to show better accuracy and performance benchmark. For nightly, running the test could be trigger based on timer and implemented however the HW vendor desires. This way Device Test Maintainers have flexibility on the implementation and are not required to make a connection to TVM Jenkins node.
+2. **Testing.** At a minimum, Device Test Maintainers should re-run any simulated integration tests ordinarily ran in TVM’s CI on real hardware targets. In addition, they are welcome to bring more tests with more input samples or tuning with more trials to show better accuracy and performance benchmark. For nightly, running the test could be triggered based on a timer and implemented however the HW vendor desires. This way Device Test Maintainers have flexibility on the implementation and are not required to make a connection to TVM Jenkins node.
 
 3. **Test results.** We expect Device Test Maintainers to publicly report functional test results for any on-device tests which also run on simulators in the TVM CI. To facilitate this, TVM will provide reporting infrastructure (i.e. a test dashboard) to present those results in public domain. Our proposal is that Device Test Maintainers upload the tests results in the form of pytest artifacts to an S3 bucket which is provided by TVM community. Device Test Maintainers are also welcome to show the results in the form of a website, but the tests artifacts should be uploaded to the S3 bucket so they can be retrieved in future.
     - Other alternative is to use a Github repository to host the test results. Github repo is not the ideal solution for saving and downloading files and it could be slow for hosting large number of files for a website.
@@ -54,21 +54,20 @@ In this section we answer some of the questions that are important to answer.
 
 1. Do Tier 1 and 2 On-Device CIs delay PR merging?
     
-    Tier 1 and Tier 2 On-Device CIs are merely advisory and they are not considered to block merging a PR. Therefore, the timing on a CI is flexible.
-    
-    However, we recommend the Device Test Maintainer to provide enough resources based on the Tier that the CI is running. This would help contributors/committers who are actively working on certain not-cloud targets and try to keep the hardware CI error free.
+    Tier 1 and Tier 2 On-Device CIs are merely advisory and they are not considered to block merging a PR. Therefore, the timing on a CI is flexible. However, we recommend the Device Test Maintainer to provide enough resources based on the Tier that the CI is running. This would help contributors/committers who are actively working on certain not-cloud targets and try to keep the hardware CI error free.
 
 2. How will the results of Tier 1 and 2 On-Device CIs be shown?
     - If an On-Device CI is triggered as a result of a PR, e.g. `cortexm-zephyr-hardware-test`, it will show up as an entry of the CI tests. When it is not triggered, it wouldn’t show up at all.
     - The results will be pending/success/failure which is the same as the rest of the CI steps.
 3. In the case of failures, how will contributors know if they can ignore it?
+
     It is tough to answer this question since it is very subjective. Generally, On-Device CIs exist to provide additional information for the contributors. Here are some suggestions, using `cortex-m` as an example here:
     
-    - A contributor who is submitting a PR directly related to `cortex-m`*. The community expectation is that the contributor does not ignore failures on cortex-M hardware CI. Community also expects the device test maintainer to provide help/guidance to the contributor to fix the issue. However, this is totally based on the good faith of the contributor and cannot be forced by the committers.
-    - A contributor who is submitting a PR not related to `cortex-m`*. In case of failure the first question is “Why didn’t our unit tests capture this issue?” The community expects the contributor for file an issue and move on. Follow up fixes to capture this issue in unit tests and fix on the hardware could happen in follow up PRs.
+    - A contributor who is submitting a PR directly related to `cortex-m`. The community expectation is that the contributor does not ignore failures on cortex-M hardware CI. Community also expects the device test maintainer to provide help/guidance to the contributor to fix the issue. However, this is totally based on the good faith of the contributor and cannot be forced by the committers.
+    - A contributor who is submitting a PR not related to `cortex-m`. In case of failure the first question is “Why didn’t our unit tests capture this issue?” The community expects the contributor to file an issue and move on. Follow up fixes to capture this issue in unit tests and fix on the hardware could happen in follow up PRs.
 
 4. What happens if there are not enough resources to run a Tier 1 or 2 On-Device CI, and a PR is in pending situation?
-    - First, this shows that the resource allocation is not well considered considering the tier that device test maintainer registered their CI. If this happens often, TVM contributors can report this to the Device Test Maintainer and it is expected that device test maintainer would fix it.
+    - First, this shows that the resource allocation is not well considered according to the tier that device test maintainer registered their CI. If this happens often, TVM contributors can report this to the Device Test Maintainer and it is expected that device test maintainer would fix it.
     - Contributors/Committers can ignore this CI, if it happens often, and merge without the green check mark from the hardware CI.
 
 5. How should a TVM community member propose a new On-Device CI?
@@ -79,9 +78,9 @@ In this section we answer some of the questions that are important to answer.
     
     [Recent changes](https://github.com/apache/tvm/pull/13300) in TVM CI have divided TVM previous single large CI into multiple smaller Jenkins files which are more readable and easy to manage. A device test maintainer could reuse those Jenkins files with their own Jenkins instance to add an On-Device CI for specific hardware. We expect TVM to keep this CI reusability. 
     
-    In addition to Jenkins file any device test maintainer requires an infrastructure to manage their device fleet on each server. Since each device test maintainer is specialized in their domain we expect the infrastructure to be internally managed. From the TVM community perspective, there are few expectations from the device test maintainer:
+    In addition to Jenkins file, any device test maintainer requires an infrastructure to manage their device fleet on each server. Since each device test maintainer is specialized in their domain we expect the infrastructure to be internally managed. From the TVM community perspective, there are few expectations from the device test maintainer:
     
-    - Provide N number workers to Jenkins head to have enough support to run PRs in parallel. N is defined based on the tier that the device test maintainer is registering their CI and it is subjective to the target and CI traffic, CI time, etc.
+    - Provide N number of workers to Jenkins head to have enough support to run PRs in parallel. N is defined based on the tier that the device test maintainer is registering their CI and it is subjective to the target and CI traffic, CI time, etc.
     - For each worker provide M number of devices. M is defined based on number of tests that are running on device and it should provide enough parallelism to avoid this CI to be the bottle neck.
     - Device fleet management should be reliable. The community does not expect a hardware CI to have overly frequent failures, otherwise TVM community can decide on disabling it until it is further reliable.
 
