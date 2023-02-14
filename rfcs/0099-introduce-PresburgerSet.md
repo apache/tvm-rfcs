@@ -1,4 +1,4 @@
-- Feature Name: Improve Representation of IntSet
+- Feature Name: Introduce PresburgerSet
 - Start Date: 2023-02-13
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/99/
 - GitHub Issue: https://github.com/apache/tvm/pull/0000
