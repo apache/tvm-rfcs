@@ -36,32 +36,32 @@ def if_func(a: T.handle, c: T.handle) -> None:
 ```
 How to determine the maximum range of `B` and do compact buffer range for it? Shape of `B` only needs (39,) and currently CompactBufferAllocation does nothing on this. If we can determine the range automatically, the `T.Read`/`T.Write` annotations could be saved .
 # Guide-level explanation
-The proposal is to reconstruct IntSet class. The key point is to support inequation constraints in IntSet to consider if-conditions. The inequation constraints are exprs on multiple Vars. The existing memeber functions of IntSet will be kept but reimplemented, so it doesn't impact any previous analyzing works. But inside the new IntSet, inequations are used to represent integer sets. An additional IntSet constructor function will be added to construct from inequations:
+The proposal is to implement a `PresburgerSet` class. The key point is to support inequation constraints to consider if-conditions, so the inequation on multiple Vars will mainly be used to express the sets. The basic set manipulation functions and constructor functions in `IntSet` class will be reimplemented in `PresburgerSet`. An additional constructor function will be added to construct from inequations:
 ```
-IntSet FromConstraints(Array<Constraint> inequations)
+PresburgerSet FromConstraints(Array<Constraint> inequations)
 ```
-In order to manage the analysis, we need to separate the vars in all the inequations into at least two kinds, the iteration(or domain) vars and other vars, say local(target) vars. The new IntSet keeps the relationship between iteration vars and local vars, from iteration to local vars or vice versa. Some other utility functions are needed to transform the relationship, including:
+In order to manage the analysis, we need to separate the vars in all the inequations into at least two kinds, the iteration(or domain) vars and other vars, say local(target) vars. `PresburgerSet` keeps the relationship between iteration vars and local vars, from iteration to local vars or vice versa. Some other utility functions are needed to transform the relationship, including:
 ```
-IntSet reverse()
+PresburgerSet reverse()
 ```
   Reverse the relationship from local vars to iteration vars. So we can further analyze dependency based on read/write sets.
 ```
-IntSet apply_iteration()/apply_local()
+PresburgerSet apply_iteration()/apply_local()
 ```
   Merge two relationships targeting the iteration vars or local vars. Then we can propagate the relationship between multiple sets.
 ```
-IntSet solve_bounds(PrimExpr expr)
+PresburgerSet solve_bounds(PrimExpr expr)
 ```
-  Prove engine to solve the maximum/minimum optimization problem based on the inequations in IntSet，such as simplex solver. Input parameter expr is the target expression of optimization problem.
+  Prove engine to solve the maximum/minimum optimization problem based on the inequations in `PresburgerSet`, such as simplex solver. Input parameter expr is the target expression of optimization problem.
 
 Other existing API, like intersect/union etc, will be reimplemented based on updated data structure.
 # Reference-level explanation
-You may have already noticed that this is just what other modern integer set library provides, like ISL. So an economical way to achieve this is to leverage existing public wheels. ISL is mostly used, but it seems not modular enough or open enough, so it could be difficult to integrate deeply. Presburger Set located in MLIR is modular designed and open developed. So building the new IntSet starting from it would be a good choice.
+You may have already noticed that this is just what other modern integer set library provides, like ISL. So an economical way to achieve this is to leverage existing public wheels. ISL is mostly used, but it seems not modular enough or open enough, so it could be difficult to integrate deeply. Presburger Set located in MLIR is modular designed and open developed. So building from it would be a good choice.
 
 No need to introduce MLIR as a source code submodule. Installing LLVM prebuilt package installs the necessary libs of Presburger Set, so MLIR can be integrated into TVM just like LLVM codegen uses LLVM libs, and it can be switched on/off on demand. The new-added util function needs to check whether MLIR is installed when called and falls back to the interval set when MLIR is not found.
 # Drawbacks
-The IntSet serves as the basic infrastructure of IR analysis, and a wide range of lowering passes/primitives depends on it. Switching it off may limit the analysis if the new-added utils are widely used in the future. In that case, the analysis will be downgraded to using the former interval set.
+The `PresburgerSet` serves as the basic infrastructure of IR analysis, and a wide range of lowering passes/primitives may need it. Part of its functionality is duplicated with `IntSet`, so people should make a decision which one to use according to the analysis task.
 # Alternatives
 The other way is to handcraft a copy of code similar to Presburger Set in MLIR, which minimizes the software dependence of TVM project, but it needs considerable effort and seems like reinventing the wheel, if there is no extra new idea to implement.
-
-Reimplementing IntSet could impact broadly, and risk exists even if there is an on/off switch and off by default. Another way is to implement a different class to leave IntSet alone. But analysis code should determine which one to use, and this could be difficult to decide sometimes.
+# Future possiblities
+One day, when we make sure `PresburgerSet` can fully cover what `IntSet` provides, in terms of functionality and efficiency, we may consider phasing out the legacy IntSet, then no more decisions about `PresburgerSet` and `IntSet`.
