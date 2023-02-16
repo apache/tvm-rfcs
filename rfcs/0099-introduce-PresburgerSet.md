@@ -1,7 +1,7 @@
 - Feature Name: Introduce PresburgerSet
 - Start Date: 2023-02-13
 - RFC PR: https://github.com/apache/tvm-rfcs/pull/99/
-- GitHub Issue: https://github.com/apache/tvm/pull/0000
+- GitHub Issue: https://github.com/apache/tvm/issues/14006
 
 # Summary
 It would be great if TVMScript can grow into a generic programming language in marchine learning domain. To reach that, it seems some powerful analysis tools are needed. Integer set is pivotal in IR analyzing, but IntSet in TVM only represents ranges. This RFC is to seek an improvement for it so that we can perform the IR analysis more precisely. We found the Presburger Set in MLIR library could be leveraged for this purpose.
