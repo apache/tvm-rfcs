@@ -600,7 +600,7 @@ like TACO, while reusing the existing schedule primitives and post-processing pa
 - Considering the feasibility of supporting lowering to co-iterations for sparse vector union/intersection.
 - Researching ways to efficiently compile kernels for dynamic sparsity, where the sparse structure and shape may not be known at compile time.
 
-## Phasing
+# Phasing
 
 All of the functionalities described in this RFC has already been implemented in [SparseTIR](https://github.com/uwsampl/sparsetir), which is a fork of TVM from v0.9. The changes to the TVM codebase are incremental and modular. We plan to
 integrate the proposal into TVM in the following phases:
