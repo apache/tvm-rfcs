@@ -16,7 +16,7 @@ Many Deep Learning workloads involve sparse/variable components, e.g. Mixture of
 
 [SparseTIR](https://dl.acm.org/doi/10.1145/3582016.3582047) is our attempt at bringing sparsity to TVM, the basic idea is to build a dialect on top of TVM's TensorIR, and adding sparse annotations (inspired by TACO and other pioneering works in sparse compilers) as first-class members to describe formats for sparse tensors and sparse iterations. SparseTIR designs a multi-stage compilation process whose frontend IR is TACO-like sparse computation description and target IR is TensorIR:
 
-![image|689x459](upload://oAztAOQ7lv7uXay8X8AEnZXq6wU.png) 
+![image|689x459](https://discuss.tvm.apache.org/uploads/default/original/2X/a/ac56833a2398c21d94f19dca03c52c24b0bcd910.png) 
 
 ## N1: Sparsity-Aware Optimizations and Hardware-Aware Optimizations for Sparse Operators
 A lot of optimizations and generalizations can be done under this framework. Notably composable formats and composable transformations: we can decompose the computation into several different formats where each one of them in different formats (usually more hardware friendly), and optimize computation on each one of these formats. The multi-stage design enables us to apply schedule primitives in different stages, at both high-level (stage-I) for sparsity-aware transformations and lower-level (stage-II) to reuse TVM's schedule primitives.
