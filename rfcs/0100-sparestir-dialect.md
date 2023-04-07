@@ -550,7 +550,7 @@ Slight code changes are required to make some schedule primitives recognize spar
 ### Horizontal Fusion
 We need a `HorizontalFusion` pass which enables us to fuse multiple CUDA kernels horizontally (to reduce kernel launching overhead for composable formats, on CUDA):
 
-![image|690x179](upload://61FbKywEPqDWcu1E0m6inZrQkDF.jpeg) 
+![image|690x179](https://discuss.tvm.apache.org/uploads/default/optimized/2X/2/2a3d35098e57e4a0399db6519704ce5337e5ad1b_2_1380x358.jpeg) 
 
 The pass itself is not hard to implement in TVM, reference implementation can be found [here](https://github.com/uwsampl/SparseTIR/blob/9c26e843a42700e1f236b8937fa8d2068f027004/src/tir/transforms/horizontal_fusion.cc).
 
