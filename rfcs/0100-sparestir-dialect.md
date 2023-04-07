@@ -482,7 +482,7 @@ def bsrmm_stage_ii(
                     )
 ```
 
-Please check section 3.3 of the paper and [code](https://github.com/uwsampl/SparseTIR/blob/9c26e843a42700e1f236b8937fa8d2068f027004/src/tir/transforms/lower_sparse_iter.cc) for the details of this pass.
+Please check section 3.3 of the [paper](https://dl.acm.org/doi/10.1145/3582016.3582047) and [code](https://github.com/uwsampl/SparseTIR/blob/9c26e843a42700e1f236b8937fa8d2068f027004/src/tir/transforms/lower_sparse_iter.cc) for the details of this pass.
 
 ### Sparse Buffer Lowering
 
@@ -550,7 +550,7 @@ def bsrmm(
                     )
 ```
 
-Please refer to section 3.4 in the paper and [code](https://github.com/uwsampl/SparseTIR/blob/9c26e843a42700e1f236b8937fa8d2068f027004/src/tir/transforms/lower_sparse_buffer.cc) for details of this pass.
+Please refer to section 3.4 in the [paper](https://dl.acm.org/doi/10.1145/3582016.3582047) and [code](https://github.com/uwsampl/SparseTIR/blob/9c26e843a42700e1f236b8937fa8d2068f027004/src/tir/transforms/lower_sparse_buffer.cc) for details of this pass.
 
 
 ## D2: Schedules
