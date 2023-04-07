@@ -100,7 +100,7 @@ J2 = T.dense_variable(I, n, indptr_2, idtype="int32")
 # the indptr data are stored in the region started from indptr_3 handle,
 # and the indices data are stored in the region started from indices_3 handle,
 # the index data type (of indptr and indices array) is "int64")
-J3 = T.sparse_variable(J1, (n1, nnz), (indptr_3, indices_3), idtype="int34")
+J3 = T.sparse_variable(J1, (n1, nnz), (indptr_3, indices_3), idtype="int64")
 ```
 
 ### Sparse Buffer
