@@ -211,7 +211,7 @@ def bsr(block_size: int):
         II = T.dense_fixed(block_size)
         JI = T.dense_fixed(block_size)
         A = T.match_sparse_buffer(a, (IO, JO, II, JI), "float32")
-        T.evaluate(0)  # placeholder, indicates it's the end of the script.
+        pass  # placeholder, indicates it's the end of the script.
     return func
 
 # inverse index map
@@ -228,16 +228,13 @@ def csr2bsr_index_map(block_size):
 
     return func
 
-block_size_symbol = bsr.params[-1]
 rewrites = []  # array of format rewrite rules
 for block_size in [4, 16, 32]:
     rewrites.append(
         FormatRewriteRule(
             str(block_size),  # name of generated buffer.
-            bsr.specialize({block_size_symbol: block_size}),  # the format specification
+            bsr(block_size),  # the format specification
             ["A"],  # name of the original buffer to rewrite
-            ["I", "J"],  # names of the axes the constructs the original buffer
-            ["IO", "JO", "II", "JI"],  # names of the axis that constructs new buffer
             {"I": ["IO", "II"], "J": ["JO", "JI"]},  # the correspondence between original axes and new axes
             csr2bsr_index_map(block_size),  # the index map from the original buffer access index to the new 
  buffer access index.
@@ -361,6 +358,34 @@ def bsr_rewrite_with_preprocess(
 ```
 
 This pass can help generate code with better performance if we use the "right" composable formats. However, it introduces external data movement overhead from the buffer in the original format to the buffer in composable formats. In most settings where the sparse structure is stationary, we can lift the data movement parts outside the kernel and reuse them during training/serving thus amortizing such overhead. But there are some cases that sparse structure is dynamic and decompose format is not necessary, so we make this pass optional.
+
+As the TVMScript in becoming more powerful, we might embed all information required by `FormatRewriteRule` in a single
+TVMScript, and in this way we can support `FormatRewriteRule` with symbolic shapes:
+
+```python
+@T.prim_func
+def bsr(
+    a: T.handle,
+    indptr: T.handle,
+    indices: T.handle,
+    m: T.int32,
+    n: T.int32,
+    nnz: T.int32,
+    block_size: T.var("int32")
+) -> None:
+    IO = T.dense_fixed(m)
+    JO = T.sparse_variable(IO, (n, nnz), (indptr, indices), "int32")
+    II = T.dense_fixed(block_size)
+    JI = T.dense_fixed(block_size)
+    A = T.match_sparse_buffer(a, (IO, JO, II, JI), "float32")
+    T.func_attr({
+        "buffer_to_rewrite": "A",
+        "axis_map": {"I": ["IO", "II"], "J": ["JO", "JI"]}
+        "idx_map": (lambda i, j: i // block_size, j // block_size, i % block_size, j % block_size),
+        "inv_idx_map": (lambda io, jo, ii, ji: io * block_size + ii, jo * block_size + ji)
+    })
+    pass
+```
 
 ### Sparse Iteration Lowering
 
@@ -622,3 +647,12 @@ integrate the proposal into TVM in the following phases:
   - Implement the `Atomic Lowering` pass.
 - M5: Format conversion routine of native format decomposition rules.
   - Implement the format conversion routine for common format decomposition patterns.
+
+# Reference
+
+- [SparseTIR paper](https://dl.acm.org/doi/10.1145/3582016.3582047): the paper describes the design of SparseTIR and performance analysis.
+- [SparseTIR repository](https://github.com/uwsampl/sparsetir): the prototype implementation of SparseTIR.
+- [SparseTIR artifacts](https://github.com/uwsampl/sparsetir-artifact): detailed evaluation with other compilers/libraries.
+- [Stage-I scripts](https://gist.github.com/yzh119/a7154e2f04aae4ea77c514aa2fc891b5): examples of SparseTIR script at stage-I.
+- [Stage-II scripts](https://gist.github.com/yzh119/a15db56ac4bde53ac40e169f0658b46c): examples of SparseTIR script at stage-II.
+- [Stage-III scripts](https://gist.github.com/yzh119/eb5baacdb7b346e272cc82c043e95b16): examples of SparseTIR script at stage-III.
