@@ -68,7 +68,7 @@ def sddmm(
     X = T.sp.match_buffer(x, (I, J), "float32")
     Y = T.sp.match_buffer(y, (I, J), "float32")
     # sparse iterations
-    with S.product([I, J, K], "SSR", "sddmm") as [i, j, k]:
+    with T.sp.iteration([I, J, K], "SSR", "sddmm") as [i, j, k]:
         with T.init():
             Y[i, j] = 0.0
         Y[i, j] = Y[i, j] + A[i, k] * B[j, k] * X[i, j]
@@ -108,7 +108,7 @@ J3 = T.sp.compressed_varied(J1, (n1, nnz), (indptr_3, indices_3), idtype="int64"
 User can create sparse buffers with following APIs in SparseTIR:
 ```
 A = T.sp.match_buffer(a, (I, J1), dtype="float32", scope="global")
-B = S.alloc_buffer((I, j2), dtype="float32", scope="shared")
+B = T.sp.alloc_buffer((I, j2), dtype="float32", scope="shared")
 ```
 Their semantics are very similar to the existing `match_buffer` and `alloc_buffer` constructs in TensorIR, with the exception that we accept an array of sparse iterators as shape.
 - The `T.sp.match_buffer` binds a sparse format with a handle(pointer) `a` to the start of a user-specified input/output array that stores the value inside the sparse buffer.
@@ -149,7 +149,7 @@ A = T.sp.match_buffer(a, (IO, JO, II, JI), dtype="float32")
 
 To create an iteration space, SparseTIR provides a structure called **sparse iteration**, which accepts an array of sparse iterators as input and construct correspondingly iteration space on the product of these iterators, user can write computations inside the body of sparse iterations:
 ```python
-with T.sp.product([I, J, K], "SSR", "sddmm") as [i, j, k]:
+with T.sp.iteration([I, J, K], "SSR", "sddmm") as [i, j, k]:
     with T.init():
         Y[i, j] = 0.0
     Y[i, j] = Y[i, j] + A[i, k] * B[j, k] * X[i, j]
