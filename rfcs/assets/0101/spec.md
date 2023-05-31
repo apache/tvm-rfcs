@@ -143,6 +143,7 @@ Attrs ::= Attrs(contents: {str: Object*})
 ```
 
 *Note that attributes and annotations can contain arbitrary TVM objects as values. These objects are used only at compile time.
+
 **Refers to one of the base classes in the TVM object representation. In practice, `ObjectRef`s are usually TIR AST nodes. Which ones are appropriate depend on the specific attributes (only those listed under the semantics have any visible effects; the rest are used only at compile time).
 
 Additionally, at run time, `PrimFunc`s take in parameters corresponding to buffers via the `DLPack` library's `DLTensor` class, defined in [dlpack.h](https://github.com/dmlc/dlpack/blob/main/include/dlpack/dlpack.h):
@@ -176,9 +177,9 @@ For convenience in the specification, we will use some shorthand for common conc
 * `node->field`: This refers to the field named `field` on an AST node named `node`.
 * `list[index]`: This refers to the `index`th element of a list called `list`, using zero-based indexing.
 * `vector.index`: This refers to the `index`th element of a vector value called `vector`, using zero-based indexing. This notation is meant to distinguish vector values in TIR from lists.
-`len(list)`: This gives the length of `list`.
-`||vector||`: This gives the length of `vector`. (Again, this notation is meant to distinguish vector values from lists.)
-`dtype(expr)`: This will be used to denote the datatype derived from a given expression `expr`. The section below will describe how datatypes are derived. This "function" should be distinct from AST fields named `dtype` (e.g., for `Buffer` nodes).
+* `len(list)`: This gives the length of `list`.
+* `||vector||`: This gives the length of `vector`. (Again, this notation is meant to distinguish vector values from lists.)
+* `dtype(expr)`: This will be used to denote the datatype derived from a given expression `expr`. The section below will describe how datatypes are derived. This "function" should be distinct from AST fields named `dtype` (e.g., for `Buffer` nodes).
 
 ## Types
 
@@ -230,7 +231,7 @@ For each `PrimExpr`, we define the rule determining their `dtype` field below:
         2. If `type_annotation` is `PointerType`, then the resulting datatype is `DataType(Handle, 64, 1)`.
         3. If type_annotation is `TupleType([])`, then the resulting datatype is `Void`.
         4. Any other `type_annotation` should be considered invalid and result in a type error.
-2. IntImm(value, dtype):
+2. `IntImm(value, dtype)`:
     1. The following conditions must hold or else there is a type error:
         1. `dtype` must be a scalar (have exactly one lane).
         2. `dtype` must have a typecode of either `Int` or `UInt`.
@@ -240,7 +241,7 @@ For each `PrimExpr`, we define the rule determining their `dtype` field below:
 3. FloatImm(value, dtype):
     1. The following conditions must hold or else there is a type error:
         1. `dtype->code` must be `Float` or `BFloat`
-        2. `value` must be `NaN`, `+inf`, `-inf`, or between the minimum and maximum values for a floating point number of the bitwidth given: for 16-bit Floats: $\pm 65504$; for 16-bit BFloats: $\pm 3.38953139 \cdot 10^{38}$; for 32 bits: $\pm 3.402823466 \cdot 10^{38}$; and for 64 bits: $\pm 1.7976931348623158 \cdot 10^{308}$.
+        2. `value` must be `NaN`, `+inf`, `-inf`, or between the minimum and maximum values for a floating point number of the bitwidth given: for 16-bit `Float`s: $\pm 65504$; for 16-bit `BFloat`s: $\pm 3.38953139 \cdot 10^{38}$; for 32 bits: $\pm 3.402823466 \cdot 10^{38}$; and for 64 bits: $\pm 1.7976931348623158 \cdot 10^{308}$.
     2. The resulting datatype is `dtype`.
 4. `StringImm(value)`: Its datatype is `DataType(Handle, 64, 1)`.
 5. `Cast(value, dtype)`: The number of lanes in `dtype(value)` must match the number of lanes in `dtype` or else there is a type error. «If `value` has a `Handle` datatype, then `dtype` must also be `Handle` or else there is a type error; if `dtype` is `Handle`, then `value` must have a typecode of `Int`, `UInt`, or `Handle` or else there is a type error.» The resulting datatype is `dtype`.
@@ -271,10 +272,10 @@ For each `PrimExpr`, we define the rule determining their `dtype` field below:
     1. `dtype(var)` must match `dtype(value)` or else there is a type error.
     2. The resulting datatype is `dtype(body)`.
 11. `Call(dtype, op, args)`: The resulting datatype is `dtype`; the datatype is not otherwise checked.
-12. Shuffle(vectors, indices):
+12. `Shuffle(vectors, indices)`:
     1. «`len(vectors)` must be at least 1 or else there is a type error.»
     2. The datatypes of all elements of `vectors` must have the same typecode and bitwidth; it is a type error otherwise. Let the typecode be `vector_code` and the bitwidth be `vector_bits`.
-    3. Let `total_lanes` be $\sum_{i = 0}^{L - 1} l_i$, where $L$ is `len(vectors)` and $l_i$ is `dtype(vectors[i])->lanes` (i.e., it is the sum of all lanes for all members of `vectors`).
+    3. Let `total_lanes` be the sum of `dtype(vectors[i])->lanes` over all `i` from 0 to `len(vectors) - 1`, inclusive.
     4. `len(indices)` must equal `total_lanes` or else it is a type error.
     5. «All members of `indices` must be `Int` or `UInt` scalars or else it is a type error.»
     6. The resulting datatype will be `DataType(code=vector_code, bits=vector_bits, lanes=total_lanes).`
@@ -314,7 +315,7 @@ Even though statements do not produce values themselves, many contain `PrimExpr`
     4. If `extent` is an `IntImm` node and `dtype(extent)->bits < dtype(loop_var)->bits`, then "promote" its datatype as with `min`.
     5. After performing the datatype "promotions," if necessary, `dtype(loop_var)`, `dtype(min)`, and `dtype(extent)` must all match exactly.
     6. «If `kind` is `kVectorized`, `body` must not contain `While` statements. Additionally, `min` must be an `IntImm` with a value of 0 and extent must be an `IntImm` with a value of at least 1.»
-12. `While(condition, body)`: `condition` must have a scalar datatype with an `Int` or `UInt` typecode. Additionally, condition must not be an `IntImm` node.
+12. `While(condition, body)`: `condition` must have a scalar datatype with an `Int` or `UInt` typecode. Additionally, `condition` must not be an `IntImm` node.
 13. `Block(iter_vars, reads, writes, name_hint, body, init, alloc_buffers, match_buffers, annotations)`: «The datatypes of the `var` fields for all members of `iter_vars` must be `Int` or `UInt` scalars.»
 14. `BlockRealize(iter_values, predicate, block)`: `len(iter_values)` must match `len(block->iter_vars)`. Additionally, `predicate` must have a `Bool` datatype.
 
@@ -375,7 +376,7 @@ Certain TIR constructs refer to buffers and operations on the memory that underl
 
 For example, if the shape is `(2, 2, 3)`, an array representation of it could be `[[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]`; index `(0, 1, 1)` would give us element 5 and index `(1, 0, 2)` would give us element 9. 
 
-Note that a buffer can have `()` as a shape; such buffers will be interpreted as storing a single value of the buffer's `dtype`. Each buffer should be assumed to be unique (not aliasing any other), unless it is indicated in the `match_buffers` field of a `Block` (see the semantics for Block).
+Note that a buffer can have `()` as a shape; such buffers will be interpreted as storing a single value of the buffer's `dtype`. Each buffer should be assumed to be unique (not aliasing any other), unless it is indicated in the `match_buffers` field of a `Block` (see the semantics for `Block`).
 
 Even though these buffers are represented on real hardware back-ends in terms of memory and operations on buffers are implemented as reads and writes over memory, we will not specify buffers in terms of pointer or indexing arithmetic because details about memory access for hardware back-ends vary greatly (for example, some back-ends use two-dimensional physical indices). Additionally, TIR does not permit direct manipulation of pointers in the language (there is no arithmetic defined for values with the `Handle` datatype). Optimizations like sharing single memory allocations between buffers (e.g., using different offsets or strides) are left to the lower levels of the compiler to implement. Hence, at the top level of TIR, we do not make any guarantees about the representation of buffers in memory, so any TIR code that makes use of such details is not specified by this document.
 
@@ -402,11 +403,11 @@ Even though these buffers are represented on real hardware back-ends in terms of
     4. If all members of `indices'` are scalars, then let `v` be the member of `buffer` at index `(indices'[0], indices'[1], ..., indices'[n-1])`.
     5. If `indices'[n-1]` is a vector, let `i_lanes` be its number of lanes. Let `elems` be a list of buffer elements (each of which has a datatype of `buffer->dtype`), of length `i_lanes`. For each `j` from 0 to `i_lanes - 1` (inclusive), `elems[j]` is the element of buffer at the indices `(indices'[0], indices'[1], ..., indices'[n-1].j)`. Let `v` be `concat(elems[0], elems[1], ..., elems[i_lanes-1])`, a single vector with `i_lanes * buffer->dtype->lanes` lanes.
     6. Note that if any set of buffer indices is out of bounds at run time (e.g., if any single member of `indices'` is out of bounds), there is no guarantee on what will result. By default, TIR does not check bounds at run time.
-    7. Return v.
+    7. Return `v`.
 8. `Ramp(base, stride, lanes)`:
     1. Evaluate `base` and call it `b`. Evaluate `stride` and call it `s`.
     2. The result is a vector with the same bitwidth and typecode as `dtype(b)` with `lanes` for the number of lanes. The `i`th element of the vector is equal to `b + i * s`, following the arithmetical semantics given under the rule for binary operators below (casting `i` to the datatype of `s` if necessary), where `i` ranges from 0 to `lanes - 1` (inclusive).
-9. Broadcast(value, lanes): Evaluate `value` and call the result `v` (per the type system, `v` must be a scalar). Return a vector with datatype `DataType(code=dtype(value)->code, bits=dtype(value)->bits, lanes=lanes)`, where all elements of the vector have the value `v`.
+9. `Broadcast(value, lanes)`: Evaluate `value` and call the result `v` (per the type system, `v` must be a scalar). Return a vector with datatype `DataType(code=dtype(value)->code, bits=dtype(value)->bits, lanes=lanes)`, where all elements of the vector have the value `v`.
 10. `Let(var, value, body)`:
     1. Evaluate `value`. Let us call the result `v`.
     2. Create a new scope where `v` is bound to `var`.
@@ -421,26 +422,25 @@ Even though these buffers are represented on real hardware back-ends in terms of
     4. The result is a vector with datatype `DataType(code=dtype(vectors[0])->code, bits=dtype(vectors[0])->bits, lanes=len(indices))`. Let us call the result `r`. For all `i` from 0 to `len(indices) - 1` (inclusive), `r.i` is set to `vectors'[i].indices'[i]`.
 13. Binary ops (with arguments `a` and `b`), which are `Add`, `Sub`, `Mul`, `Div`, `Mod`, `FloorDiv`, `FloorMod`, `Min`, and `Max`:
     1. In all cases, evaluate `a` and then `b`, calling the resulting values `v1` and `v2`. Per the type system, these must have the same datatype. For all operators, we will consider a function `f` that describes the semantics of that operator for a single element. If `v1` and `v2` are scalars, then the result will be `f(v1, v2)`, using the below definitions of `f`. If `v1` and `v2` are vectors, then the result will be a vector of the same size, where the `i`th element of the result is `f(v1.i, v2.i)` for all `i` from 0 to `||v1|| - 1`. Note that for computing elements of vectors, no particular order of execution should be assumed. The result of evaluating the expression will have the same datatype as `a` and `b`.
-    
-    For values with a `Float` typecode, the arithmetic operators below follow the semantics supported by the hardware back-end (generally expected to be IEEE 754, but specialized devices may deviate from it). Analogously, for `BFloat` values, the `bfloat16` specification should be followed. For integers, the operations should be taken to act on the binary representation of the integers (two's complement for signed integers), with the according overflow and underflow behavior as a result (if the bitwidth is `b`, then the max value for unsigned integers is $2^b - 1$ for unsigned integers and for signed integers, the min value is $-(2^{b-1})$ and the max value is $2^{b-1} - 1$).
-    1. For `Add`, $f(x, y) = x + y$.
-    2. For `Sub`, $f(x, y) = x - y$.
-    3. For `Mul`, $f(x, y) = x \cdot y$.
-    4. For `Div`, $f(x, y) = x / y$ (where the division is truncating and gives an error for dividing by zero if `v1` and `v2` have `Int` or `UInt` typecodes, otherwise using floating point division if they have `Float` typecodes or Brain float division if they have `BFloat` typecodes).
-    5. For `Mod` (only defined for `Int` and `UInt` operands), $f(x, y) = x \text{mod} y$ (i.e., $x - ((x / y) \cdot y)$).
-    6. For `FloorDiv`, $f(x, y) = \lfloor x / y \rfloor$.
-    7. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor) \cdot y)$, the remainder of the floor division.
-    8. For `Min`, $f(x, y) = \text{min}(x, y)$.
-    9. For `Max`, $f(x, y) = \text{max}(x, y)$.
+    2. For values with a `Float` typecode, the arithmetic operators below follow the semantics supported by the hardware back-end (generally expected to be IEEE 754, but specialized devices may deviate from it). Analogously, for `BFloat` values, the `bfloat16` specification should be followed. For integers, the operations should be taken to act on the binary representation of the integers (two's complement for signed integers), with the according overflow and underflow behavior as a result (if the bitwidth is `b`, then the max value for unsigned integers is $2^b - 1$ for unsigned integers and for signed integers, the min value is $-(2^{b-1})$ and the max value is $2^{b-1} - 1$).
+    3. For `Add`, $f(x, y) = x + y$.
+    4. For `Sub`, $f(x, y) = x - y$.
+    5. For `Mul`, $f(x, y) = x \cdot y$.
+    6. For `Div`, $f(x, y) = x / y$ (where the division is truncating and gives an error for dividing by zero if `v1` and `v2` have `Int` or `UInt` typecodes, otherwise using floating point division if they have `Float` typecodes or Brain float division if they have `BFloat` typecodes).
+    7. For `Mod` (only defined for `Int` and `UInt` operands), $f(x, y) = x \text{ mod } y$ (i.e., $x - ((x / y) \cdot y)$ ).
+    8. For `FloorDiv`, $f(x, y) = \lfloor x / y \rfloor$.
+    9. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor) \cdot y)$, the remainder of the floor division.
+    10. For `Min`, $f(x, y) = \text{min}(x, y)$.
+    11. For `Max`, $f(x, y) = \text{max}(x, y)$.
 14. Logical ops `And` and `Or`, with arguments `a` and `b`:
     1. If `a` and `b` are scalars, then we implement short-circuiting semantics:
         1. For `And`, evaluate `a` and call the result `v1`. If `v1` is 0, then return 0 (without evaluating `b`). If `v1` is 1, then evaluate `b` and call the result `v2`; return `v2`.
         2. For `Or`, evaluate `a` and call the result `v1`. If `v1` is 1, then return 1 (without evaluating `b`). If `v1` is 0, then evaluate `b` and call the result `v2`; return `v2`.
-    2. If `a` and `b` are vectors, then we make _no guarantee as to whether the implementation is short-circuiting on a per-element level_. For safety, neither `a` nor `b` should contain side effects (which may happen in calls to builtins); if it is important for there to be side effects, we recommend instead decomposing the vector into scalars.
-    
-    Suppose that `v1` and `v2` are the result of evaluating `a` and `b`, respectively (though it is not guaranteed that all elements of both will be evaluated). We return a vector of the same size as a where the `i`th element of the vector is `f(v1.i, v2.i)` for each `i` from 0 to `||v1|| - 1`, using the below definitions of `f`:
-        1. For `And`, $f(x, y) = x \land y$. 
-        2. For `Or`, $f(x, y) = x \lor y$.
+    2. If `a` and `b` are vectors, then we make _no guarantee as to whether the implementation is short-circuiting on a per-element level_. 
+        1. For safety, neither `a` nor `b` should contain side effects (which may happen in calls to builtins); if it is important for there to be side effects, we recommend instead decomposing the vector into scalars.
+        2. Suppose that `v1` and `v2` are the result of evaluating `a` and `b`, respectively (though it is not guaranteed that all elements of both will be evaluated). We return a vector of the same size as a where the `i`th element of the vector is `f(v1.i, v2.i)` for each `i` from 0 to `||v1|| - 1`, using the below definitions of `f`:
+            1. For `And`, $f(x, y) = x \land y$. 
+            2. For `Or`, $f(x, y) = x \lor y$.
 15. Logical op `Not` with a unary argument `a`: Evaluate `a` (which must be a `Bool` value, per the type system) and call the result `v`. If `v` is a scalar, return 0 if `v` is 1 and 1 if `v` is 0. If `v` is a vector, return a vector of the same size where the `i`th element is 1 if `v.i` is 0 and 0 if `v.i` is 1, for all `i` from 0 to `||v|| - 1`.
 16. Comparison operators (with arguments `a` and `b`), which are `Eq`, `NE`, `LT`, `LE`, `GE`, and `GT`:
     1. In all cases, evaluate `a` and then `b`, calling the resulting values `v1` and `v2`. Per the type system, these must have the same datatype. For all operators, we will consider a function `f` that describes the semantics of that operator for a single element. If `v1` and `v2` are scalars, then the result will be `f(v1, v2)`, using the below definitions of `f`. If `v1` and `v2` are vectors, then the result will be a vector of the same size, where the `i`th element of the result is `f(v1.i, v2.i)` for all `i` from 0 to `||v1|| - 1`. Note that for computing elements of vectors, no particular order of execution should be assumed. The result of evaluating the expression will have the same datatype as `a` and `b`. If `v1` and `v2` have a `Float` typecode, use the semantics supported by the hardware back-end (again, generally expected to be IEEE 754) to determine the results (especially for comparisons with `NaN`, `+inf`, and `-inf`); if they have `Int` or `UInt` typecodes, interpret the comparisons mathematically. Analogously, for `BFloat` values, the `bfloat16` specification should be followed. The datatype of the result is `Bool` in all cases.
@@ -478,22 +478,19 @@ We will enumerate and describe the builtins in a separate document, as they are 
 Unlike `PrimExprs`, statements do not return values. Instead, they operate by modifying the program state. These rules describe how each variety of statement in TIR affects the program state. Statements do, however, depend on values produced by evaluating `PrimExprs`.
 
 1. `PrimFunc(params, body, ret_type, buffer_map, attrs)`: A `PrimFunc` is not technically a statement, but TIR execution always begins by calling a `PrimFunc`.
-    1. First, the variables in `params` enter the scope with the called values (passed externally). Note that not all members of `params` need to be passed in as an external argument. Namely, if a variable in `params` appears in the `shape`, `strides`, or `elem_offset` field of any member of `buffer_map`, it will be assigned below, in step 2.
+    1. First, the variables in `params` enter the scope with the called values (passed externally). Note that not all members of `params` need to be passed in as an external argument. Namely, if a variable in `params` appears in the `shape`, `strides`, or `elem_offset` field of any member of `buffer_map`, it will be assigned below, in step ii.
     2. If a member of `params` (let us call it `v`) is a key in `buffer_map`, that means that `v` corresponds to a buffer at run time. The external caller must pass in a pointer to a `DLTensor` (defined in the [`dlpack` library](https://github.com/dmlc/dlpack)); it will correspond to `buffer_map[v]` in the program. Let us refer to the `DLTensor` and `buffer_map[v]` as `t` and `b`, respectively.
         1. The elements of the buffer are read from `t->data` depending on the shape and striding defined. If `t->shape` is empty, then the `DLTensor` stores a single element at location `t->data`; `b` will accordingly also store a single element in the same manner. Otherwise, let `n` be `len(t->shape)` and `S` be the size of a member of `t->dtype`. 
-        
-        If `t->strides` is null, then `t` has a tightly packed, row-major representation, so the element at `indices` of `b` is at address `data + S*(indices[0]*(t->shape[1]*t->shape[2]*...*t->shape[n-1]) + indices[1]*(t->shape[2]*...*t->shape[n-1]) + ... + indices[n-2]*t->shape[n-1] + indices[n-1])`. 
-        
-        If `t->strides` is not null, then the element `indices` is given by the address `data + S*(indices[0]*t->strides[0] + indices[1]*t->strides[1] + ... + indices[n-1]*t->strides[n-1])`.
-        
-        Additionally, the following correspondences are checked between `b` and `t`:
+        2. If `t->strides` is null, then `t` has a tightly packed, row-major representation, so the element at `indices` of `b` is at address `data + S*(indices[0]*(t->shape[1]*t->shape[2]*...*t->shape[n-1]) + indices[1]*(t->shape[2]*...*t->shape[n-1]) + ... + indices[n-2]*t->shape[n-1] + indices[n-1])`.
+        3. If `t->strides` is not null, then the element `indices` is given by the address `data + S*(indices[0]*t->strides[0] + indices[1]*t->strides[1] + ... + indices[n-1]*t->strides[n-1])`.
+        4. Additionally, the following correspondences are checked between `b` and `t`:
             * `b->dtype` and `t->dtype` must match or else there is an error. 
             * Let `elem_offset` be `t->byte_offset` divided by the size of bytes of a member of `b->dtype`. If `b->elem_offset` is a Var, then if it is currently unbound, bind it to `elem_offset`. If `b->elem_offset` is an `IntImm`, its value must match `elem_offset` or else an error is raised. If `b->elem_offset` is a `Var` that is already bound, then its bound value must match `elem_offset` or else an error is raised. 
             * If `t->strides` is null, then `b->strides` must either be empty or it must be of length `t->shape` where `b->strides[i]` is an `IntImm` or bound `Var` with a value of `t->shape[i+1] * t->shape[i+2] * ... * t->shape[n-1]` for all `i` from 0 to `n - 2` and an `IntImm` or bound `Var` with a value of 1 for `b->strides[n - 1]`, where `n` is `len(t->shape)`. (These values for strides are equivalent to having a tightly packed row-major representation.) If neither condition is met, then an error is raised.
             * If `t->strides` is not null, then `len(t->strides)` must match `len(b->strides)` or else an error is raised. For all `i` from 0 to `len(b->strides) - 1`, `b->strides[i]` must be an `IntImm` whose value matches `t->strides[i]` (or else an error is raised), an already bound `Var` whose bound value is `t->strides[i]` (or else an error is raised), or an unbound `Var` (in which case, it is bound with the value `t->strides[i]`). 
             * `len(t->shape)` and `len(b->shape)` must match or else an error is raised. For all `i` from 0 to `len(b->shape) - 1`, `b->shape[i]` must be an `IntImm` whose value matches `t->shape[i]` (or else an error is raised), an already bound `Var` whose bound value is `t->shape[i]` (or else an error is raised), or an unbound `Var` (in which case, it is bound with the value `t->shape[i]`). 
-        2. One further condition that `PrimFunc`s expect of their `DLTensor` arguments: No two `DLTensor` arguments are permitted to alias each other. 
-        3. Next, `body` is executed. The `PrimFunc` produces outputs by mutating values in buffers passed as the inputs; these changes can be observed by the caller via the `DLTensor` representations passed in step 1.
+        5. One further condition that `PrimFunc`s expect of their `DLTensor` arguments: No two `DLTensor` arguments are permitted to alias each other. 
+        6. Next, `body` is executed. The `PrimFunc` produces outputs by mutating values in buffers passed as the inputs; these changes can be observed by the caller via the `DLTensor` representations passed in step i.
 2. `LetStmt(var, value, body)`:
     1. Evaluate `value` (let us call the result `v`). If `var->type_annotation` is a `PointerType`, then implicitly cast `v` to a pointer to `var->type_annotation->element_type` (as far as TIR is concerned, it is simply a `Handle` value).
     2. Push a new scope.
@@ -531,7 +528,7 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
     3. Push a new scope.
     4. Allocate a buffer of shape `extents'` whose entries are of datatype `dtype`. `buffer_var` will be assigned a pointer to this buffer. Note that we do not specify the layout of this buffer in memory. The resulting allocated buffer will not alias any buffer existing in the program. For the purposes of this specification, we assume each allocation to correspond to one and only one buffer; lower levels of compilation may attempt to consolidate memory allocations, but that should not be done at the front end.
     5. Execute `body`.
-    6. Deallocate the memory (i.e., delete the buffer) allocated in step 4. Pop the scope.
+    6. Deallocate the memory (i.e., delete the buffer) allocated in step iv. Pop the scope.
 8. `DeclBuffer(buffer, body)`: Indicates to the compiler that buffer will be in scope for `body`. The only semantics at run time is that `body` is executed.
 9. `SeqStmt(seq)`: Execute the statements in `seq` one after the other in the order of the list.
 10. `IfThenElse(condition, then_case, else_case)`: Evaluate `condition` (let us call the result `v`). If `v` is 1, execute `then_case`. Otherwise, if `else_case` is present, execute `else_case` (if `else_case` is not present, then do nothing further).
@@ -544,7 +541,7 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
         4. Evaluate `extent` and call the result `e`. Cast `e` to the bitwidth of `loop_var`.
         5. If `loop_var` is greater than or equal to `e`, then pop the scope and finish executing the statement.
         6. Evaluate `body`.
-        7. Bind `m + 1` to `loop_var`. Return to step 4 and resume execution from there with this new value of `loop_var`. (Note that `loop_var` cannot be mutated from within the loop body.)
+        7. Bind `m + 1` to `loop_var`. Return to step d and resume execution from there with this new value of `loop_var`. (Note that `loop_var` cannot be mutated from within the loop body.)
     2. If `kind` is `kParallel`:
          1. Evaluate `min` and call the result `m` and evaluate `extent` and call the result `e`. Let `i1` be `m`, `i2` be `m + 1`, ..., and `in` be `e - 1`.
          2. Evaluate body `e - m` times in parallel, with `loop_var` bound to `ij` in the `j`th parallel execution. Any interleaving of execution is permitted; additionally, there is no guarantee about how many distinct threads will be created to execute the loop body (or whether the executions will actually be in parallel). If an error occurs in one execution, it is guaranteed that execution will not proceed past the `For` statement, but it is not guaranteed that all parallel executions will stop simultaneously or, in the case that multiple executions raise errors, which error will be the one displayed. If any loop iteration writes to a buffer index that is read by any other loop iteration (earlier or later), there is no guarantee on the resulting semantics.
@@ -552,13 +549,13 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
     3. If `kind` is `kVectorized`: The visible semantics are the same as those for `kParallel` in that the loop body will be evaluated `extent` times (`min` must be 0 if `kind` is `kVectorized`); no dependencies between loop iterations are permitted, meaning namely that no loop iteration may write to a buffer index that is read by any other loop iteration (no guarantee is made on the resulting semantics if that is the case). In terms of the implementation, the loop will be implemented by combining loop iterations into single invocations of vectorized operations when this is possible. However, loads and stores to buffers and any other side effects should not be affected by this change—unlike with `kParallel`, the ordering of side effects (including errors) must be preserved.
     4. If `kind` is `kUnrolled`: The semantics are the same as for `kSerial` (this kind simply indicates that the compiler should generate code for the loop by unrolling it rather than including jumps, but it does not change the semantics).
     5. If `kind` is `kThreadBinding`: The semantics are the same as for `kParallel`, but this indicates to the compiler that the loop iterations should be mapped to hardware threads (as in CUDA), with the `thread_binding` field giving further information for the compiler to use for the mapping.
-12. `While(condition, body)`:
+13. `While(condition, body)`:
     1. First, evaluate `condition` (let us call the result `v`).
     2. If `v` is 0, the statement is finished executing.
     3. If `v` is 1, execute `body`. Resume execution from step 1.
-13. `Block(iter_vars, reads, writes, name_hint, body, init, alloc_buffers, match_buffers, annotations)`:
+14. `Block(iter_vars, reads, writes, name_hint, body, init, alloc_buffers, match_buffers, annotations)`:
     1. Push a new scope.
-    2. For `i` ranging from 0 to `len(alloc_buffers) - 1`, let us consider the members of alloc_buffers:
+    2. For `i` ranging from 0 to `len(alloc_buffers) - 1`, let us consider the members of `alloc_buffers`:
         1. Evaluate the members of `alloc_buffers[i]->shape`, calling the list of results `shape'`.
         2. Allocate a buffer of datatype `alloc_buffers[i]->dtype` with shape `shape'`, binding the result to `alloc_buffers[i]->data`.
     3. For j ranging from 0 to len(match_buffers) - 1:
@@ -571,15 +568,15 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
             * Additionally, no reads or writes may be done on buffer past the indices `[Add(region[0]->min, region[0]->end), Add(region[1]->min, region[1]->end), ..., Add(region[n-1]->min, region[n-1]->end)]` (though, as with out-of-bounds accesses, this is not checked at runtime by default; no semantics are guaranteed for any access outside the bounds listed here).
     4. If any of the vars in `iter_vars` is a reduction `IterVar` (has the type `kCommReduce`), then we consider the block to be a "reduction block." If the block is a reduction block, the block is located in the `body` of a `For` or `While` loop, and `init` is specified, the `init` statement is executed _only during the **first** iteration of the loop_. Otherwise, if specified, the `init` statement is executed each time the block is executed.
     5. Execute `body`. The other fields are included only for the benefit of the compiler in code generation and do not affect the visible semantics.
-    6. Pop the scope, deallocating any buffers allocated in step 2.
-14. `BlockRealize(iter_values, predicate, block)`:
+    6. Pop the scope, deallocating any buffers allocated in step ii.
+15. `BlockRealize(iter_values, predicate, block)`:
     1. Open a new scope.
     2. For each `i` from 0 to `len(iter_values) - 1`:
         1. Evaluate `iter_values[i]` and call the result `iter_value`.
         2. Let `iter_var` be `block->iter_vars[i]`.
         3. Bind `iter_value` to `iter_var->var`.
     3. Evaluate `block`. `predicate` provides additional information for the compiler, but does not affect the semantics.
-    4. Pop the scope (removing all variables added in step 2).
+    4. Pop the scope (removing all variables added in step ii).
 
 ## TE-Specific Constructs
 
