@@ -464,7 +464,7 @@ Each builtin in TIR can essentially be treated as a PrimExpr all its own, albeit
 TIR builtins are also categorized in terms of the effects they may have:
 * `kExprAnnotation`: Acts as an annotation for the benefit of the compiler and acts as the identity function for its inputs.
 * `kPure`: Acts as a pure function (evaluates its inputs and returns a value, having no other effects).
-* `kReadState`: May read memory other than its arguments. For example, this may be global memory or memory that results from dereferencing its arguments (via builtins).
+* `kReadState`: May read memory other than its arguments. For example, this may be global memory or memory that results from dereferencing its arguments (which must also be constructed via builtins).
 * `kUpdateState`: May update memory.
 * `kOpaque`: Cannot make any assumptions as to whether it reads or writes to any states.
 * `kSpecialCallArg`: The intrinsic indicates that its result is a special value that is valid for certain other intrinsic calls. Namely, the result is meant to be used only in a specific context and should not appear outside of that context (e.g., producing a value meant to be used only by certain other builtins).
@@ -541,7 +541,7 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
         4. Evaluate `extent` and call the result `e`. Cast `e` to the bitwidth of `loop_var`.
         5. If `loop_var` is greater than or equal to `e`, then pop the scope and finish executing the statement.
         6. Evaluate `body`.
-        7. Bind `m + 1` to `loop_var`. Return to step d and resume execution from there with this new value of `loop_var`. (Note that `loop_var` cannot be mutated from within the loop body.)
+        7. Bind `m + 1` to `loop_var`. Return to step c and resume execution from there with this new value of `loop_var`. (Note that `loop_var` cannot be mutated from within the loop body.)
     2. If `kind` is `kParallel`:
          1. Evaluate `min` and call the result `m` and evaluate `extent` and call the result `e`. Let `i1` be `m`, `i2` be `m + 1`, ..., and `in` be `e - 1`.
          2. Evaluate body `e - m` times in parallel, with `loop_var` bound to `ij` in the `j`th parallel execution. Any interleaving of execution is permitted; additionally, there is no guarantee about how many distinct threads will be created to execute the loop body (or whether the executions will actually be in parallel). If an error occurs in one execution, it is guaranteed that execution will not proceed past the `For` statement, but it is not guaranteed that all parallel executions will stop simultaneously or, in the case that multiple executions raise errors, which error will be the one displayed. If any loop iteration writes to a buffer index that is read by any other loop iteration (earlier or later), there is no guarantee on the resulting semantics.
@@ -552,7 +552,7 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
 13. `While(condition, body)`:
     1. First, evaluate `condition` (let us call the result `v`).
     2. If `v` is 0, the statement is finished executing.
-    3. If `v` is 1, execute `body`. Resume execution from step 1.
+    3. If `v` is 1, execute `body`. Resume execution from step i.
 14. `Block(iter_vars, reads, writes, name_hint, body, init, alloc_buffers, match_buffers, annotations)`:
     1. Push a new scope.
     2. For `i` ranging from 0 to `len(alloc_buffers) - 1`, let us consider the members of `alloc_buffers`:
