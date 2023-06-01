@@ -429,7 +429,7 @@ Even though these buffers are represented on real hardware back-ends in terms of
     6. For `Div`, $f(x, y) = x / y$ (where the division is truncating and gives an error for dividing by zero if `v1` and `v2` have `Int` or `UInt` typecodes, otherwise using floating point division if they have `Float` typecodes or Brain float division if they have `BFloat` typecodes).
     7. For `Mod` (only defined for `Int` and `UInt` operands), $f(x, y) = x \text{ mod } y$ (i.e., $x - ((x / y) \cdot y)$ ).
     8. For `FloorDiv`, $f(x, y) = \lfloor x / y \rfloor$.
-    9. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor) \cdot y)$, the remainder of the floor division.
+    9. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor \cdot y)$, the remainder of the floor division.
     10. For `Min`, $f(x, y) = \text{min}(x, y)$.
     11. For `Max`, $f(x, y) = \text{max}(x, y)$.
 14. Logical ops `And` and `Or`, with arguments `a` and `b`:
