@@ -159,7 +159,7 @@ typedef struct {
 } DLTensor;
 ```
 
-The correspondence of the fields of `DLTensor` to `Buffer` will be discussed with the semantics for invoking a PrimFunc.
+The correspondence of the fields of `DLTensor` to `Buffer` will be discussed with the semantics for invoking a `PrimFunc`.
 
 ## Values
 
