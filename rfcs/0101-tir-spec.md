@@ -1,6 +1,6 @@
 - Feature Name: TIR Language Specification
 - Start Date: May 31, 2023
-- RFC PR: [apache/tvm-rfcs#0000](https://github.com/apache/tvm-rfcs/pull/101)
+- RFC PR: [apache/tvm-rfcs#0101](https://github.com/apache/tvm-rfcs/pull/101)
 - GitHub Issue: N/A
 
 # Summary
@@ -11,7 +11,7 @@ This RFC proposes including a language specification for TensorIR (TIR) in the T
 
 TensorIR is TVM’s lower-level intermediate representation for operations on tensors, allowing users to specify arithmetic operations on values that can be loaded from and stored into buffers. Many of TVM’s most valuable features for improving performance rely on TIR: in particular, scheduling transformations are defined on TIR programs and, similarly, TVM’s autotuning functionality (e.g., MetaScheduler) also operates on TIR. Additionally, TIR is the simplest way to define a new tensor operator in TVM, which is often a necessary step for supporting the latest deep learning models.
 
-Yet, despite the importance of TIR for the language, there is relatively little documentation on the language itself, which makes it difficult for new users to pick up the language. Some existing resources include Feng et al.'s recent ASPLOS paper on TIR and Tianqi Chen’s Machine Learing Compilation course (see [Prior Art](#prior-art)). While these sources are valuable and provide an overview of TIR’s usage and utility, they do not (and are not intended to) provide a comprehensive review of the language and its features. The lack of a full language reference can be frustrating for new users, expert users, and compiler implementers alike:
+Yet, despite the importance of TIR for the language, there is relatively little documentation on the language itself, which makes it difficult for new users to pick up the language. Some existing resources include the recent ASPLOS paper on TIR by Feng _et al._ and Tianqi Chen’s Machine Learing Compilation course (see [Prior Art](#prior-art)). While these sources are valuable and provide an overview of TIR’s usage and utility, they do not (and are not intended to) provide a comprehensive review of the language and its features. The lack of a full language reference can be frustrating for new users, expert users, and compiler implementers alike:
 
 * New users may not fully understand the behavior of constructs that they encounter in example code, creating an impediment to their understanding of the language.
 * Expert users may encounter edge cases where the intended functionality is unclear. This can lead to unease as to whether a program’s behavior in such a situation is a “hack” that relies on compiler implementation details or indeed intended behavior.
@@ -23,13 +23,13 @@ Additionally, by creating a single document that describes the core language mec
 
 # Guide-Level Explanation
 
-The draft specification is [included in full as part of this RFC](draft.md) and is meant to adopted as part of TVM's documentation. The document is written as a technical reference, intended to describe the behavior of each language construct in a precise manner. By contrast, the document is not meant as a tutorial, so it does not generally describe very much of the intent behind the design. A language specification may the right document for describing that, though if there are some places where a brief word on intent would be helpful, that could be considered for the sake of readability.
+The draft specification is [included in full as part of this RFC](assets/0101/spec.md) and is meant to adopted as part of TVM's documentation. The document is written as a technical reference, intended to describe the behavior of each language construct in a precise manner. By contrast, the document is not meant as a tutorial, so it does not generally describe very much of the intent behind the design. A language specification may the right document for describing that, though if there are some places where a brief word on intent would be helpful, that could be considered for the sake of readability.
 
 Additionally, as the specification itself emphasizes, the specification is concerned only with the _functional behavior_ of TIR programs. That is, it describes only the _visible behavior_ that results from executing a program. The main implication is that the specification is not intended to make guarantees about performance and which constructs are likely to result in better performance. The reasons for this approach are twofold: First, it is difficult to make any a priori guarantees about performance (most of the time, we use heuristics) and, second, this simplifies the specification and thus gives the compiler implementation more freedom to make changes related to performance.
 
 # Reference-Level Explanation
 
-The text of the draft specification, given in [`draft.md`](draft.md), should be understood to be the reference-level explanation of this RFC and should be reviewed accordingly.
+The text of the draft specification, given in [`spec.md`](assets/0101/spec.md), should be understood to be the reference-level explanation of this RFC and should be reviewed accordingly.
 
 The policy proposals in this RFC are as follows:
 1. The text of the specification, once fully settled in the RFC discussion, should be added into the TVM documentation.
@@ -85,10 +85,10 @@ A disadvantage of this choice is that it leaves some expert techniques unspecifi
 # Prior Art
 
 There is no existing specification for TIR and relatively little documentation on TIR from within the TVM project. However, there are other references for TIR that could be compared with the proposed specification:
-1. [TensorIR: An Abstraction for Automatic Tensorized Program Optimization](https://arxiv.org/abs/2207.04296) (Feng et al., 2023). This is an ASPLOS publication detailing some of the optimization mechanisms implemented by TIR, going into detail on the block mechanism. While it explains some details of TIR's implementation, it is not a comprehensive language specification.
+1. [TensorIR: An Abstraction for Automatic Tensorized Program Optimization](https://arxiv.org/abs/2207.04296) (Feng _et al._, 2023). This is an ASPLOS publication detailing some of the optimization mechanisms implemented by TIR, going into detail on the block mechanism. While it explains some details of TIR's implementation, it is not a comprehensive language specification.
 2. [The Machine Learning Compilation online course](https://mlc.ai/summer22/). This course includes some lessons illustrating how to impement tensor operators in TIR. It instructs students on basic constructs in TIR and how to use TIR to optimize their operator implementations. It is very helpful to have a resource oriented towards beginners, though it covers only a portion of TIR's features and does not discuss TIR at the same level of specificity as the proposed specification.
 
-For related projects within the TVM community, we might consider the fact that Relay is described in formal detail in its [ArXiv paper](https://arxiv.org/abs/1904.08368) (which proved useful for discussion while it was being adopted as the front-end IR for TVM) and the [draft specification for Relax](https://github.com/apache/tvm/pull/14148) in the Unity project (full disclosure: that is also my project. There is also the difference that Relax's design is still in flux while TIR's is settled).
+For related projects within the TVM community, we might consider the fact that Relay is described in formal detail in its [ArXiv paper](https://arxiv.org/abs/1904.08368) (which proved useful for discussion while it was being adopted as the front-end IR for TVM) and the [draft specification for Relax](https://github.com/apache/tvm/pull/14148) in the Unity project (full disclosure: That is also my project. There is also the difference that Relax's design is still in flux while TIR's is settled).
 
 As prior art, we may also consider specifications for other languages. The [ISO C](https://www.iso-9899.info/wiki/The_Standard) and [C++](https://isocpp.org/std/the-standard) standards are massive documents that cover the details of those languages extremely comprehensively in order to address the many practical issues that arise in ensuring compatibility between multiple independent implementations of compilers that target many distinct architectures. Compare also the [Java language specification](https://docs.oracle.com/javase/specs/). By contrast, the [Python language reference](https://docs.python.org/3/reference/) is a much more compact document meant for a wider audience.
 
@@ -116,4 +116,4 @@ If adopted, a high-level specification for TIR could serve as the first stage fo
 
 # Special Thanks
 
-While I wrote most of the text of the draft specification, none of it would have been possible  without the efforts of Wuwei Lin (@vinx13), Eric Lunderberg (@Lunderberg), and Junru Shao (@junrushao). I am grateful to them for patiently answering my questions about the language and giving their input on many language features. Additionally, I thank Christian Convey (@cconvey), Denise Kutnick (@denise), and Prakalp Srivastava (@psrivas2) for many insightful comments during the process of writing the initial draft.
+While I wrote most of the text of the draft specification, none of it would have been possible  without the efforts of Wuwei Lin (@vinx13), Eric Lunderberg (@Lunderberg), and Junru Shao (@junrushao). I am grateful to them for patiently answering my questions about the language and giving their input on many language features. Additionally, I thank Christian Convey (@cconvey), Denise Kutnick (@denise), and Prakalp Srivastava (@psrivas2) for many insightful comments during the process of writing the initial draft. Thanks is due also to the many community members who reviewed and commented on earlier drafts.
