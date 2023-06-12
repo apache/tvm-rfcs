@@ -426,10 +426,10 @@ Even though these buffers are represented on real hardware back-ends in terms of
     3. For `Add`, $f(x, y) = x + y$.
     4. For `Sub`, $f(x, y) = x - y$.
     5. For `Mul`, $f(x, y) = x \cdot y$.
-    6. For `Div`, $f(x, y) = x / y$ (where the division is truncating and gives an error for dividing by zero if `v1` and `v2` have `Int` or `UInt` typecodes, otherwise using floating point division if they have `Float` typecodes or Brain float division if they have `BFloat` typecodes).
-    7. For `Mod` (only defined for `Int` and `UInt` operands), $f(x, y) = x \text{ mod } y$ (i.e., $x - ((x / y) \cdot y)$ ).
+    6. For `Div`, $f(x, y) = x / y$ (if $x$ and $y$ have `Int` or `UInt` typecodes, then the division gives an error for dividing by zero and truncates toward zero, as in C. For `Float` or `BFloat` typecodes, the division should follow the floating point or Brain float standards for division, respectively).
+    7. For `Mod` (only defined for `Int` and `UInt` operands), $f(x, y) = x \text{ mod } y$ (i.e., $x - ((x / y) \cdot y)$ ). Note that, as in C, the sign of the result will be the sign of $x$, regardless of the sign of $y$.
     8. For `FloorDiv`, $f(x, y) = \lfloor x / y \rfloor$.
-    9. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor \cdot y)$, the remainder of the floor division.
+    9. For `FloorMod`, $f(x, y) = x - (\lfloor x / y \rfloor \cdot y)$, the remainder of the floor division. (See the note below comparing `Div`, `Mod,` `FloorDiv`, and `FloorMod`.)
     10. For `Min`, $f(x, y) = \text{min}(x, y)$.
     11. For `Max`, $f(x, y) = \text{max}(x, y)$.
 14. Logical ops `And` and `Or`, with arguments `a` and `b`:
@@ -450,6 +450,16 @@ Even though these buffers are represented on real hardware back-ends in terms of
     5. For `LT`, $f(x, y)$ is 1 if $x < y$ and 0 otherwise.
     6. For `GE`, $f(x, y)$ is 1 if $x \geq y$ and 0 otherwise.
     7. For `GT`, $f(x, y)$ is 1 if $x > y$ and 0 otherwise.
+
+#### Comparison Between `Div`, `Mod`, `FloorDiv`, and `FloorMod`
+
+With `Div`, integer division truncates like in C, where `5/2` evaluates to 2 and `-5/2` similarly evaluates to -2. `Mod` follows the same sign rule as `%` in C (where `-5 % 2` evaluates to -1). As noted by Guido van Rossum in [this article about Python's integer arithmetic](http://python-history.blogspot.com/2010/08/why-pythons-integer-division-floors.html), `(a/b)*b + (a % b)` ends up equal to `a` if `a` is negative only because the remainder (`a % b`) is negative. With `FloorMod` and `FloorDiv` rules for `%` and `/`, `(a/b)*b + (a % b) = a` holds while `a % b` is never negative.
+
+As a result, below are some properties of `FloorMod` and `FloorDiv` that TIR's compiler uses for optimizations.  All of them assume that `N` is a positive integer and are quantified over all `x`.
+* `0 <= FloorMod(x, N) < N`.
+* `FloorDiv(x + N, N) = FloorDiv(x, N) + 1`.
+* `FloorMod(x + N, N) = FloorMod(x, N)`.
+With `Div` and `Mod`, these rules would all depend on the sign of `x`.
 
 ### Builtin Calls
 
