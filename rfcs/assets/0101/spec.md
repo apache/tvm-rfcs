@@ -459,7 +459,7 @@ As a result, below are some properties of `FloorMod` and `FloorDiv` that TIR's c
 * `0 <= FloorMod(x, N) < N`.
 * `FloorDiv(x + N, N) = FloorDiv(x, N) + 1`.
 * `FloorMod(x + N, N) = FloorMod(x, N)`.
-With `Div` and `Mod`, these rules would all depend on the sign of `x`.
+With `Div` and `Mod`, these rules would all depend on the sign of `x` or the sign of `x + N`.
 
 ### Builtin Calls
 
