@@ -16,7 +16,7 @@ are strategy decision points about overall directions and new modules adoptions.
 These decisions are not fine-grained code-level changes but are important for a
 community to be viable in the long term.
 The process of bringing those changes is less clarified to the community, and hurdles can be high.
-We have made attempts in the past to bring more verbose processes in a less successful.
+We have made attempts in the past to bring a more verbose processes, but this has proven to be less successful.
 One observation is that it is hard for broader volunteer developers and community members to follow complicated processes.
 Additionally, different members can have different interpretations of how to do things,
 leading to stagnation and lack of participation from volunteer members.
