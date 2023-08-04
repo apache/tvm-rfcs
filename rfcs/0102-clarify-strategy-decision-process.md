@@ -29,7 +29,7 @@ Following the practices of existing ASF projects (e.g. hadoop), we propose to us
 
 We propose the following clarification of the strategy decision process:
 It takes lazy 2/3 majority (at least 3 votes and twice as many +1 votes as -1 votes)
-of binding decisions make the following strategic decisions in the TVM community:
+of binding decisions to make the following strategic decisions in the TVM community:
 
 - Adoption of a guidance-level community strategy to enable new directions or overall project evolution.
 - Establishment of a new module in the project.
