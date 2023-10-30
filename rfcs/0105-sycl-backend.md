@@ -121,5 +121,5 @@ SYCL does not support runtime compilation like NVRTC for cuda now, which allows 
 # Future possibilities
 
 - support more types of accelerator
-- support TVM meta schedule and TVM unity
+- support TVM meta schedule
 - add additional optimizations for specific hardware types
