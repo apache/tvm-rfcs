@@ -104,7 +104,7 @@ This RFC only adds the SYCL backend to TVM, no other features will be affected. 
 
 The added codegen and runtime should be compatible with the existing TensorIR infra.
 
-**SYCL compiler.** There are some SYCL-aware compilers, such as DPC++, hipSYCL and ComputeCpp. This RFC uses [Open source DPC++](https://github.com/intel/llvm), which built on LLVM and uses the Clang front end, SYCL 2020 standards.
+**SYCL compiler.** There are some SYCL-aware compilers, such as DPC++, hipSYCL and ComputeCpp. [Open source DPC++](https://github.com/intel/llvm) is the most popular SYCL compiler, which built on LLVM and uses the Clang front end, SYCL 2020 standards. Intel Proposed Adding [Full SYCL Programming Model Support To Upstream LLVM](https://discourse.llvm.org/t/rfc-add-full-support-for-the-sycl-programming-model/74080). If the proposal is passed, the new version of clang++ will be used as SYCL compiler.
 
 # Drawbacks
 
