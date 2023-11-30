@@ -19,7 +19,7 @@ SYCL is a cross-platform programming language, targeting heterogeneous computing
 
 SYCL emerged in 2015 as a high-level abstraction layer for OpenCL. After the SYCL 2020 specification, OpenCL is no longer the only low-level backend for SYCL. Although it has appeared for a short time, SYCL has always received attention from the industry. SYCL is a standard that has some different implementations, such as Intel® oneAPI DPC++, ComputeCpp, HipSYCL, NeoSYCL, and triSYCL.
 
-Based on this background, we propose this RFC to add the SYCL backend, enhancing the compatibility and portability of TVM across different types of accelerators.
+Due to the excellent expression ability of TVM TensorIR, it is possible to build a SYCL backend around TensorIR. Based on this background, we propose this RFC to add the SYCL backend, enhancing the compatibility and portability of TVM across different types of accelerators.
 
 # Guide-level explanation
 
@@ -28,57 +28,66 @@ Based on this background, we propose this RFC to add the SYCL backend, enhancing
 Similar to other backends such as cuda, specify `target='sycl'` in the corresponding TVM API.
 
 ```python
-tgt = tvm.target.Target(target='sycl') #Target
+tgt = tvm.target.Target(target='sycl') # Target
 ……
-lib = relay.build(mod, target='sycl', params=params) #model build
+lib = tvm.build(mod, target='sycl') # Runtime module build
 ……
 dev = tvm.device('sycl', 0) # Device that support sycl
-input = tvm.nd.array(data, device=dev) #model input
+inp = tvm.nd.array(data, device=dev) # Model input
 ```
 
-The following sample code shows that operator `gemm` with CUDA and SYCL backends respectively, and compare whether the results of the two backends are consistent.
+The following sample code shows that computation with CUDA and SYCL backends respectively, and compare whether the results of the two backends are consistent.
 
 ```python
-import numpy as np
-import tvm.relay as relay
-from tvm.contrib import graph_executor
-import tvm.testing
 import tvm
+from tvm.ir.module import IRModule
+from tvm.script import tir as T
+import numpy as np
 
-# define GEMM
-M = 1024
-N = 1024
-data_shape = (M, N)
-dtype = 'float32'
-X1 = relay.var("X1", shape=data_shape, dtype=dtype)
-X2 = relay.var("X2", shape=data_shape, dtype=dtype)
-func = relay.nn.dense(X1, X2)
-mod = tvm.IRModule.from_expr(func)
+dtype = "float32"
+
+# define computation by tvm script
+@tvm.script.ir_module
+class MyModule:
+    @T.prim_func
+    def main(a: T.handle, b: T.handle):
+        T.func_attr({"global_symbol": "main", "tir.noalias": True})
+        A = T.match_buffer(a, (8,), dtype=dtype)
+        B = T.match_buffer(b, (8,), dtype=dtype)
+        for i in range(8):
+            with T.block("B"):
+                vi = T.axis.spatial(8, i)
+                B[vi] = A[vi] + 1.0
+# thread binding
+sch = tvm.tir.Schedule(MyModule)
+block_b = sch.get_block("B")
+(i,) = sch.get_loops(block_b)
+i_0, i_1 = sch.split(i, factors=[2, 4])
+sch.bind(i_0, "blockIdx.x")
+sch.bind(i_1, "threadIdx.x")
+
 # initialize input
-X1_np = np.random.uniform(size=data_shape).astype(dtype)
-X2_np = np.random.uniform(size=data_shape).astype(dtype)
+A_np = np.arange(8).astype(dtype)
+B_np = np.zeros((8,)).astype(dtype)
 
 def build(target:str):
-    # model build
     tgt = tvm.target.Target(target=target, host="llvm")
-    with tvm.transform.PassContext(opt_level=3):
-        lib = relay.build(mod, target=tgt, params=None)
+    # build runtime module
+    mod = tvm.build(sch.mod, target=tgt)
     # print CUDA/SYCL source code
-    # print(lib.get_lib().imported_modules[0].get_source()) 
+    # print(mod.imported_modules[0].get_source())
     dev = tvm.device(target, 0)
-    module = graph_executor.GraphModule(lib["default"](dev))
-    module.set_input("X1", X1_np)
-    module.set_input("X2", X1_np)
-    module.run()
-    tvm_output = module.get_output(0).numpy()
-    return tvm_output
-    
+    A_tvm = tvm.nd.array(A_np, dev)
+    B_tvm = tvm.nd.array(B_np, dev)
+    mod(A_tvm, B_tvm)
+    return B_tvm
+
 cuda_output = build(target="cuda")
 sycl_output = build(target="sycl")
 tvm.testing.assert_allclose(cuda_output, sycl_output, rtol=1e-5, atol=1e-5)
 ```
 
-In addition, SYCL backend supports performance optimization using Auto-scheduling. Auto-scheduling sample code reference https://tvm.apache.org/docs/how_to/tune_with_autoscheduler/tune_network_cuda.html, just specify target='sycl'.
+In addition, SYCL backend supports performance optimization using Auto-scheduler. Auto-scheduler sample code reference https://tvm.apache.org/docs/how_to/tune_with_autoscheduler/tune_network_cuda.html, just specify target='sycl'.
 
 **Currently Supported GPU kinds**:
 
@@ -107,8 +116,7 @@ The added codegen and runtime should be compatible with the existing TensorIR in
 **SYCL compiler.** There are some SYCL-aware compilers, such as DPC++, hipSYCL and ComputeCpp. [Open source DPC++](https://github.com/intel/llvm) is the most popular SYCL compiler, which built on LLVM and uses the Clang front end, SYCL 2020 standards. Intel Proposed Adding [Full SYCL Programming Model Support To Upstream LLVM](https://discourse.llvm.org/t/rfc-add-full-support-for-the-sycl-programming-model/74080). If the proposal is passed, the new version of clang++ will be used as SYCL compiler.
 
 # Drawbacks
-
-SYCL does not support runtime compilation like NVRTC for cuda now, which allows to compile codegen kernel code directly to an executable kernel at runtime. In order to make the SYCL backend compatible with the TVM runtime framework, this RFC compiles the SYCL kernel code into a dynamic link library for calling during TVM build. TVM build (for example, `relay.build`) time increases due to the overhead time of compiling to a dynamic link library when `target='sycl'`. If there are any problems, please let me know.
+In order to make the SYCL backend compatible with the TVM runtime framework, this RFC requires runtime compilation tool for SYCL like NVRTC for cuda, which allows to compile codegen kernel code directly to an executable kernel at runtime. [SYCL's runtime compilation function is still under development](https://github.com/intel/llvm/pull/11985). Instead, this RFC compiles the SYCL kernel code into a dynamic link library for calling during TVM build. TVM build (for example, `tvm.build`) time increases due to the overhead time of compiling to a dynamic link library when `target='sycl'`. This is a temporary solution until SYCL's runtime compilation is available. If there are any problems, please let me know.
 
 # Rationale and alternatives
 
@@ -121,5 +129,5 @@ SYCL does not support runtime compilation like NVRTC for cuda now, which allows 
 # Future possibilities
 
 - support more types of accelerator
-- support TVM meta schedule
+- support TVM meta schedule and unity.
 - add additional optimizations for specific hardware types
