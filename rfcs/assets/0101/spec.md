@@ -238,7 +238,7 @@ For each `PrimExpr`, we define the rule determining their `dtype` field below:
         3. If `dtype->code` is `UInt`, `value` must be greater than or equal to 0. If `dtype->bits` is less than 64, value must be strictly less than $2^b$, where $b$ is `dtype->bits`.
         4. If the `dtype->code` is `Int` and `dtype->bits` is greater than 1 and less than 64, value must be greater than or equal to $-(2^{b-1})$ and strictly less than $2^{b-1}$, where $b$ is `dtype->bits`. If the bitwidth is exactly 1, then `value` must be either 0 or 1.
     2. The resulting datatype is `dtype`.
-3. FloatImm(value, dtype):
+3. `FloatImm(value, dtype)`:
     1. The following conditions must hold or else there is a type error:
         1. `dtype->code` must be `Float` or `BFloat`
         2. `value` must be `NaN`, `+inf`, `-inf`, or between the minimum and maximum values for a floating point number of the bitwidth given: for 16-bit `Float`s: $\pm 65504$; for 16-bit `BFloat`s: $\pm 3.38953139 \cdot 10^{38}$; for 32 bits: $\pm 3.402823466 \cdot 10^{38}$; and for 64 bits: $\pm 1.7976931348623158 \cdot 10^{308}$.
