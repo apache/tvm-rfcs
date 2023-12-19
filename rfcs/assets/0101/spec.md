@@ -140,11 +140,17 @@ IterVarType ::=
    | kTensorized()
 
 Attrs ::= Attrs(contents: {str: Object*})
+
+GlobalVar ::= GlobalVar(name_hint: str)
+
+IRModule ::= IRModule(functions: {GlobalVar: PrimFunc|BaseFunc***})
 ```
 
 *Note that attributes and annotations can contain arbitrary TVM objects as values. These objects are used only at compile time.
 
 **Refers to one of the base classes in the TVM object representation. In practice, `ObjectRef`s are usually TIR AST nodes. Which ones are appropriate depend on the specific attributes (only those listed under the semantics have any visible effects; the rest are used only at compile time).
+
+***Refers to `BaseFunc`s other than `PrimFunc`s. They are not referenced in TIR `PrimFunc`s.
 
 Additionally, at run time, `PrimFunc`s take in parameters corresponding to buffers via the `DLPack` library's `DLTensor` class, defined in [dlpack.h](https://github.com/dmlc/dlpack/blob/main/include/dlpack/dlpack.h):
 ```C
@@ -160,6 +166,10 @@ typedef struct {
 ```
 
 The correspondence of the fields of `DLTensor` to `Buffer` will be discussed with the semantics for invoking a `PrimFunc`.
+
+## Program Organization
+
+Programs in TIR are provided using `IRModule`s, which are collections of global functions (both in TIR and other languages like Relay and Relax) each denoted by a `GlobalVar`. TIR is concerned only with `PrimFunc`s: Execution begins with a particular `PrimFunc`, which may have calls to other `PrimFunc`s or itself (recursively).
 
 ## Values
 
@@ -348,8 +358,11 @@ Certain language constructs like `IterVar` are neither `PrimExpr`s nor statement
 
 ### Variable Scoping
 
-TIR enforces single static assignment (SSA), meaning that all variables must be unique and are bound exactly once. TIR follows lexical scoping, meaning that variables are scoped to the "block" (lexical block, not the `Block` node) in which they are bound: If a variable is in scope, that means it is valid to reference it, and conversely, once it leaves scope, it may no longer be referenced. A list of binding sites:
+TIR enforces single static assignment (SSA), meaning that all variables must be unique and are bound exactly once. TIR follows lexical scoping, meaning that variables are scoped to the "block" (lexical block, not the `Block` node) in which they are bound: If a variable is in scope, that means it is valid to reference it, and conversely, once it leaves scope, it may no longer be referenced.
 
+Note that any `GlobalVar` in the `IRModule` that maps to a `PrimFunc` may be referenced from any expression that is inside a `PrimFunc`, including the `GlobalVar` corresponding to the `PrimFunc` currently executing (for recursive calls). That is, `GlobalVar`s are always in scope.
+
+Here is a list of binding sites:
 * `PrimFunc`: Variables that appear in the `params` field are in scope for the entirety of the `PrimFunc` body.
 * `Let` and `LetStmt`: The variable in `var` is in scope for the entirety of `body` and leaves scope afterwards.
 * `BlockRealize`: Each variable contained in `iter_vars` is in scope when `block` is executed and leaves scope afterwards.
@@ -414,7 +427,15 @@ Even though these buffers are represented on real hardware back-ends in terms of
     3. Next evaluate `body` in the new scope. Let us call the result `b`.
     4. Pop the scope (i.e., remove `v` from the scope).
     5. Return b.
-11. `Call(dtype, op, args)`: This node calls a TIR builtin. All TIR builtins have their own semantics, so no general semantics can be given for `Call(dtype, op, args)`; it is not even guaranteed that the members of args will be evaluated. Instead, see the [section on builtins](#builtin-calls) for a discussion of the semantics of builtins.
+11. `Call(dtype, op, args)`: 
+    1. If `op` is not a `GlobalVar` corresponding to a TIR `PrimFunc` in the `IRModule`, then this node calls a TIR builtin. All TIR builtins have their own semantics, so no general semantics can be given for `Call(dtype, op, args)`; it is not even guaranteed that the members of args will be evaluated. Instead, see the [section on builtins](#builtin-calls) for a discussion of the semantics of builtins.
+    2. If `op` is a `GlobalVar` corresponding to a TIR `PrimFunc` (note that this can be the `PrimFunc` currently exeucting, resulting in a recursive call), then this will call the denoted `PrimFunc`:
+         1. Evaluate the members of `args`, from left (index 0) to right (index `len(args) - 1`). Let these values be collectively denoted the `vi`.
+         2. Push a new scope.
+         3. Evaluate the `PrimFunc` denoted by `op` according to the rules in [the statement semantics](#semantics-of-statements), using the `vi` for the parameter values. Buffer parameters should be provided using `DLTensor`s, which may necessitate conversion at run time.
+         4. Pop the scope.
+         5. `PrimFunc`s do not return values but rather act by mutating buffer inputs. Treat the return value as a `Void` value.
+    3. If `op` denotes a `BaseFunc` in the `IRModule` other than a `PrimFunc`, this is invalid. Raise a run-time error.
 12. `Shuffle(vectors, indices)`:
     1. Evaluate the elements of `vectors` in order, calling the list of results `vectors'`.
     2. Evaluate the elements of `indices` in order, calling the list of results `indices'`. Cast the members of indices' to the indexing type expected by the hardware back-end (most commonly a 64-bit unsigned integer, but the width may be smaller on some systems).
