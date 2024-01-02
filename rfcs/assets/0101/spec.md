@@ -352,7 +352,11 @@ Certain language constructs like `IterVar` are neither `PrimExpr`s nor statement
     7. Let `offset` be `len(shape) - len(region)`. `offset` must be greater than or equal to 0.
     8. For all `i` from 0 to `offset - 1`, the compiler must be able to statically prove that `region[i]->extent` is numerically equal to 1 (including via arithmetic simplification) or else there is an error.
     9. For all `i` from 0 to `len(shape) - 1`, if `shape[i]` is not a `Var`, the compiler must be able to statically prove that `shape[i]` is numerically equivalent to `region[i + offset]->extent` (including via arithmetic simplification) or else there is an error.
-6. `PrimFunc`: If `ret_type` is not defined (note: this is usually the case in practice), treat `ret_type` as `TupleType([])`.
+6. `PrimFunc`: If `ret_type` is not defined (note: this is usually the case in practice), treat `ret_type` as `TupleType([])`. Moreover, if no call to the `tir.ret` builtin appears in the `PrimFunc`'s `body` field, then `ret_type` must be `TupleType([])`. If there is at least one call to the `tir.ret` builtin in the `PrimFunc`'s `body`, then the `ret_type` field must match the type of the value passed to the builtin: 
+    1. If the returned value is a `Var`, then `ret_type` must match the `type_annotation` field on the `Var`.
+    2. If the returned value is not a `Var` and has a `Handle` datatype, then `ret_type` must be a `PointerType`. (Note: The `PointerType` can contain more detailed information than what the `Handle` states.)
+    3. If the returned value is not a `Var` and not a `Handle`, then `ret_type` must be `PrimType` with a matching datatype.
+    4. «If there are multiple calls to `tir.ret` and the returned values and their datatypes do not all match, it is considered a type-checking error.» Otherwise, if there are multiple calls to `tir.ret` and the types of the returned values match, use the matching type for the `ret_type`.
 
 ## Semantics
 
@@ -434,7 +438,7 @@ Even though these buffers are represented on real hardware back-ends in terms of
          2. Push a new scope.
          3. Evaluate the `PrimFunc` denoted by `op` according to the rules in [the statement semantics](#semantics-of-statements), using the `vi` for the parameter values. Buffer parameters should be provided using `DLTensor`s, which may necessitate conversion at run time.
          4. Pop the scope.
-         5. `PrimFunc`s do not return values but rather act by mutating buffer inputs. Treat the return value as a `Void` value.
+         5. If the `PrimFunc` returns a value via the `tir.ret` builtin, then return that value. Otherwise, treat the return value as a `Void` value. (The latter will usually be the case, since `PrimFunc`s typically mutate buffer inputs rather than return values.)
     3. If `op` denotes a `BaseFunc` in the `IRModule` other than a `PrimFunc`, this is invalid. Raise a run-time error.
 12. `Shuffle(vectors, indices)`:
     1. Evaluate the elements of `vectors` in order, calling the list of results `vectors'`.
@@ -503,7 +507,9 @@ TIR builtins are also categorized in terms of the effects they may have:
 * `kEmbedInfo`: Acts similarly to `kExprAnnotation`, except the result of its call is removed from the final generated code (i.e., treat the argument as never being evaluated).
 * `kControlJump`: Affects control flow.
 
-We will enumerate and describe the builtins in a separate document, as they are added and changed more frequently than other language constructs.
+We will enumerate and describe the builtins in a separate document, as they are added and changed more frequently than other language constructs. 
+
+However, one builtin is particularly important and should be discussed directly in the core language semantics, since it is used to implement return values for `PrimFunc`s: `tir.ret`. This builtin takes one argument, which it evaluates. After evaluating the argument, the execution of the current `PrimFunc`'s `body` halts (see the semantics for `PrimFunc`s below) and the `PrimFunc` returns the value of the passed value (the "return value").
 
 ### Semantics of Statements
 
@@ -522,7 +528,7 @@ Unlike `PrimExprs`, statements do not return values. Instead, they operate by mo
             * If `t->strides` is not null, then `len(t->strides)` must match `len(b->strides)` or else an error is raised. For all `i` from 0 to `len(b->strides) - 1`, `b->strides[i]` must be an `IntImm` whose value matches `t->strides[i]` (or else an error is raised), an already bound `Var` whose bound value is `t->strides[i]` (or else an error is raised), or an unbound `Var` (in which case, it is bound with the value `t->strides[i]`). 
             * `len(t->shape)` and `len(b->shape)` must match or else an error is raised. For all `i` from 0 to `len(b->shape) - 1`, `b->shape[i]` must be an `IntImm` whose value matches `t->shape[i]` (or else an error is raised), an already bound `Var` whose bound value is `t->shape[i]` (or else an error is raised), or an unbound `Var` (in which case, it is bound with the value `t->shape[i]`). 
         5. One further condition that `PrimFunc`s expect of their `DLTensor` arguments: No two `DLTensor` arguments are permitted to alias each other. 
-        6. Next, `body` is executed. The `PrimFunc` produces outputs by mutating values in buffers passed as the inputs; these changes can be observed by the caller via the `DLTensor` representations passed in step i.
+        6. Next, `body` is executed. The `PrimFunc` produces outputs by mutating values in buffers passed as the inputs; these changes can be observed by the caller via the `DLTensor` representations passed in step i. If a `tir.ret` builtin was executed, the `PrimFunc` returns the value that was passed to `tir.ret`; otherwise, the `PrimFunc` returns a void value. Upon returning (whether after encountering a call to `tir.ret` or the end of `body`), the current scope is popped and all values allocated within the `PrimFunc` are freed.
 2. `LetStmt(var, value, body)`:
     1. Evaluate `value` (let us call the result `v`). If `var->type_annotation` is a `PointerType`, then implicitly cast `v` to a pointer to `var->type_annotation->element_type` (as far as TIR is concerned, it is simply a `Handle` value).
     2. Push a new scope.
