@@ -145,7 +145,7 @@ The are some advantages of representing the scalable vectors through modified `R
 
 The main areas that need changes are:
 
-1. `VectorizeLoop` pass - We need to handle creating scalable vectors from loops and correctly vectorizing the associated broadcasts
+1. `VectorizeLoop` pass - We need to handle creating scalable vectors from loops and correctly vectorizing the associated broadcasts.
 
 2. `tir.split` and `tir.tile` (and TE equivalents) - These primitives would be the main interface through which we can create scalable vectors and, therefore, they should support compile time unknown factors
 
@@ -153,9 +153,9 @@ The main areas that need changes are:
     ```
     int kScalableVectorLaneMark = -1
     ```
-    to represent scalable lanes in `DataType`. Somewhat awkwardly the `runtime::DataType` uses `int` for lanes, while DLDataType uses `uint16_t`. However, we only use the wrapper to access the lanes, so as long as we handle `uint16_t -> int` conversion in a careful manner, this approach would work.
+    to represent scalable lanes in `DataType`. The lanes of scalable vectors are usually expressed as a multiple of `vscale`. In order to make the lanes value (including the scalar multiplier) recoverable from `DataType`, we will use a corresponding negative value, e.g. for `T.ramp(0, 1, 4 * vscale())` would have its `runtime::DataType` lanes set to -4.
 
-4. **Codegen** - Most of the codegen changes can be contained in a specialised AArch64 codegen that subclasses `CodeGenCPU`. Besides handling the `tir.vscale -> llvm.vscale` conversion, an important enhancement would be support for strided ramps and broadcasts. Unlike Arm(R) Neon(TM) instruction set, SVE supports gather load and scatter store operations, which in TIR could be represented either by a `BufferLoad`/`Bufferstore` which is indexed by a `Ramp` with `stride != 1`, e.g.
+4. **Codegen** - Most of the codegen changes would entail extending the current vector support to scalable vectors. Besides handling the `tir.vscale -> llvm.vscale` conversion, an important enhancement would be support for strided ramps and broadcasts. Unlike Arm(R) Neon(TM) instruction set, SVE supports gather load and scatter store operations, which in TIR could be represented either by a `BufferLoad`/`Bufferstore` which is indexed by a `Ramp` with `stride != 1`, e.g.
     ```
     A[T.ramp(0, 2, 4 * tir.vscale())]
     ```
@@ -166,7 +166,7 @@ The main areas that need changes are:
     The current CPU codegen supports strided ramps by scalarising, while with SVE these could be turned into `llvm.masked.gather` and `llvm.masked.scatter` intrinsics. 
 
 ## Predication
-This is to deal with the cases where the axis dimension is not divisible by the vector length.
+Predication is used in vectorization when the axis dimension is not divisible by the vector length.
 
 Let's start with a simple loop and split and vectorize it:
 ```
@@ -201,19 +201,19 @@ def main(A: T.Buffer((60,), "float32"), B: T.Buffer((60,), "float32")):
                 T.writes(B[vi])
                 B[vi] = A[vi]
 ```
-Actually vectorizing the TIR (i.e. creating the `Ramp` nodes for the buffer operation indices) will be left for `VectorizeLoop` pass in the TIR lowering pipeline. Currently this pass will keep the loops as scalar loops if the loop can't be exactly vectorized. In case of SVE we can use the predication instead.
+Actually vectorizing the TIR (i.e. creating the `Ramp` nodes for the buffer operation indices) will be left for `VectorizeLoop` pass in the TIR lowering pipeline. Currently this pass will keep the loops as scalar loops if the loop can't be exactly vectorized. In case of SVE we can use the predication instead. Since we don't know the vector length at the compile time, `VectorizeLoop` will always emit predicated loads and stores for SVE.
 
-This would entail introducing another TIR intrinsic, `tir.get_active_lane_mask()` which is analogous to [`llvm.get.active.lane.mask.*`](https://llvm.org/docs/LangRef.html#llvm-get-active-lane-mask-intrinsics), i.e. it would take a variable (loop induction var) and a bound and produce a bit mask corresponding to the active lanes. We'd also need to implement support for predication in `BufferLoad` and `BufferStore` operations. In TIR it would look like
+This would entail introducing another TIR intrinsic, `tir.get_active_lane_mask()` which is analogous to [`llvm.get.active.lane.mask.*`](https://llvm.org/docs/LangRef.html#llvm-get-active-lane-mask-intrinsics), i.e. it would take a variable (loop induction var) and a bound and produce a bit mask corresponding to the active lanes. We'd also need to implement support for predication in `BufferLoad` and `BufferStore` operations. In TVMScript we can support predicates by adding a keyword argument to `Buffer::vstore` and `Buffer::vload` to store the predicate. Expressing predicated operations in TVMScript would then look like:
 ```
 @T.prim_func
 def main(A: T.Buffer((60,), "float32"), B: T.Buffer((60,), "float32")):
     for i0 in range(ceildiv(60, 4 * vscale)):
-        B_1 = T.Buffer((60,), data=B.data)
-        A_1 = T.Buffer((60,), data=A.data)
-        pred = tir.get_active_lane_mask((i0 * 4 * vscale), 60)
-        B[T.ramp(i0 * 4 * vscale, 1, 4 * vscale), predicate=pred] = A[T.ramp(i0 * 4 * vscale, 1, 4 * vscale), predicate=pred]
+        let pred = T.get_active_lane_mask(i0 * 4 * vscale, 60)
+        B.vstore(
+            A.vload([T.ramp(i0 * 4 * vscale, 1, 4 * vscale)], predicate=pred),
+            [T.ramp(i0 * 4 * vscale, 1, 4 * vscale)], predicate=pred)
 ```
-These loads and stores can then be lowered to [`llvm.masked.*`](https://llvm.org/docs/LangRef.html#masked-vector-load-and-store-intrinsics) intrinsics. 
+These loads and stores will then be lowered to [`llvm.masked.*`](https://llvm.org/docs/LangRef.html#masked-vector-load-and-store-intrinsics) intrinsics.
 
 Predication is not exclusive to VLA programming so the implementation could also benefit fixed length vectors.
 
@@ -222,7 +222,7 @@ Predication is not exclusive to VLA programming so the implementation could also
 # Rationale and alternatives
 [rationale-and-alternatives]: #rationale-and-alternatives
 ## Alternative to predication - cleanup loop
-When using the cleanup loop, the example above would instead lower to:
+When using the cleanup loop, the TIR example above would instead lower to:
 ```
 @T.prim_func
 def main(A: T.Buffer((60,), "float32"), B: T.Buffer((60,), "float32")):
