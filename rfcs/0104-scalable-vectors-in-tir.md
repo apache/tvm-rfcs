@@ -203,14 +203,14 @@ def main(A: T.Buffer((60,), "float32"), B: T.Buffer((60,), "float32")):
 ```
 Actually vectorizing the TIR (i.e. creating the `Ramp` nodes for the buffer operation indices) will be left for `VectorizeLoop` pass in the TIR lowering pipeline. Currently this pass will keep the loops as scalar loops if the loop can't be exactly vectorized. In case of SVE we can use the predication instead. Since we don't know the vector length at the compile time, `VectorizeLoop` will always emit predicated loads and stores for SVE.
 
-This would entail introducing another TIR intrinsic, `tir.get_active_lane_mask()` which is analogous to [`llvm.get.active.lane.mask.*`](https://llvm.org/docs/LangRef.html#llvm-get-active-lane-mask-intrinsics), i.e. it would take a variable (loop induction var) and a bound and produce a bit mask corresponding to the active lanes. We'd also need to implement support for predication in `BufferLoad` and `BufferStore` operations. In TVMScript we can support predicates by adding a keyword argument to `Buffer::vstore` and `Buffer::vload` to store the predicate. Expressing predicated operations in TVMScript would then look like:
+This would entail introducing another TIR intrinsic, `tir.get_active_lane_mask()` which is analogous to [`llvm.get.active.lane.mask.*`](https://llvm.org/docs/LangRef.html#llvm-get-active-lane-mask-intrinsics), i.e. it would take a variable (loop induction var) and a bound and produce a bit mask corresponding to the active lanes. We'd also need to implement support for predication in `BufferLoad` and `BufferStore` operations. In TVMScript we can support predicates by adding `Buffer::store` and `Buffer::load` methods which can accept predicate and create `BufferStore` and `BufferLoad` objects. Expressing predicated operations in TVMScript would then look like:
 ```
 @T.prim_func
 def main(A: T.Buffer((60,), "float32"), B: T.Buffer((60,), "float32")):
     for i0 in range(ceildiv(60, 4 * vscale)):
         let pred = T.get_active_lane_mask(i0 * 4 * vscale, 60)
-        B.vstore(
-            A.vload([T.ramp(i0 * 4 * vscale, 1, 4 * vscale)], predicate=pred),
+        B.store(
+            A.load([T.ramp(i0 * 4 * vscale, 1, 4 * vscale)], predicate=pred),
             [T.ramp(i0 * 4 * vscale, 1, 4 * vscale)], predicate=pred)
 ```
 These loads and stores will then be lowered to [`llvm.masked.*`](https://llvm.org/docs/LangRef.html#masked-vector-load-and-store-intrinsics) intrinsics.
