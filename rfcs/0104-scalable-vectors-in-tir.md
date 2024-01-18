@@ -257,7 +257,19 @@ Unlike for SVE, the LLVM will not support generating SME code from fixed bound l
 
 ## Exposing scalable vectors to tuning
 
-We could use `vscale` with TVM's tuners to help us choose between fixed length and scalable vectors, e.g. we could include both into AutoTVM's tuning space:
+In the future, we could include scalable vector support into meta schedule, making it possible for the tuner to choose between scalable and fixed length vectors or mix them in a same program.
+
+### AutoTVM style manual design space description
+
+New APIs similar to `sample_perfect_tile` could be added that would sample `vscale` dependent factors, e.g.
 ```
-cfg.define_knob("xi", [4 * te.vscale(), 2 * 4 * te.vscale(), 4 * 4 * te.vscale(), 16, 32, 64])
+# sampling scalable tiles only
+sch.sample_scalable_tile(l0, n=3, max_innermost_vscale_multiplier=2)
+
+# sampling scalable and fixed length tiles
+sch.sample_mixed_tile(l0, n=6, max_innermost_fixed_size_factor=8, max_innermost_vscale_multiplier=2)
 ```
+
+### Autoscheduler style rule generation
+
+Splitting a loop and vectorizing the innermost dimension is a very common pattern in scheduling for scalable vectors. In the presence of sampling primitives that can support `vscale` dependent splitting, we can create additional builtin composite schedule rules similar to the `ScheduleRuleMultiLevelTiling` family. This could create a wide variety of programs with scalable vectors for the tuner to trial.
