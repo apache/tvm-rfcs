@@ -461,19 +461,43 @@ Inputs :
 * IRModule containing 
     * AoT TIR PrimFunc (the control function describing the call graph to operators)
     * All Operator Functions
-    * Each tir.allocate in the IRModule annotated with candidate pools ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md))
+    * Each tir.allocate in the IRModule annotated with candidate workspace pools ([Using the annotation field of tir.allocate](https://github.com/apache/tvm-rfcs/blob/c447cbfbd5abceaa7623a0f90cc492784e6f0c0b/rfcs/0023-adding-annotation-field-to-tir.allocate.md))
 
 
         ```
+        /*!
+         * \brief base class pool of memory accessible by one or more targets.
+         * This is extended to represent workspace pools and constant pools.
+         * (See below)
+         */
         struct PoolInfoNode : public Object {
-        String  pool_name;
-        Integer size_bytes;
-        Integer alignment;
-        Integer pool_offset;
-        Map<Target,String> target_access; // 'rw' or 'ro'
+            /*! \brief The name of the memory pool */
+            String pool_name;
+            /*! \brief The expected size hint to be used by the allocator.
+            * The size_hint_bytes is set to kUnrestrictedPoolSizeHint
+            * to indicate the pool is not size restricted.
+            */
+            Integer size_hint_bytes;
+            /*! \brief The clock frequency of the memory in Hz */
+            Integer clock_frequency_hz;
+            /*! \brief The read bandwidth in bytes/cycle */
+            Integer read_bandwidth_bytes_per_cycle;
+            /*! \brief The write bandwidth in bytes/cycle */
+            Integer write_bandwidth_bytes_per_cycle;
+            /*! \brief The read latency in cycles */
+            Integer read_latency_cycles;
+            /*! \brief The write latency in cycles */
+            Integer write_latency_cycles;
+            /*! \brief The burst length in bytes for each Target */
+            Map<Target, Integer> target_burst_bytes;
+            /*! \brief The targets linked to the pool */
+            Array<Target> targets;
         }
+
+        struct WorkspacePoolInfoNode : public PoolInfoNode {
+        };
         ```
-        The input IRModule is expected to have "candidate_memory_pools" annotation populated with a orderered list of PoolInfo objects. The ordering will indicate to the planner the order of preference each allocate will be pinned to each Pool. The core compiler will run a pass to assign each tir.allocate with candidate_memory_pools based on the target each PrimFunc is executed, prior to invoking the USMP.
+        The input IRModule is expected to have "candidate_memory_pools" annotation populated with a orderered list of WorkspacePoolInfo objects. The ordering will indicate to the planner the order of preference each allocate will be pinned to each Pool. The core compiler will run a pass to assign each tir.allocate with candidate_memory_pools based on the target each PrimFunc is executed, prior to invoking the USMP.
 
 
 The idea is USMP will try to pool them using the preferred "candidate_memory_pools" and fallback whenever the size is exceeding the user provided max size for each pool (if any). The fallback only happens if the tir.allocate is annotated with more than one candidate memory pool. Initially, it will take the ordering provided to the TVMC interface.
@@ -522,8 +546,20 @@ Map<BufferInfo, PoolAllocation> (*foo)(Array<BufferInfo> buffers, Map<String, In
 The memory planning algorithm is expected to return a Map of BufferInfo to PoolAllocation with the planned offsets into respective pool.
 ### Special Considerations :
 
-* tir.constants : TIR does not have the ability to represent constants – which is limiting and often leads to having side-channels to carry constants between TIR compiler passes including this one.
-Therefore, in this work as a pre-requisite we should aim to fix this by supporting tir.constants (similiar to relay.constants). Please refer to the [TIR non-scalar constants RFC](https://github.com/apache/tvm-rfcs/pull/22).
+* tir.AllocateConst : These nodes contain non-scalar constants used by the operators. Please refer to the [TIR non-scalar constants RFC](https://github.com/apache/tvm-rfcs/pull/22). As part of the USMP, we'll be pooling them to a special type of pool, *allowing* it to be placed in a read-only memory.
+
+```
+        struct ConstantInfoNode : public Object {
+            String name_hint;
+            Integer byte_offset;
+            runtime::NDArray data;
+        }
+
+        struct ConstantPoolInfoNode : public PoolInfoNode {
+            Array<ConstantInfo> constant_info_array;
+        };
+```
+
 
 * Currently "with" or "let" scopes are tree structured and carry transitive property. E.g, if tensor A is live with tensor B && tensor B is live with tensor C → tensor A is live with tensor C – which may not be true always.
 Thus current "let" or "with" scopes are unable to express liveness information. Therefore, we'd need a side-channel to express this information.
