@@ -107,17 +107,17 @@ def after_tensorize_and_annotation(x: T.handle, y: T.handle, z: T.handle):
             b = b_outer * (4 * T.vscale())
 
             # Load an SVL chunk of "X" and "Y" input tensors
-            T.evaluate(T.call_llvm_intrin("llvm.aarch64.sme.ld1w", X.access_ptr("r", offset=a), ...))
-            T.evaluate(T.call_llvm_intrin("llvm.aarch64.sme.ld1w", Y.access_ptr("r", offset=b), ...))
+            a_svl = X[T.ramp(a, 1, 4 * T.vscale())]
+            b_svl = Y[T.ramp(b, 1, 4 * T.vscale())]
 
             # Calculate outer product on loaded SVL vectors
-            T.evaluate(T.call_llvm_intrin("llvm.aarch64.sme.mopa", ...))
+            T.evaluate(T.call_llvm_intrin("llvm.aarch64.sme.mopa", a_svl, b_svl))
 
             # Store the (partial) result of size SVLxSVL to the output
             # tensor "Z" using multiple SVL length stores
             for i in T.serial(4 * T.vscale()):
                 T.evaluate(T.call_llvm_intrin(
-                    "llvm.aarch64.sme.st1w",
+                    "llvm.aarch64.sme.st1w.horiz",
                     Z.access_ptr("w", offset=a * i * Z.stride + b),
                     slice_index=i, ...
                 ))
@@ -200,13 +200,7 @@ Similar to A0, the attributes can be consumed using the AArch64-specific LLVM ba
 [comparison]: #comparison
 A1 has some drawbacks when compared to A0. Firstly, annotations must be prefixed with `pragma_` otherwise the attributes will be removed during compilation. Secondly, A1 no longer has a 1:1 correspondence with LLVM functions meaning some validation may be needed to check for misuse, for example, if there are multiple blocks within a function with processor state attributes, which attributes should the generated LLVM function use?
 
-However, A1 is currently possible when using TE-based scheduling and registering the schedule within the `arm_cpu` Relay Strategy. This means we can gracefully fall back to other existing schedules when SME is not supported. Taking approach A0 will require TIR-based scheduling, which becomes more difficult to target from Relay Strategy, see:
-- https://discuss.tvm.apache.org/t/registering-stir-in-relay-strategy/15997
-- https://discuss.tvm.apache.org/t/calling-tir-scheduled-function-in-relay/16221
-
-for example. One approach for achieving mixed TE and TIR scheduled functions is to introduce a dependency on the Meta Scheduler in the compile flow e.g. `config={"relay.backend.use_meta_schedule": True}`. A separate TIR-based schedule strategy can be used as the callback function for `ScheduleFnDatabase`. Any operations that don't use TIR-based scheduling can return `False` from the callback and fall back to TE-based scheduling.
-
-In addition, A1 is simpler to incorporate into code generation - it simply requires overriding the `AttrStmtNode` visitor and adding the attributes to the current LLVM function in context (`function_`).
+However, function attributes added during scheduling are removed when being lowered to TIR which is problematic for A0. A1 is simpler to incorporate into code generation - it simply requires overriding the `AttrStmtNode` visitor and adding the attributes to the current LLVM function in context (`function_`). Therefore, we currently take the A1 approach.
 
 ## SME tensor intrinsics
 [sme-tensor-intrinsics]: #sme-tensor-intrinsics
@@ -261,6 +255,31 @@ Similarly, B0 is more readable than B1, therefore making improvements and mainte
 B1, however, is likely quicker to incorporate into the codebase as the kernels are already written and it can require less knowledge of the underlying algorithm. This means users of TVM can take advantage of the benefits of SME more quickly, especially for operators with complex algorithms. It also means that the annotations described in ["Modifying processor state"](#modifying-processor-state) are not necessary as the processor state modification can occur within the kernel itself.
 
 In early experiments, B0 performs comparably to B1 for a simple dense layer (matrix multiply). A combination of B0 and B1 will likely be necessary to achieve high performance for a variety of operations.
+
+## Registering STIR SME schedules in Relay Strategy
+A series of STIR schedules will be created for each operator of
+interest. We wish to use these together with previous optimizations contributed via the more traditional TE/TOPI scheduling.
+
+It is possible to leverage `ScheduleFnDatabase` to schedule a compute
+definition using STIR. If an STIR schedule is not defined for the compute
+definition, we can fallback to the TE/TOPI schedules. An example compile
+flow:
+```python
+# Compute definitions for both scheduling strategies are defined in
+# Relay strategy as before.
+
+def arm_cpu_stir_strategy(sch: tir.Schedule) -> bool:
+    # Detect which compute function to apply based on compute block name
+    if sch.has_block("outer_product_sme"):
+        apply_stir_outer_product_sme_schedule(sch)
+        return True
+
+    # Fallback to TE based scheduling in Relay strategy
+    return False
+
+with meta_schedule.database.ScheduleFnDatabase(arm_cpu_stir_strategy):
+    tvm.relay.build(mod, target, ...)
+```
 
 ## Testing
 [testing]: #testing
