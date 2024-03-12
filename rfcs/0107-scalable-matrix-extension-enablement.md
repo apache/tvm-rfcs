@@ -257,16 +257,18 @@ B1, however, is likely quicker to incorporate into the codebase as the kernels a
 In early experiments, B0 performs comparably to B1 for a simple dense layer (matrix multiply). A combination of B0 and B1 will likely be necessary to achieve high performance for a variety of operations.
 
 ## Registering STIR SME schedules in Relay Strategy
-A series of STIR schedules will be created for each operator of
-interest. We wish to use these together with previous optimizations contributed via the more traditional TE/TOPI scheduling.
+[regiester-stir-schedule]: #register-stir-schedule
+A series of STIR schedules will be created for each operator of interest. We wish to use these together with previous optimizations contributed via the more traditional TE/TOPI scheduling.
 
-It is possible to leverage `ScheduleFnDatabase` to schedule a compute
-definition using STIR. If an STIR schedule is not defined for the compute
-definition, we can fallback to the TE/TOPI schedules. An example compile
-flow:
+It is possible to leverage `ScheduleFnDatabase` to schedule a compute definition using STIR. If an STIR schedule is not defined for the compute definition, we can fall back to the TE/TOPI schedules. An example compile flow:
 ```python
 # Compute definitions for both scheduling strategies are defined in
 # Relay strategy as before.
+
+def apply_stir_outer_product_sme_schedule(sch: tvm.tir.Schedule) -> None:
+    sch.get_block("outer_product_sme")
+    # Scheduling for SME intrinsics...
+    sch.tensorize(...)
 
 def arm_cpu_stir_strategy(sch: tir.Schedule) -> bool:
     # Detect which compute function to apply based on compute block name
@@ -323,3 +325,8 @@ This RFC will implement several tensor intrinsics that utilize SME operations. T
 
 ## SME2 support
 This RFC currently only considers SME. SME2 is the next iteration of SME that enables a wider range of applications to leverage the computational efficiency of SME. One notable improvement is support for matrix-vector operations.
+
+## Applying SME schedules to the Relax compilation flow
+This RFC has currently considered using SME schedules in the Relay compilation flow. This flow consists of registering compute and schedule definitions in TOPI and applying them via the Relay strategy. This is considered in the ["Registering STIR SME schedules in Relay Strategy"](#register-stir-schedule) section above. As a result, the following components will be provided: a TE compute definition, a STIR schedule and a strategy that matches a compute definition to a schedule based on the annotated name of a block.
+
+The Relax compilation flow takes a [different approach](https://discuss.tvm.apache.org/t/discuss-tvm-core-strategy-for-operator-scheduling-and-tuning/16352) whereby scheduling is completed as an IRModule -> IRModule transform pass. The pass should be able to detect a pattern of the compute definition and apply the relevant scheduling. In the simplest form, it's possible to produce a pass that identifies blocks with the same annotated name and apply the previously defined STIR schedule to each matched block at a time. This pass can be contributed and applied as part of the [dlight](https://github.com/apache/tvm-rfcs/pull/dlight) package.
