@@ -1,7 +1,7 @@
 - Feature Name: Scalable Matrix Extension enablement
 - Start Date: 2024-01-31
 - RFC PR: [apache/tvm-rfcs#107](https://github.com/apache/tvm-rfcs/pull/107)
-- GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
+- GitHub Issue: [apache/tvm#16734](https://github.com/apache/tvm/issues/16734)
 
 # Summary
 [summary]: #summary
