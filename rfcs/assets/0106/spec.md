@@ -800,9 +800,10 @@ Let `Γ` be the `StructInfo` context for Relax variables and let `Σ` track whic
     7. Remove all variables added to `Γ` and `Σ` during the above steps of the derivation.
 16. For `PrimFunc(params, body, ret_type, buffer_map, attrs)` at the module level, which is bound to a `GlobalVar`:
     1. Suppose there are `n` members of `params`. For the `i`th member of `params` (let us call it `v`), let `si` be a corresponding `StructInfo` defined as follows:
-        1. If `v` is not in `buffer_map`, then `si` is `PrimType(d)`, where `d` is the `dtype` field of `v`.
-        2. If `v` is in `buffer_map`, then let `b` be `buffer_map[v]`. Then, `si` is `TensorStructInfo(dtype=d, shape=ShapeExpr(s), ndim=len(s), vdevice=undefined)`, where `d` is the `dtype` field of `b`, `s` is the `shape` field of `b`.
-    2. Let `pf` denote the `PrimFunc` and `p` be the purity derived from `IsPureFunction(pf)`. The `StructInfo` for the `PrimFunc` (namely, for the `GlobalVar` to which the `PrimFunc` is bound) is `FuncStructInfo([s0, s1, ..., sn-1], TupleStructInfo([]), purity=p)`. (`PrimFunc`s work by mutating their arguments, so direct calls to `PrimFunc`s are treated as impure; in order to call a `PrimFunc` from within a `DataflowBlock`, use `call_tir`, which allocates fresh tensors for the outputs.)
+        1. If `v` is in `buffer_map`, then let `b` be `buffer_map[v]`. Then, `si` is `TensorStructInfo(dtype=d, shape=ShapeExpr(s), ndim=len(s), vdevice=undefined)`, where `d` is the `dtype` field of `b`, `s` is the `shape` field of `b`.
+        2. If `v` is not in `buffer_map` and it has a `Handle` type in TIR, then `si` is `ObjectStructInfo()`.
+        3. Otherwise, `si` is `PrimStructInfo(d)`, where `d` is the `dtype` field of `v`.
+    2. Let `pf` denote the `PrimFunc` and `p` be the purity derived from `IsPureFunction(pf)`. The `StructInfo` for the `PrimFunc` (namely, for the `GlobalVar` to which the `PrimFunc` is bound) is `FuncStructInfo([s0, s1, ..., sn-1], TupleStructInfo([]), purity=p)`. (Most `PrimFunc`s work by mutating their arguments; in order to call a `PrimFunc` from within a `DataflowBlock`, use `call_tir`, which allocates fresh tensors for the outputs.)
     
 
 ### Propagating Virtual Device Information
