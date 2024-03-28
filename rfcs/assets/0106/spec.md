@@ -685,6 +685,16 @@ def get_shape_var_mapping(S1: StructInfo, S2: StructInfo) -> {tir::Var, PrimExpr
             return {}
 ```
 
+**Analyzing the Purity of a `PrimFunc`**
+
+We can analyze the body of a TIR `PrimFunc` to determine its purity in order to assign `StructInfo` to it. Please refer to the [draft TIR specification](https://github.com/apache/tvm-rfcs/pull/101) for reference to the meanings of the TIR constructs.
+
+A `PrimFunc` is considered impure if either of the following conditions is met:
+1. There is a `BufferStore` to a buffer whose `data` field was not locally allocated (the result of an `Allocate` node from the same `PrimFunc`).
+2. There is a `CallNode` to an operator with a `CallEffectKind` that is `kUpdateState` or `kOpaque`.
+
+Otherwise, it should be considered pure. We can denote the check for these conditions as `IsPureFunction(pf)` for a `PrimFunc` called `pf`.
+
 **Checking Compatibility**
 
 In many cases during the derivation of structural information, it is important to judge when two distinct structural information encodings are compatible with each other or when they are too different from each other to be reconciled, which can indicate an error. In the case of shape information, this could mean having two symbolic shapes that can be proven not to be equal to each other. Because shape expressions can contain arithmetic and it can be very difficult to statically prove whether two arithmetic expressions are equal, we permit the compiler implementation to make a best-effort attempt to prove equality for arithmetic expressions. (The user can insert a `MatchCast` to check definitively.) Since the checks are best-effort, the compatibility check will only report incompatibility if two values are _definitely_ different from each other.
@@ -790,7 +800,8 @@ Let `Γ` be the `StructInfo` context for Relax variables and let `Σ` track whic
     1. Suppose there are `n` members of `params`. For the `i`th member of `params` (let us call it `v`), let `si` be a corresponding `StructInfo` defined as follows:
         1. If `v` is not in `buffer_map`, then `si` is `PrimType(d)`, where `d` is the `dtype` field of `v`.
         2. If `v` is in `buffer_map`, then let `b` be `buffer_map[v]`. Then, `si` is `TensorStructInfo(dtype=d, shape=ShapeExpr(s), ndim=len(s), vdevice=undefined)`, where `d` is the `dtype` field of `b`, `s` is the `shape` field of `b`.
-    2. The `StructInfo` for the `PrimFunc` (namely, for the `GlobalVar` to which the `PrimFunc` is bound) is `FuncStructInfo([s0, s1, ..., sn-1], TupleStructInfo([]), purity=False)`. (`PrimFunc`s work by mutating their arguments, so direct calls to `PrimFunc`s are treated as impure; in order to call a `PrimFunc` from within a `DataflowBlock`, use `call_tir`, which allocates fresh tensors for the outputs.)
+    2. Let `pf` denote the `PrimFunc` and `p` be the purity derived from `IsPureFunction(pf)`. The `StructInfo` for the `PrimFunc` (namely, for the `GlobalVar` to which the `PrimFunc` is bound) is `FuncStructInfo([s0, s1, ..., sn-1], TupleStructInfo([]), purity=p)`. (`PrimFunc`s work by mutating their arguments, so direct calls to `PrimFunc`s are treated as impure; in order to call a `PrimFunc` from within a `DataflowBlock`, use `call_tir`, which allocates fresh tensors for the outputs.)
+    
 
 ### Propagating Virtual Device Information
 
