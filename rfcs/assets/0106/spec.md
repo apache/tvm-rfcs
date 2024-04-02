@@ -92,7 +92,7 @@ Expr ::=   Constant(data: NDArray)
          | StringImm(value: string)
          | DataTypeImm(value: DataType)
          | Function(params: [Var], body: Expr, ret_struct_info: StructInfo?, is_pure: bool?, attrs: Attrs?)
-         | If(cond: Expr, true_branch: Expr, false_branch: Expr)
+         | If(cond: Expr | PrimExpr, true_branch: Expr, false_branch: Expr)
          | ExternFunc(global_symbol: string)
          | Call(op: Expr, args: [Expr], sinfo_args: [StructInfo], attrs: Attrs?)
          | ShapeExpr(values: [PrimExpr])
@@ -152,7 +152,7 @@ This specification provides a more detailed description of what each expression 
     
     Calls to `ExternFunc`s and operators may perform side effects, hence it is important to reason about whether a function call is permitted inside a `DataflowBlock`.
     
-10. `If` nodes represent branching control flow. First the condition expression is evaluated, and it must evaluate to a Boolean scalar or a Boolean `PrimValue`. If the condition is true, the true branch is evaluated and its result is used; otherwise, the false branch is evaluated and its result is used.
+10. `If` nodes represent branching control flow. First the condition expression is evaluated, and it must evaluate to a Boolean scalar or a Boolean `PrimValue` (if the condition expression is a TIR `PrimFunc`, it must have a `Bool` datatype and its result will be treated as a Boolean `PrimValue`). If the condition is true, the true branch is evaluated and its result is used; otherwise, the false branch is evaluated and its result is used.
 11. `TupleGetItem` nodes represent tuple indexing. The `tuple_value` expression must evaluate to a tuple with at least `index + 1` items and the item with the given index will be returned.
 12. `SeqExpr` describes a sequence of binding blocks followed by a return expression. The `SeqExpr` opens a new scope. Its binding blocks are evaluated in order and add new variables to the scope. Binding blocks are either ordinary `BindingBlock`s or `DataflowBlock`s and both consist of a series of bindings. `DataflowBlock`s are the only kind allowed to introduce bindings with `DataflowVar`s and it does not permit any constructs featuring control flow (`If` nodes or recursive calls) or calls to (possibly) impure functions. There are two different kinds of bindings:
     1. `VarBinding`s: The `value` expression (the right-hand side of the binding) of the binding is evaluated first and is bound to the `var` expression, which must be a new `Var` or `DataflowVar` (in a dataflow block). The newly bound variable will have that value for the remainder of the scope: `DataflowVar`s are scoped only to any later bindings in the `DataflowBlock` in which they were defined; `Var`s are scoped to any later bindings within the `BindingBlock` in which they were defined, as well as any bindings in subsequent `BindingBlock`s in the `SeqExpr` and in the `body` field of the `SeqExpr`.
@@ -748,8 +748,9 @@ Let `Γ` be the `StructInfo` context for Relax variables and let `Σ` track whic
 7. For `Tuple(fields)`, suppose that `fields` is comprised of expressions `E1`, `E2`, ..., `En`. Let the `StructInfo` for these expressions be `S1`, `S2`, ..., `Sn`, respectively. Then the resulting `StructInfo` is `TupleStructInfo(fields=[S1, S2, ..., Sn])`.
 8. For `ShapeExpr(values)`, the resulting structural information is `ShapeStructInfo(ndim, values)`, where `ndim` is the length of `values`.
 9. For `If(cond, true_branch, false_branch)`:
-   1. `cond` must be `TensorStructInfo([], Bool)` or `PrimStructInfo(Bool, v)` (where `v` can be a Boolean constant or undefined) or else there is an error.
-   2. We compare the structural information of `true_branch` and `false_branch` (call these `S_t` and `S_f`, respectively). The resulting structural information is `unify_struct_info(S_t, S_f)`.
+   1. If `cond` is a Relax expression, `cond` must be `TensorStructInfo([], Bool)` or `PrimStructInfo(Bool, v)` (where `v` can be a Boolean constant or undefined) or else there is an error.
+   2. If `cond` is a TIR `PrimExpr`, `cond` must have `Bool` for its datatype.
+   3. We compare the structural information of `true_branch` and `false_branch` (call these `S_t` and `S_f`, respectively). The resulting structural information is `unify_struct_info(S_t, S_f)`.
 10. For `SeqExpr(blocks, body)`:
     1. For each binding block in `blocks` (call the current one `block`):
         1. Process each binding in the block, updating `Γ` and `Σ` accordingly (this is discussed in detail below).
@@ -920,7 +921,10 @@ For each expression, we define how it affects the program's visible state and th
 8. The node `ShapeExpr([p1, p2, ..., pn])` evaluates the `PrimExpr`s `p1` (yielding dimension value `v1`), `p2` (yielding dimension value `v2`), …, and finally `pn` (yielding dimension value `vn`) in that order, using the current shape context, and returns a shape value whose dimensions are `v1`, `v2`, …, `vn`, in that order.
 9. The node `Function([v1, v2, ..., vn], body)` returns a new closure containing the function definition itself and a mapping of any free Relax variables or shape variables in `body` to the values they hold in the current scope when the `Function` node is encountered. If the function is the RHS of a local binding, the bound variable should also be included in the closure's binding map and should be mapped to the closure itself (to allow for recursive calls). Closure capturing is done *by reference*; no values will be copied and references to captured values will alias their values in the outer scope. `DataflowVar`s are not captured by closures.
 10. The node `If(cond, true_branch, false_branch)` is evaluated as follows:
-    1. First `cond` is evaluated. Let the result be `r` (per `StructInfo` checking, it must be a `Bool` scalar or a `Bool` `PrimValue`).
+    1. First `cond` is evaluated. 
+        1. If `cond` is a Relax expression, evaluate it according to the evaluation rules listed in this section.
+        2. If `cond` is a TIR `PrimExpr`, evaluate it according to the semantics of TIR, with all shape variables in scope and treating the result as a `Bool` `PrimValue`.
+        3. Denote the result as `r`, which must be either a `Bool` scalar or a `Bool` `PrimValue` according to the `StructInfo` inference rules.
     2. If `r` is true (either as a scalar tensor or `PrimValue`), evaluate the `true_branch` and return its result.
     3. If `r` is false, evaluate the `false_branch` and return its result.
 11. The node `ExternFunc(global_symbol)` is evaluated by looking up the global symbol name and returning the `PackedFunc` if it exists (it is an error if it does not). Note that if a TIR `PrimFunc` in the `IRModule` has a global symbol attribute registered, it can be called as an `ExternFunc` using that global symbol as well.
