@@ -91,13 +91,16 @@ Expr ::=   Constant(data: NDArray)
          | PrimValue(value: PrimExpr)
          | StringImm(value: string)
          | DataTypeImm(value: DataType)
-         | Function(params: [Var], body: Expr, ret_struct_info: StructInfo?, is_pure: bool?, attrs: Attrs?)
+         | Function(params: [Var], body: Expr, ret_struct_info: StructInfo?, is_pure: bool?, attrs: Attrs)
          | If(cond: Expr | PrimExpr, true_branch: Expr, false_branch: Expr)
          | ExternFunc(global_symbol: string)
          | Call(op: Expr, args: [Expr], sinfo_args: [StructInfo], attrs: Attrs?)
          | ShapeExpr(values: [PrimExpr])
          | TupleGetItem(tuple_value: Expr, index: int)
          | Op(op_name: string)
+
+# Attrs: Map from names to arbitrary TVM objects, used only at compile time for compiler internals
+Attrs ::= Attrs(contents: {string: Object})
 
 # binding blocks (analogous to sequence of statements)
 BindingBlock ::= 
@@ -173,7 +176,7 @@ This specification provides a more detailed description of what each expression 
 
     In addition to the structural annotations for the parameters and the return value, the `is_pure` field on a `Function` node serves to annotate whether the `Function` itself is pure (has no visible side effects) or not. The `StructInfo` system tracks purity in order to judge what calls are permitted inside `DataflowBlock`s. At this time, Relax makes no attempt to infer the purity of functions, so it is required for users to annotate the purity (if no annotation is provided, `is_pure` will be treated as true; since this is by far the most common case for deep learning applications, it is in practice necessarily to annotate purity if the function is _impure_).
     
-    «A function mapped bound to a `GlobalVar` can have a `global_symbol` attribute defined to indicate that it should be externally linked externally (be accessible outside the `IRModule`). The absence of a `global_symbol` attribute on a function definition bound to a `GlobalVar` indicates that it is "private" and hence can be called only within the `IRModule`.»
+    The `attrs` node in a `Function` maps keys to values and is used mainly to store additional information for compiler optimizations. However, two possible keys are important in the language semantics: `global_symbol` and `relax.force_pure`. A function mapped bound to a `GlobalVar` can have a `global_symbol` attribute defined to indicate that it should be externally linked externally (be accessible outside the `IRModule`). The absence of a `global_symbol` attribute on a function definition bound to a `GlobalVar` indicates that it is "private" and hence can be called only within the `IRModule`. The semantics of `relax.force_pure` are discussed in for [checking function purity](#checking-purity).
     
 ## Purity and Dataflow Blocks
 
