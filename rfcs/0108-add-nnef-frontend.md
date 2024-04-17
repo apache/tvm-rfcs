@@ -7,6 +7,7 @@
 [summary]: #summary
 
 Add the Khronos Neural Network Exchange Format (NNEF) as a frontend to TVM.
+Link to the discuss post [here](https://discuss.tvm.apache.org/t/rfc-0108-add-nnef-frontend/17088).
 
 # Motivation
 [motivation]: #motivation
