@@ -1,4 +1,4 @@
-- Feature Name: `Relay NNEF frontend`
+- Feature Name: `NNEF frontend to Relay and Relax`
 - Start Date: 2024-04-11
 - RFC PR: [apache/tvm-rfcs#0108](https://github.com/apache/tvm-rfcs/pull/0108)
 - GitHub Issue: [apache/tvm#0000](https://github.com/apache/tvm/issues/0000)
@@ -6,8 +6,7 @@
 # Summary
 [summary]: #summary
 
-Add the Khronos Neural Network Exchange Format (NNEF) as a frontend to TVM.
-Link to the discuss post [here](https://discuss.tvm.apache.org/t/rfc-0108-add-nnef-frontend/17088).
+Add the Khronos Neural Network Exchange Format (NNEF) as a frontend to TVM Relay and Relax.
 
 # Motivation
 [motivation]: #motivation
@@ -35,21 +34,55 @@ We are going to add support for models in NNEF format. The model may be provided
 already loaded into memory.
 The conversion is done via the new frontend function
 ```python
-relay.frontend.from_nnef(model, freeze_vars=False)
+# for relay frontend:
+import tvm.relay as relay
+mod, params = relay.frontend.from_nnef(model, freeze_vars=False)
 ```
-  - model: either a string / PathLike to an NNEF model folder, or an `nnef.Graph` object.
-  - freeze_vars: optional bool, which sets whether the parameters should be considered variables or constants for optimization
+- model: either a string / PathLike to an NNEF model folder, or an `nnef.Graph` object.
+- freeze_vars: bool (optional), which sets whether the parameters should be considered variables or constants for optimization.
 
-Example usages (assume we have a directory `inception_v1.nnef` with a complete NNEF Inception graph)
+```python
+# for relax frontend:
+import tvm.relax as relax
+import tvm.relax.frontend.nnef
+mod = relax.frontend.nnef.from_nnef(model, keep_params_in_input=False)
+```
+- model: either a string / PathLike to an NNEF model folder, or an `nnef.Graph` object.
+- keep_params_in_input: bool (optional), sets whether the nnef variables will be converted to constants and folded into the model, or need to be given as inputs.
+
+
+Example usages (assuming we have a valid NNEF model)
 ```python
 import nnef
 from tvm import relay
 
-model_path = 'path/to/model/inception_v1.nnef'
-# If modification is needed the graph can be imported with `nnef.load_graph` 
+model_path = 'path/to/model.nnef'
+
+# If modification is warranted the graph can be imported with `nnef.load_graph` 
 graph = nnef.load_graph(model_path)
 
 mod, params = relay.frontend.from_nnef(graph)
+
+# Or the converter can read the graph from path as well
+
+mod, params = relay.frontend.from_nnef(model_path)
+
+```
+
+
+```python
+import tvm.relax as relax
+import tvm.relax.frontend.nnef
+
+model_path = 'path/to/model.nnef'
+
+# If modification is warranted the graph can be imported with `nnef.load_graph` 
+graph = nnef.load_graph(model_path)
+
+mod = relax.frontend.nnef.from_nnef(graph)
+
+# Or the converter can read the graph from path as well
+mod = relax.frontend.nnef.from_nnef(model_path)
 ```
 
 # Reference-level explanation
