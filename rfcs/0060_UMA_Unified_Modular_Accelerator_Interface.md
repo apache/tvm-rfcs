@@ -388,3 +388,100 @@ Below is a list of currently planned configuration parameters for the initial ve
 |Parameter|Type|Description|
 |---------|----|-----------|
 |merge_compiler_regions|bool (default: True)|Enables/disables the `MergeCompilerRegions` pass during partitioning.|
+
+
+## TVMC integration
+
+Proposals:
+  - Add uma_cli functionality that is currently only used for the tutorial
+  - possibility to compile with tvmc
+  - integrate the UMA targets with the tvmc run command
+
+## Tutorial
+
+Three mock-accelerators: see $TVM_HOME/gallery/tutorial/uma.py for details
+
+### Vanilla
+ See tutorial
+
+### Strawberry
+
+differences to Vanilla:
+ - show how a TIR pass is implemented and used in UMA
+
+Propose hardware architecture:
+
+![](assets/0060/uma_strawberry.png)
+
+
+Pseudo-code of run.py example:
+
+```
+main(){
+  layer1();
+  layer2();
+  layer3-conv2d-uma();
+  layer4();
+}
+
+layer3-conv2d-uma(){
+  dma_copy(ifmap);
+  dma_copy(weights);
+  strawberry_calculate();
+  dma_copy(ofmap);
+}
+```
+
+
+
+### UMA chocolate
+
+Proposed topics to be covered in Chocolate part of tutorial:
+ - tiling
+ - tuning
+ - configuration (via configure_stub)
+ - irq handling / polling
+
+Propose hardware architecture:
+
+TDB
+
+Pseudo-code of run.py example:
+```
+main{
+  layer1();
+  layer2();
+  layer3-conv2-uma();
+  layer4();
+}
+
+layer3-conv2d-uma(){
+    for (tilex){
+        for (tiley){
+            dma_copy(ifmap);
+            dma_copy(weights);
+            strawberry_conv2d_calculate();
+            dma_copy(ofmap);
+        }
+    }
+}
+
+strawberry_conv2d_calculate(*ifmap,*weight,*ofmap, kx, ky, ci, ...){
+      configure_stub();
+      exeucute_stub(**args);
+      irq_stub();
+}
+      
+exucute_stub(){
+  //c implementation of conv2d
+}
+
+configure_stub(){
+      //empty for first shot
+}
+
+irq_stub(){
+      //empty for first shot
+}
+```
+
