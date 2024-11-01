@@ -121,7 +121,7 @@ This algorithm arrived upon was desirable for a number of reasons. Firstly, it e
 # Prior art
 [prior-art]: #prior-art
 
-There is not a great deal of prior art on this topic specifically. Arm have given presentations on cascading before - see the following: https://workshops.inf.ed.ac.uk/accml/keynotes/AccML_2020_R_Holm.pdf.
+There is not a great deal of prior art on this topic specifically. Arm have given presentations on cascading before - see the following: [https://workshops.inf.ed.ac.uk/accml/keynotes/AccML_2020_R_Holm.pdf](https://web.archive.org/web/20221222013349/https://workshops.inf.ed.ac.uk/accml/keynotes/AccML_2020_R_Holm.pdf) (Wayback Machine 22/12/2022).
 
 # Unresolved questions
 [unresolved-questions]: #unresolved-questions
